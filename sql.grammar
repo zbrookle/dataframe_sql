@@ -1,0 +1,25 @@
+start: select_statement
+select_statement: "select"i column_specifier expressions "from"i table
+expressions: expression | expression "," expressions
+expression: column | column column_modifier
+column_specifier: "distinct" | "all" |
+column: "*" | name | table "." name
+column_modifier: "as"i name
+typename: "varchar" | "integer" | "float64" | "bool" | "datetime64" | "timedelta[ns]" | "category"
+table: name
+name: /[A-Za-z_][A-Za-z_0-9]*/
+?value:
+    | string
+    | SIGNED_NUMBER      -> number
+    | "true"             -> true
+    | "false"            -> false
+    | "null"             -> null
+
+string : ESCAPED_STRING
+
+%import common.LETTER
+%import common.DIGIT
+%import common.ESCAPED_STRING
+%import common.SIGNED_NUMBER
+%import common.WS
+%ignore WS           // Disregard spaces in text
