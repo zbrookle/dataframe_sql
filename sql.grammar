@@ -1,25 +1,103 @@
-start: select_statement
-select_statement: "select"i column_specifier expressions "from"i table
-expressions: expression | expression "," expressions
-expression: column | column column_modifier
-column_specifier: "distinct" | "all" |
-column: "*" | name | table "." name
-column_modifier: "as"i name
-typename: "varchar" | "integer" | "float64" | "bool" | "datetime64" | "timedelta[ns]" | "category"
-table: name
+start: query_statement
+
+query_statement: query_expr
+
+query_expr: ( select | query_expr set_op query_expr ) [ ORDER BY order_by_expr ] [ LIMIT count [ OFFSET skip_rows ] ]
+
+select: SELECT [( ALL | DISTINCT )] select_expr [ FROM from_expr ] [ WHERE bool_expression ] [ GROUP BY groupby_expr | ROLLUP rollup_expr ] [ HAVING bool_expression ] [ WINDOW window_expr ]
+
+select_expr: ( [ expression"." ]* [ EXCEPT ( column_name [(comma column_name)*] ) ] [ REPLACE replace_expr ] | expression [ [ AS ] alias ] ) [comma select_expr]
+
+from_expr: from_item [comma from_expr]
+
+order_by_expr: expression [( ASC | DESC )] (comma order_by_expr)*
+
+replace_expr: ( expression [ AS ] column_name [comma replace_expr] )
+
+groupby_expr: expression [comma groupby_expr]
+
+rollup_expr: expression [comma rollup_expr]
+
+window_expr: window_name AS ( window_definition ) [comma window_expr]
+
+set_op: UNION ( ALL | DISTINCT ) | INTERSECT DISTINCT | EXCEPT DISTINCT
+
+from_item: (table_name [ [ AS ] alias ] [ FOR SYSTEM_TIME AS OF timestamp_expression ] | join | ( left_paren query_expr right_paren ) [ [ AS ] alias ] | field_path | ( UNNEST( array_expression ) | UNNEST( array_path ) | array_path ) [ [ AS ] alias ] [ WITH OFFSET [ [ AS ] alias ] ] | with_query_name [ [ AS ] alias ])
+
+join: from_item [ join_type ] JOIN from_item [ ON bool_expression ]
+
+join_type: ( INNER | CROSS | FULL [OUTER] | LEFT [OUTER] | RIGHT [OUTER] )
+
+expression: "*" | column_name | table_name | literal | expression period expression | function left_paren expression right_paren | CAST left_paren expression AS typename right_paren
+
+AS: "as"i
+BY: "by"i
+CAST: "cast"i
+OFFSET: "offset"i
+ORDER: "order"i
+INNER: "inner"i
+CROSS: "cross"i
+FULL: "full"i
+LEFT: "left"i
+RIGHT: "right"i
+OUTER: "outer"i
+LIMIT: "limit"i
+SELECT: "select"i
+HAVING: "having"i
+ROLLUP: "rollup"i
+WINDOW: "window"i
+GROUPBY: "groupby"i
+VALUE: "value"i
+STRUCT: "struct"i
+DISTINCT: "distinct"i
+ALL: "all"i
+WHERE: "where"i
+FROM: "from"i
+GROUP: "group"i
+REPLACE: "replace"i
+EXCEPT: "except"i
+DESC: "desc"i
+ASC: "asc"i
+INTERSECT: "intersect"i
+UNION: "union"i
+SYSTEM_TIME: "system_time"i
+FOR: "for"i
+UNNEST: "unnest"i
+OF: "of"i
+WITH: "with"i
+ON: "on"i
+JOIN: "join"i
+AND: "and"i
+OR: "or"i
+EQUAL_SIGN: "="
+NOT_EQUAL_SIGN: /<>|!=/
+
+comma: ","
+period: "."
+left_paren: "("
+right_paren: ")"
+typename: "int" | "varchar"
+function: name
+alias: name
+count: integers
+skip_rows: integers
+integers: /[1-9][0-9]*/
+bool_expression: (equals | not_equals) [(AND | OR) bool_expression]
+equals: expression EQUAL_SIGN expression
+not_equals: expression NOT_EQUAL_SIGN expression
+literal: boolean | integer
+boolean: "true"i | "false"i
 name: /[A-Za-z_][A-Za-z_0-9]*/
-?value:
-    | string
-    | SIGNED_NUMBER      -> number
-    | "true"             -> true
-    | "false"            -> false
-    | "null"             -> null
+integer: /[1-9][0-9]*/
+column_name: name
+window_name: name
+table_name: name
+window_definition:
+field_path:
+with_query_name:
+timestamp_expression:
+array_expression:
+array_path:
 
-string : ESCAPED_STRING
-
-%import common.LETTER
-%import common.DIGIT
-%import common.ESCAPED_STRING
-%import common.SIGNED_NUMBER
 %import common.WS
-%ignore WS           // Disregard spaces in text
+%ignore WS

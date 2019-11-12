@@ -34,7 +34,8 @@ class SqlToPandas:
     def __init__(self, sql: str, all_global_vars):
         self.sql = sql
         self.verify_sql()
-        self.tokens = self.parse_sql()
+        self.ast = self.parse_sql()
+        print(self.ast)
 
     def verify_sql(self):
         """
@@ -68,4 +69,4 @@ class SqlToPandas:
         Run the query that was pass into the sql variable
         :return:
         """
-        print(self.tokens)
+        print(self.ast)
