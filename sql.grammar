@@ -4,9 +4,11 @@ query_statement: query_expr
 
 query_expr: ( select | query_expr set_op query_expr ) [ ORDER BY order_by_expr ] [ LIMIT count [ OFFSET skip_rows ] ]
 
-select: SELECT [( ALL | DISTINCT )] select_expr [ FROM from_expr ] [ WHERE bool_expression ] [ GROUP BY groupby_expr | ROLLUP rollup_expr ] [ HAVING bool_expression ] [ WINDOW window_expr ]
+select: SELECT [( ALL | DISTINCT )] select_expr [ FROM from_expr ] [ WHERE bool_expression ] [ GROUP BY groupby_expr
+        | ROLLUP rollup_expr ] [ HAVING bool_expression ] [ WINDOW window_expr ]
 
-select_expr: ( [ expression"." ]* [ EXCEPT ( column_name [(comma column_name)*] ) ] [ REPLACE replace_expr ] | expression [ [ AS ] alias ] ) [comma select_expr]
+select_expr: ( [ expression"." ]* [ EXCEPT ( column_name [(comma column_name)*] ) ] [ REPLACE replace_expr ]
+            | expression [ [ AS ] alias ] ) [comma select_expr]
 
 from_expr: from_item [comma from_expr]
 
@@ -22,13 +24,25 @@ window_expr: window_name AS ( window_definition ) [comma window_expr]
 
 set_op: UNION ( ALL | DISTINCT ) | INTERSECT DISTINCT | EXCEPT DISTINCT
 
-from_item: (table_name [ [ AS ] alias ] [ FOR SYSTEM_TIME AS OF timestamp_expression ] | join | ( left_paren query_expr right_paren ) [ [ AS ] alias ] | field_path | ( UNNEST( array_expression ) | UNNEST( array_path ) | array_path ) [ [ AS ] alias ] [ WITH OFFSET [ [ AS ] alias ] ] | with_query_name [ [ AS ] alias ])
+from_item: (table_name [ [ AS ] alias ] [ FOR SYSTEM_TIME AS OF timestamp_expression ]
+            | join
+            | ( left_paren query_expr right_paren ) [ [ AS ] alias ]
+            | field_path
+            | ( UNNEST( array_expression )
+            | UNNEST( array_path ) | array_path ) [ [ AS ] alias ] [ WITH OFFSET [ [ AS ] alias ] ]
+            | with_query_name [ [ AS ] alias ])
 
 join: from_item [ join_type ] JOIN from_item [ ON bool_expression ]
 
 join_type: ( INNER | CROSS | FULL [OUTER] | LEFT [OUTER] | RIGHT [OUTER] )
 
-expression: "*" | column_name | table_name | literal | expression period expression | function left_paren expression right_paren | CAST left_paren expression AS typename right_paren
+expression: "*"
+            | column_name
+            | table_name
+            | literal
+            | expression period expression
+            | function left_paren expression right_paren
+            | CAST left_paren expression AS typename right_paren
 
 AS: "as"i
 BY: "by"i
