@@ -1,117 +1,76 @@
-start: query_statement
+query_expr: [query_expr set_op] select [ "ORDER"i "BY"i order_by_expr ] [ "LIMIT"i count [ "OFFSET"i skip_rows ] ]
 
-query_statement: query_expr
+?select: "SELECT"i [( "ALL"i | "DISTINCT"i )] (select_expr ",")* select_expr [ "FROM"i from_expr ] [ "WHERE"i bool_expression ] [ "GROUP"i "BY"i groupby_expr
+        | "ROLLUP"i rollup_expr ] [ "HAVING"i bool_expression ] [ "WINDOW"i window_expr ]
 
-query_expr: ( select | query_expr set_op query_expr ) [ ORDER BY order_by_expr ] [ LIMIT count [ OFFSET skip_rows ] ]
+select_expr: expression [ [ "AS"i ] alias ]
 
-select: SELECT [( ALL | DISTINCT )] select_expr [ FROM from_expr ] [ WHERE bool_expression ] [ GROUP BY groupby_expr
-        | ROLLUP rollup_expr ] [ HAVING bool_expression ] [ WINDOW window_expr ]
+?from_expr: [from_expr ","] from_item  -> from_expression
 
-select_expr: ( [ expression"." ]* [ EXCEPT ( column_name [(comma column_name)*] ) ] [ REPLACE replace_expr ]
-            | expression [ [ AS ] alias ] ) [comma select_expr]
+order_by_expr: [order_by_expr ","] expression [( "ASC"i | "DESC"i )]  -> sort_data
 
-from_expr: from_item [comma from_expr]
+replace_expr: [replace_expr ","] expression [ "AS"i ] NAME
 
-order_by_expr: expression [( ASC | DESC )] (comma order_by_expr)*
+groupby_expr: [groupby_expr ","] expression -> group_by
 
-replace_expr: ( expression [ AS ] column_name [comma replace_expr] )
+rollup_expr: [rollup_expr ","] expression  -> roll_up
 
-groupby_expr: expression [comma groupby_expr]
+window_expr: [window_expr ","] _window_name "AS"i ( window_definition )
 
-rollup_expr: expression [comma rollup_expr]
+set_op: "UNION"i ( "ALL"i | "DISTINCT"i ) | "INTERSECT"i "DISTINCT"i | "EXCEPT"i "DISTINCT"i
 
-window_expr: window_name AS ( window_definition ) [comma window_expr]
-
-set_op: UNION ( ALL | DISTINCT ) | INTERSECT DISTINCT | EXCEPT DISTINCT
-
-from_item: (table_name [ [ AS ] alias ] [ FOR SYSTEM_TIME AS OF timestamp_expression ]
+from_item: NAME [ [ "AS"i ] alias ] [ "FOR"i "SYSTEM_TIME"i "AS"i "OF"i timestamp_expression ] -> table
             | join
-            | ( left_paren query_expr right_paren ) [ [ AS ] alias ]
-            | field_path
-            | ( UNNEST( array_expression )
-            | UNNEST( array_path ) | array_path ) [ [ AS ] alias ] [ WITH OFFSET [ [ AS ] alias ] ]
-            | with_query_name [ [ AS ] alias ])
+            | ( left_paren query_expr right_paren ) [ [ "AS"i ] alias ] -> subquery
+            | with_query_name [ [ "AS"i ] alias ]
 
-join: from_item [ join_type ] JOIN from_item [ ON bool_expression ]
+join: from_item [ _join_type ] "JOIN"i from_item [ "ON"i bool_expression ] -> merge_function
 
-join_type: ( INNER | CROSS | FULL [OUTER] | LEFT [OUTER] | RIGHT [OUTER] )
+_join_type: ( "INNER"i | "CROSS"i | "FULL"i ["OUTER"i] | "LEFT"i ["OUTER"i] | "RIGHT"i ["OUTER"i] )
 
-expression: "*"
-            | column_name
-            | table_name
+expression: STAR
+            | [NAME period] NAME -> column_name
             | literal
-            | expression period expression
-            | function left_paren expression right_paren
-            | CAST left_paren expression AS typename right_paren
+            | function left_paren expression right_paren -> sql_function
+            | "CAST"i left_paren expression "AS"i typename right_paren -> as_type
 
-AS: "as"i
-BY: "by"i
-CAST: "cast"i
-OFFSET: "offset"i
-ORDER: "order"i
-INNER: "inner"i
-CROSS: "cross"i
-FULL: "full"i
-LEFT: "left"i
-RIGHT: "right"i
-OUTER: "outer"i
-LIMIT: "limit"i
-SELECT: "select"i
-HAVING: "having"i
-ROLLUP: "rollup"i
-WINDOW: "window"i
-GROUPBY: "groupby"i
-VALUE: "value"i
-STRUCT: "struct"i
-DISTINCT: "distinct"i
-ALL: "all"i
-WHERE: "where"i
-FROM: "from"i
-GROUP: "group"i
-REPLACE: "replace"i
-EXCEPT: "except"i
-DESC: "desc"i
-ASC: "asc"i
-INTERSECT: "intersect"i
-UNION: "union"i
-SYSTEM_TIME: "system_time"i
-FOR: "for"i
-UNNEST: "unnest"i
-OF: "of"i
-WITH: "with"i
-ON: "on"i
-JOIN: "join"i
-AND: "and"i
-OR: "or"i
-EQUAL_SIGN: "="
-NOT_EQUAL_SIGN: /<>|!=/
+math: integer "-" integer -> sub
+    | integer "+" integer -> add
+    | integer "*" integer -> mul
+    | integer "/" integer -> div
 
-comma: ","
 period: "."
 left_paren: "("
 right_paren: ")"
 typename: "int" | "varchar"
-function: name
-alias: name
-count: integers
-skip_rows: integers
-integers: /[1-9][0-9]*/
-bool_expression: (equals | not_equals) [(AND | OR) bool_expression]
-equals: expression EQUAL_SIGN expression
-not_equals: expression NOT_EQUAL_SIGN expression
-literal: boolean | integer
-boolean: "true"i | "false"i
-name: /[A-Za-z_][A-Za-z_0-9]*/
+function: NAME
+alias: NAME -> alias_string
+_window_name: NAME
+count: integer
+skip_rows: integer
+bool_expression: [bool_expression ("AND"i | "OR"i)] (equals | not_equals)
+equals: expression "=" expression
+not_equals: expression ("<>" | "!=") expression
+literal: boolean -> bool
+       | number_expr -> number
+boolean: "true"i -> true
+       | "false"i -> false
+?number_expr: product
+            | number_expr "+" product -> add
+            | number_expr "-" product -> sub
+
+?product: NUMBER
+        | product "*" NUMBER -> mul
+        | product "/" NUMBER -> div
 integer: /[1-9][0-9]*/
-column_name: name
-window_name: name
-table_name: name
+STAR: "*"
 window_definition:
-field_path:
 with_query_name:
 timestamp_expression:
 array_expression:
 array_path:
 
+%import common.CNAME -> NAME
+%import common.NUMBER
 %import common.WS
 %ignore WS

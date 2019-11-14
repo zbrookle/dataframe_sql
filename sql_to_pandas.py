@@ -2,30 +2,78 @@
 Convert sql statement to run on pandas dataframes
 """
 from sqlparse import split
-from lark import Lark
+from typing import Tuple
+from lark import Lark, Transformer, v_args
+from lark.lexer import Token
 from lark.exceptions import UnexpectedCharacters
+from lark.tree import Tree
+from pandas import DataFrame
+from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
 
 with open(file="sql.grammar") as sql_grammar_file:
     GRAMMAR_TEXT = sql_grammar_file.read()
-    GRAMMAR = Lark(GRAMMAR_TEXT)
 
-
-class MultipleQueriesException(Exception):
+def num_eval(arg):
     """
-    Raised when multiple queries are passed into sql to pandas.
+    Takes an argument that may be a string or number and outputs a number
+    :param arg:
+    :return:
     """
+    assert isinstance(arg, Token) or isinstance(arg, float) or isinstance(arg, int)
+    if isinstance(arg, str):
+        return eval(arg)
+    return arg
 
-    def __init__(self):
-        super(MultipleQueriesException, self).__init__("Only one sql statement may be entered")
 
-
-class InvalidQueryException(Exception):
+@v_args(inline=True)
+class SQLTransformer(Transformer):
     """
-    Raised when an invalid query is passed into a sql to pandas.
+    Transformer for the lark sql parser
     """
-    def __init__(self, message):
-        super(InvalidQueryException, self).__init__(message)
+    def __init__(self, env):
+        self.all_dataframes = {key.lower(): {"DataFrame": env[key], "frame_var_name": key} for key in env
+                               if isinstance(env[key], DataFrame)}
 
+    def mul(self, arg1, arg2):
+        return num_eval(arg1) * num_eval(arg2)
+
+    def add(self, arg1, arg2):
+        return num_eval(arg1) + num_eval(arg2)
+
+    def sub(self, arg1, arg2):
+        return num_eval(arg1) - num_eval(arg2)
+
+    def div(self, arg1, arg2):
+        return num_eval(arg1) / num_eval(arg2)
+
+    def table(self, table_name):
+        """
+        Check for existance of pandas dataframe with same name
+        If not exists raise DataFrameDoesNotExist
+        Otherwise return the name of the actual DataFrame
+        :return:
+        """
+        if table_name not in self.all_dataframes:
+            raise DataFrameDoesNotExist(table_name)
+        return self.all_dataframes[table_name]["frame_var_name"]
+
+    def select(self, *select_expressions: Tuple[Tree]):
+        """
+        Forms the final sequence of methods that will be executed
+        :param select_expressions:
+        :return:
+        """
+        dataframe_names_tree: Tree = select_expressions[-1]
+        dataframe_names = dataframe_names_tree.children
+        expression_trees = select_expressions[:-1]
+        return *select_expressions
+
+
+    def alias_string(self, alias):
+        return str(alias)
+
+    def column_name(self, column_name):
+        return str(column_name)
 
 class SqlToPandas:
     """
@@ -34,8 +82,9 @@ class SqlToPandas:
     def __init__(self, sql: str, all_global_vars):
         self.sql = sql
         self.verify_sql()
+        self.parser = Lark(GRAMMAR_TEXT, parser='lalr', start='query_expr', transformer=SQLTransformer(all_global_vars))
         self.ast = self.parse_sql()
-        print(self.ast)
+        print(self.ast.pretty())
 
     def verify_sql(self):
         """
@@ -54,7 +103,7 @@ class SqlToPandas:
         """
         # TODO Put more specific errors
         try:
-            return GRAMMAR.parse(self.sql)
+            return self.parser.parse(self.sql)
         except UnexpectedCharacters as err:
             message_begin = "Invalid query!"
             message_reason = ""

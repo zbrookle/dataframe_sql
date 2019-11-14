@@ -2,7 +2,8 @@
 Test cases for panda to sql
 """
 from pandas import read_csv
-from sql_to_pandas import SqlToPandas, MultipleQueriesException, InvalidQueryException
+from sql_to_pandas import SqlToPandas
+from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
 
 forest_Fires = read_csv('~/PycharmProjects/sql_to_pandas/data/forestfires.csv') # Name is weird intentionally
 
@@ -16,7 +17,7 @@ def lower_case_globals():
     Returns all globals but in lower case
     :return:
     """
-    return {global_var.lower(): globals()[global_var] for global_var in globals()}
+    return {global_var: globals()[global_var] for global_var in globals()}
 
 
 def sql_to_pandas_with_vars(sql: str):
@@ -57,8 +58,9 @@ def test_select_star():
     Tests the simple select * case
     :return:
     """
-    sql_to_pandas_with_vars("select * from forest_fires").execute_sql()
-
+    myframe = sql_to_pandas_with_vars("select * from forest_fires").execute_sql()
+    pandas_frame = forest_Fires
+    assert forest_Fires == myframe
 
 def test_case_insensitivity():
     """
@@ -73,7 +75,7 @@ def test_select_specific_fields():
     Tests selecting specific fields
     :return:
     """
-    sql_to_pandas_with_vars("select temp,RH,wind,rain,area from forest_fires")
+    sql_to_pandas_with_vars("select temp,RH,wind,rain as water,area from forest_fires")
 
 
 def test_type_conversion():
@@ -142,13 +144,23 @@ def test_min():
     """
     sql_to_pandas_with_vars("select min(temp) from forest fires")
 
+def test_using_math():
+    """
+    Test the mathematical operations and order of operations
+    :return:
+    """
+    sql_to_pandas_with_vars("select temp, 1 + 2 * 3 as my_number from forest_fires")
 
 def test_for_non_existent_table():
     """
     Check that exception is raised if table does not exist
     :return:
     """
-    sql_to_pandas_with_vars("select * from a_table_thats_not_here")
+    try:
+        sql_to_pandas_with_vars("select * from a_table_thats_not_here")
+    except Exception as err:
+        assert isinstance(err, DataFrameDoesNotExist)
 
 if __name__ == "__main__":
-    sql_to_pandas_with_vars("select * from (select distinct area, rain from forest_fires) subquery")
+    # sql_to_pandas_with_vars("select * from (select distinct area, rain from forest_fires) subquery")
+    test_select_specific_fields()
