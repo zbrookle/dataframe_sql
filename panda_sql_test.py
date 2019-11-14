@@ -1,6 +1,8 @@
 """
 Test cases for panda to sql
 """
+# pylint: disable=broad-except
+
 from pandas import read_csv
 from sql_to_pandas import SqlToPandas
 from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
@@ -58,16 +60,16 @@ def test_select_star():
     Tests the simple select * case
     :return:
     """
-    myframe = sql_to_pandas_with_vars("select * from forest_fires").execute_sql()
-    pandas_frame = forest_Fires
-    assert forest_Fires == myframe
+    myframe = sql_to_pandas_with_vars("select * from forest_fires").data_frame
+    assert forest_Fires.equals(myframe)
+
 
 def test_case_insensitivity():
     """
     Tests to ensure that the sql is case insensitive for table names
     :return:
     """
-    sql_to_pandas_with_vars("select * from FOREST_fires")
+    assert forest_Fires.equals(sql_to_pandas_with_vars("select * from FOREST_fires").data_frame)
 
 
 def test_select_specific_fields():
@@ -75,7 +77,9 @@ def test_select_specific_fields():
     Tests selecting specific fields
     :return:
     """
-    sql_to_pandas_with_vars("select temp,RH,wind,rain as water,area from forest_fires")
+    myframe = sql_to_pandas_with_vars("select temp,RH,wind,rain as water,area from forest_fires").data_frame
+    pandas_frame = forest_Fires[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'rain': 'water'})
+    assert myframe.equals(pandas_frame)
 
 
 def test_type_conversion():
@@ -83,8 +87,32 @@ def test_type_conversion():
     Tests sql as statements
     :return:
     """
-    sql_to_pandas_with_vars("select cast(temp as int),RH,wind,rain,area from forest_fires")
+    myframe = sql_to_pandas_with_vars("select cast(temp as int64),cast(RH as float64) my_rh,wind,rain,area , cast(2 as int64) my_num from forest_fires").data_frame
+    fire_frame = forest_Fires[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'RH': 'my_rh'})
+    fire_frame["my_num"] = 2
+    pandas_frame = fire_frame.astype({'temp': 'int64', 'my_rh': 'float64', 'my_num': 'int64'})
+    assert pandas_frame.equals(myframe)
 
+def test_for_non_existent_table():
+    """
+    Check that exception is raised if table does not exist
+    :return:
+    """
+    try:
+        sql_to_pandas_with_vars("select * from a_table_thats_not_here")
+    except Exception as err:
+        assert isinstance(err, DataFrameDoesNotExist)
+
+def test_using_math():
+    """
+    Test the mathematical operations and order of operations
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("select temp, 1 + 2 * 3 as my_number from forest_fires").data_frame
+    pandas_frame = forest_Fires[['temp']].copy()
+    pandas_frame['my_number'] = 1 + 2 * 3
+    print(pandas_frame)
+    assert pandas_frame.equals(my_frame)
 
 def test_distinct():
     """
@@ -108,8 +136,8 @@ def test_joins():
     :return:
     """
     sql_to_pandas_with_vars(
-        """select * from digimon_mon_list inner join 
-            digimon_move_list 
+        """select * from digimon_mon_list inner join
+            digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""")
 
 
@@ -144,23 +172,7 @@ def test_min():
     """
     sql_to_pandas_with_vars("select min(temp) from forest fires")
 
-def test_using_math():
-    """
-    Test the mathematical operations and order of operations
-    :return:
-    """
-    sql_to_pandas_with_vars("select temp, 1 + 2 * 3 as my_number from forest_fires")
-
-def test_for_non_existent_table():
-    """
-    Check that exception is raised if table does not exist
-    :return:
-    """
-    try:
-        sql_to_pandas_with_vars("select * from a_table_thats_not_here")
-    except Exception as err:
-        assert isinstance(err, DataFrameDoesNotExist)
 
 if __name__ == "__main__":
     # sql_to_pandas_with_vars("select * from (select distinct area, rain from forest_fires) subquery")
-    test_select_specific_fields()
+    test_distinct()

@@ -1,9 +1,11 @@
-query_expr: [query_expr set_op] select [ "ORDER"i "BY"i order_by_expr ] [ "LIMIT"i count [ "OFFSET"i skip_rows ] ]
+start: query_expr -> to_dataframe
 
-?select: "SELECT"i [( "ALL"i | "DISTINCT"i )] (select_expr ",")* select_expr [ "FROM"i from_expr ] [ "WHERE"i bool_expression ] [ "GROUP"i "BY"i groupby_expr
+query_expr: [query_expr set_op] select [ "ORDER"i "BY"i order_by_expr ] [ "LIMIT"i count [ "OFFSET"i skip_rows ] ] -> full_query
+
+select: "SELECT"i [SELECT_CONSTRAINT] [(select_expr ",")*] select_expr [ "FROM"i from_expr ] [ "WHERE"i bool_expression ] [ "GROUP"i "BY"i groupby_expr
         | "ROLLUP"i rollup_expr ] [ "HAVING"i bool_expression ] [ "WINDOW"i window_expr ]
 
-select_expr: expression [ [ "AS"i ] alias ]
+select_expr.0: expression [ [ "AS"i ] alias ] -> select_expression
 
 ?from_expr: [from_expr ","] from_item  -> from_expression
 
@@ -21,28 +23,26 @@ set_op: "UNION"i ( "ALL"i | "DISTINCT"i ) | "INTERSECT"i "DISTINCT"i | "EXCEPT"i
 
 from_item: NAME [ [ "AS"i ] alias ] [ "FOR"i "SYSTEM_TIME"i "AS"i "OF"i timestamp_expression ] -> table
             | join
-            | ( left_paren query_expr right_paren ) [ [ "AS"i ] alias ] -> subquery
+            | ( "(" query_expr ")" ) [ [ "AS"i ] alias ] -> subquery
             | with_query_name [ [ "AS"i ] alias ]
 
 join: from_item [ _join_type ] "JOIN"i from_item [ "ON"i bool_expression ] -> merge_function
 
 _join_type: ( "INNER"i | "CROSS"i | "FULL"i ["OUTER"i] | "LEFT"i ["OUTER"i] | "RIGHT"i ["OUTER"i] )
 
-expression: STAR
-            | [NAME period] NAME -> column_name
+?expression: [NAME period] (NAME | STAR) -> column_name
             | literal
-            | function left_paren expression right_paren -> sql_function
-            | "CAST"i left_paren expression "AS"i typename right_paren -> as_type
+            | "CAST"i "(" expression "AS"i TYPENAME ")" -> as_type
+            | function "(" expression ")" -> sql_function
 
 math: integer "-" integer -> sub
     | integer "+" integer -> add
     | integer "*" integer -> mul
     | integer "/" integer -> div
 
+SELECT_CONSTRAINT.5: "ALL"i | "DISTINCT"i
 period: "."
-left_paren: "("
-right_paren: ")"
-typename: "int" | "varchar"
+TYPENAME: "object"i | "int64"i | "float64"i | "bool"i | "datetime64"i | "timedelta[ns]"i | "category"i
 function: NAME
 alias: NAME -> alias_string
 _window_name: NAME
@@ -51,7 +51,7 @@ skip_rows: integer
 bool_expression: [bool_expression ("AND"i | "OR"i)] (equals | not_equals)
 equals: expression "=" expression
 not_equals: expression ("<>" | "!=") expression
-literal: boolean -> bool
+?literal: boolean -> bool
        | number_expr -> number
 boolean: "true"i -> true
        | "false"i -> false
