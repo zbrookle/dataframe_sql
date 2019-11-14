@@ -93,6 +93,7 @@ def test_type_conversion():
     pandas_frame = fire_frame.astype({'temp': 'int64', 'my_rh': 'float64', 'my_num': 'int64'})
     assert pandas_frame.equals(myframe)
 
+
 def test_for_non_existent_table():
     """
     Check that exception is raised if table does not exist
@@ -102,6 +103,7 @@ def test_for_non_existent_table():
         sql_to_pandas_with_vars("select * from a_table_thats_not_here")
     except Exception as err:
         assert isinstance(err, DataFrameDoesNotExist)
+
 
 def test_using_math():
     """
@@ -114,12 +116,18 @@ def test_using_math():
     print(pandas_frame)
     assert pandas_frame.equals(my_frame)
 
+
 def test_distinct():
     """
     Test use of the distinct keyword
     :return:
     """
-    sql_to_pandas_with_vars("select distinct area, rain from forest_fires")
+    my_frame = sql_to_pandas_with_vars("select distinct area, rain from forest_fires").data_frame
+    pandas_frame = forest_Fires[['area', 'rain']].copy()
+    pandas_frame.drop_duplicates(keep='first', inplace=True)
+    pandas_frame.reset_index(inplace=True)
+    pandas_frame.drop(columns='index', inplace=True)
+    assert pandas_frame.equals(my_frame)
 
 
 def test_subquery():

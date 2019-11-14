@@ -260,8 +260,14 @@ class SQLTransformer(Transformer):
         for expression in query_info["expressions"]:
             new_frame[aliases[expression]] = expression
 
+        if query_info["distinct"]:
+            new_frame.drop_duplicates(keep='first', inplace=True)
+            new_frame.reset_index(inplace=True)
+            new_frame.drop(columns=['index'], inplace=True)
+
         if conversions:
             return new_frame.astype(conversions)
+
         return new_frame
 
 
