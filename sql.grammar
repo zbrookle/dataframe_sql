@@ -2,18 +2,18 @@ start: query_expr -> to_dataframe
 
 query_expr: [query_expr set_op] select [ "ORDER"i "BY"i order_by_expr ] [ "LIMIT"i count [ "OFFSET"i skip_rows ] ] -> full_query
 
-select: "SELECT"i [SELECT_CONSTRAINT] [(select_expr ",")*] select_expr [ "FROM"i from_expr ] [ "WHERE"i bool_expression ] [ "GROUP"i "BY"i groupby_expr
+select: "SELECT"i [SELECT_CONSTRAINT] [(select_expr ",")*] select_expr [ "FROM"i [(from_expr ",")*] from_expr ] [ "WHERE"i bool_expression ] [ "GROUP"i "BY"i [(groupby_expr ",")*] groupby_expr
         | "ROLLUP"i rollup_expr ] [ "HAVING"i bool_expression ] [ "WINDOW"i window_expr ]
 
 select_expr.0: expression [ [ "AS"i ] alias ] -> select_expression
 
-?from_expr: [from_expr ","] from_item  -> from_expression
+?from_expr: from_item -> from_expression
 
 order_by_expr: [order_by_expr ","] expression [( "ASC"i | "DESC"i )]  -> sort_data
 
 replace_expr: [replace_expr ","] expression [ "AS"i ] NAME
 
-groupby_expr: [groupby_expr ","] expression -> group_by
+groupby_expr: expression -> group_by
 
 rollup_expr: [rollup_expr ","] expression  -> roll_up
 
@@ -22,15 +22,15 @@ window_expr: [window_expr ","] _window_name "AS"i ( window_definition )
 set_op: "UNION"i ( "ALL"i | "DISTINCT"i ) | "INTERSECT"i "DISTINCT"i | "EXCEPT"i "DISTINCT"i
 
 from_item: NAME [ [ "AS"i ] alias ] [ "FOR"i "SYSTEM_TIME"i "AS"i "OF"i timestamp_expression ] -> table
-            | join
+            | join -> join
             | ( "(" query_expr ")" ) [ [ "AS"i ] alias ] -> subquery
             | with_query_name [ [ "AS"i ] alias ]
 
-join: from_item [ _join_type ] "JOIN"i from_item [ "ON"i bool_expression ] -> merge_function
+join: from_item [ JOIN_TYPE ] "JOIN"i from_item [ "ON"i bool_expression ] -> join_expression
 
-_join_type: ( "INNER"i | "CROSS"i | "FULL"i ["OUTER"i] | "LEFT"i ["OUTER"i] | "RIGHT"i ["OUTER"i] )
+JOIN_TYPE.5: "INNER"i | "CROSS"i | /FULL\sOUTER/i | /LEFT\sOUTER/i |  /RIGHT\sOUTER/i | "FULL"i | "LEFT"i | "RIGHT"i
 
-?expression: [NAME period] (NAME | STAR) -> column_name
+?expression: [NAME "."] (NAME | STAR) -> column_name
             | literal
             | "CAST"i "(" expression "AS"i TYPENAME ")" -> as_type
             | function "(" expression ")" -> sql_function
@@ -41,7 +41,6 @@ math: integer "-" integer -> sub
     | integer "/" integer -> div
 
 SELECT_CONSTRAINT.5: "ALL"i | "DISTINCT"i
-period: "."
 TYPENAME: "object"i | "int64"i | "float64"i | "bool"i | "datetime64"i | "timedelta[ns]"i | "category"i
 function: NAME
 alias: NAME -> alias_string
