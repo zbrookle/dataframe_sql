@@ -280,15 +280,17 @@ def test_group_by():
     Test group by constraint
     :return:
     """
-    my_frame = sql_to_pandas_with_vars("""select month, year from forest_fires, digimon_move_list group by month, year""")
+    my_frame = sql_to_pandas_with_vars("""select month, day from forest_fires group by month, day""")
+    pandas_frame = forest_Fires.groupby(["month", "day"]).size().to_frame('size').reset_index().drop(columns=['size'])
+    assert pandas_frame.equals(my_frame)
 
 
-def test_where_clause():
+def test_avg():
     """
-    Test where clause
+    Test the avg
     :return:
     """
-    my_frame = sql_to_pandas_with_vars("""select * from forest_fires where month = 'mar'""")
+    sql_to_pandas_with_vars("select day, avg(temp) from forest_fires")
 
 
 def test_sum():
@@ -297,14 +299,6 @@ def test_sum():
     :return:
     """
     sql_to_pandas_with_vars("select sum(temp) from forest_fires")
-
-
-def test_avg():
-    """
-    Test the avg
-    :return:
-    """
-    sql_to_pandas_with_vars("select avg(temp) from forest_fires")
 
 
 def test_max():
@@ -322,6 +316,13 @@ def test_min():
     """
     sql_to_pandas_with_vars("select min(temp) from forest_fires")
 
+
+def test_where_clause():
+    """
+    Test where clause
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""select * from forest_fires where month = 'mar'""")
 
 def test_having():
     """

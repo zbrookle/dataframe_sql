@@ -42,7 +42,7 @@ math: integer "-" integer -> sub
 
 SELECT_CONSTRAINT.5: "ALL"i | "DISTINCT"i
 TYPENAME: "object"i | "int64"i | "float64"i | "bool"i | "datetime64"i | "timedelta[ns]"i | "category"i
-function: NAME
+?function: NAME -> function_name
 alias: NAME -> alias_string
 _window_name: NAME
 count: integer
