@@ -17,7 +17,9 @@ with open(file="sql.grammar") as sql_grammar_file:
 
 SHOW_TREE = False
 GET_TABLE_REGEX = re.compile(r"^(?P<table>[a-z_]\w*)\.(?P<column>[a-z_]\w*)$", re.IGNORECASE)
-
+FUNCTION_MAPPING = {'average': 'mean', 'avg': 'mean', 'mean': 'mean',
+                    'maximum': 'max', 'max': 'max',
+                    'minimum': 'min', 'min': 'min'}
 
 def get_child_from_list(tree: Tree):
     """
@@ -50,7 +52,12 @@ class Value:
         self.final_name = alias
 
     def __repr__(self):
-        display = f"{type(self).__name__}(final_name={self.final_name}, value={self.value}"
+        if isinstance(self.value, Series):
+            print_value = "SeriesObject"
+        else:
+            print_value = self.value
+
+        display = f"{type(self).__name__}(final_name={self.final_name}, value={print_value}"
         if self.alias:
             display += f", alias={self.alias}"
         if self.typename:
@@ -198,7 +205,11 @@ class SQLTransformer(Transformer):
 
     def function_name(self, function_name):
         function_name = function_name.lower()
-        return Token("function", function_name)
+        true_function_name = FUNCTION_MAPPING.get(function_name)
+        if true_function_name:
+            return Token("aggregate", true_function_name)
+        else:
+            return Token("function", function_name)
 
     # def sql_function(self, function, expression):
     #     print(expression)
@@ -499,16 +510,21 @@ class SQLTransformer(Transformer):
         conversions = query_info["conversions"]
         all_names = query_info["all_names"]
         numbers = query_info["numbers"]
+        group_columns = query_info["group_columns"]
+        aggregates = query_info["aggregates"]
+        columns = query_info["columns"]
+        expressions = query_info["expressions"]
+
         first_frame = self.get_frame(frame_names[0])
 
-        column_names = [column.name for column in query_info["columns"]]
+        column_names = [column.name for column in columns]
         if self.has_star(column_names):
             new_frame: DataFrame = first_frame.copy()
         else:
             new_frame: DataFrame = first_frame[column_names].rename(columns=query_info["aliases"])
 
         # Evaluate in-line expressions
-        for expression in query_info["expressions"]:
+        for expression in expressions:
             new_frame[expression.alias] = expression.evaluate()
 
         for number in numbers:
@@ -517,13 +533,14 @@ class SQLTransformer(Transformer):
         if conversions:
             return new_frame.astype(conversions)
 
-        if query_info["group_columns"]:
-           new_frame = new_frame.groupby(query_info["group_columns"]).size().to_frame('size').reset_index().drop(columns=['size'])
-
-        if query_info["aggregates"]:
-            print("yes")
+        if group_columns and not aggregates:
+            new_frame = new_frame.groupby(query_info["group_columns"]).size().to_frame('size').reset_index().drop(columns=['size'])
+        elif aggregates and not group_columns:
             new_frame = new_frame.aggregate(query_info["aggregates"])
-            print(new_frame)
+            if isinstance(new_frame, Series):
+                new_frame = new_frame.to_frame(expressions[0].alias).reset_index().drop(columns=['index'])
+        # elif aggregates and group_columns:
+        #     new_frame = new_frame.groupby()
 
         if query_info["distinct"]:
             new_frame.drop_duplicates(keep='first', inplace=True)

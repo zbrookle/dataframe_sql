@@ -2,7 +2,7 @@
 Test cases for panda to sql
 """
 # pylint: disable=broad-except
-
+import numpy as np
 from pandas import read_csv
 from sql_to_pandas import SqlToPandas
 from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
@@ -290,15 +290,18 @@ def test_avg():
     Test the avg
     :return:
     """
-    sql_to_pandas_with_vars("select day, avg(temp) from forest_fires")
-
+    my_frame = sql_to_pandas_with_vars("select avg(temp) from forest_fires")
+    pandas_frame = forest_Fires.agg({'temp': np.mean}).to_frame('mean_temp').reset_index().drop(columns=['index'])
+    assert pandas_frame.equals(my_frame)
 
 def test_sum():
     """
     Test the sum
     :return:
     """
-    sql_to_pandas_with_vars("select sum(temp) from forest_fires")
+    my_frame = sql_to_pandas_with_vars("select sum(temp) from forest_fires")
+    pandas_frame = forest_Fires.agg({'temp': np.sum}).to_frame('sum_temp').reset_index().drop(columns=['index'])
+    assert pandas_frame.equals(my_frame)
 
 
 def test_max():
@@ -306,15 +309,33 @@ def test_max():
     Test the max
     :return:
     """
-    sql_to_pandas_with_vars("select max(temp) from forest_fires")
-
+    my_frame = sql_to_pandas_with_vars("select max(temp) from forest_fires")
+    pandas_frame = forest_Fires.agg({'temp': np.max}).to_frame('max_temp').reset_index().drop(columns=['index'])
+    assert pandas_frame.equals(my_frame)
 
 def test_min():
     """
     Test the min
     :return:
     """
-    sql_to_pandas_with_vars("select min(temp) from forest_fires")
+    my_frame = sql_to_pandas_with_vars("select min(temp) from forest_fires")
+    pandas_frame = forest_Fires.agg({'temp': np.min}).to_frame('min_temp').reset_index().drop(columns=['index'])
+    assert pandas_frame.equals(my_frame)
+
+def test_multiple_aggs():
+    """
+    Test multiple aggregations
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("select min(temp), max(temp), avg(temp), max(wind) from forest_fires")
+
+
+def test_agg_w_groupby():
+    """
+    Test using aggregates and group by together
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("select day, min(temp), max(temp) group by day")
 
 
 def test_where_clause():
@@ -332,4 +353,4 @@ def test_having():
     sql_to_pandas_with_vars("select min(temp) from forest_fires having max(temp) > 20")
 
 if __name__ == "__main__":
-    test_group_by()
+    test_max()
