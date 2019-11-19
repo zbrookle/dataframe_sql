@@ -9,7 +9,7 @@ from lark import Lark, Transformer, v_args
 from lark.lexer import Token
 from lark.exceptions import UnexpectedToken
 from lark.tree import Tree
-from pandas import DataFrame, Series
+from pandas import DataFrame, Series, crosstab
 from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
 
 with open(file="sql.grammar") as sql_grammar_file:
@@ -536,9 +536,10 @@ class SQLTransformer(Transformer):
         if group_columns and not aggregates:
             new_frame = new_frame.groupby(query_info["group_columns"]).size().to_frame('size').reset_index().drop(columns=['size'])
         elif aggregates and not group_columns:
-            new_frame = new_frame.aggregate(query_info["aggregates"])
-            if isinstance(new_frame, Series):
-                new_frame = new_frame.to_frame(expressions[0].alias).reset_index().drop(columns=['index'])
+            new_frame = new_frame.aggregate(query_info["aggregates"]).to_frame().transpose()
+            # new_frame =
+            # if isinstance(new_frame, Series):
+            #     new_frame = new_frame.to_frame(expressions[0].alias).reset_index().drop(columns=['index'])
         # elif aggregates and group_columns:
         #     new_frame = new_frame.groupby()
 
