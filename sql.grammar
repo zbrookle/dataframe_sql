@@ -50,10 +50,14 @@ skip_rows: integer
 bool_expression: [bool_expression ("AND"i | "OR"i)] (equals | not_equals)
 equals: expression "=" expression
 not_equals: expression ("<>" | "!=") expression
+greater_than: expression ">" expression
+less_than: expression "<" expression
 ?literal: boolean -> bool
        | number_expr -> number
+       | "'" /[^']+/ "'" -> string
 boolean: "true"i -> true
        | "false"i -> false
+// string:
 ?number_expr: product
             | number_expr "+" product -> add
             | number_expr "-" product -> sub

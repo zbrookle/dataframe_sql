@@ -3,7 +3,6 @@ Convert sql statement to run on pandas dataframes
 """
 import re
 from typing import Tuple, List
-import numpy as np
 from sqlparse import split
 from lark import Lark, Transformer, v_args
 from lark.lexer import Token
@@ -211,11 +210,6 @@ class SQLTransformer(Transformer):
         else:
             return Token("function", function_name)
 
-    # def sql_function(self, function, expression):
-    #     print(expression)
-    #     self._funcs_to_apply[expression] = function
-    #     return Tree("column_name", )
-
     def table(self, table_name):
         """
         Check for existance of pandas dataframe with same name
@@ -277,7 +271,6 @@ class SQLTransformer(Transformer):
             value = expression.children
             if expression.data == "sql_function":
                 function = value[0]
-                print(value[1])
                 value = value[1]
                 expression = Expression(value=value, function=function)
 
@@ -427,7 +420,7 @@ class SQLTransformer(Transformer):
         for dataframe_name in dataframe_names:
             dataframe = self.get_frame(dataframe_name)
             if column.name in dataframe.columns:
-                if column.value:
+                if isinstance(column.value, Series) or column.value:
                     raise Exception(f"Ambiguous column reference: {column.name}")
                 column.value = dataframe[column.name]
 
@@ -483,18 +476,10 @@ class SQLTransformer(Transformer):
                 if isinstance(token, Number):
                     numbers.append(token)
 
-            # # Determine which table columns are in
-            # for column in columns:
-            #     for dataframe_name in dataframe_names:
-            #         if column in self.get_frame(dataframe_name).columns:
-            #             print("yes!")
-            #         else:
-            #             print("no :(")
-
-            for expression in expressions:
-                if isinstance(expression.value, Column):
-                    column = expression.value
-                    self.set_column_value(column, dataframe_names)
+        for expression in expressions:
+            if isinstance(expression.value, Column):
+                column = expression.value
+                self.set_column_value(column, dataframe_names)
 
         return {"columns": columns, "expressions": expressions, "dataframes": dataframe_names,
                 "name_order": name_order, "all_names": all_names, "conversions": conversions, "distinct": distinct,
@@ -515,6 +500,9 @@ class SQLTransformer(Transformer):
         columns = query_info["columns"]
         expressions = query_info["expressions"]
 
+        if not frame_names:
+            raise Exception("No table specified")
+
         first_frame = self.get_frame(frame_names[0])
 
         column_names = [column.name for column in columns]
@@ -534,14 +522,11 @@ class SQLTransformer(Transformer):
             return new_frame.astype(conversions)
 
         if group_columns and not aggregates:
-            new_frame = new_frame.groupby(query_info["group_columns"]).size().to_frame('size').reset_index().drop(columns=['size'])
+            new_frame = new_frame.groupby(group_columns).size().to_frame('size').reset_index().drop(columns=['size'])
         elif aggregates and not group_columns:
-            new_frame = new_frame.aggregate(query_info["aggregates"]).to_frame().transpose()
-            # new_frame =
-            # if isinstance(new_frame, Series):
-            #     new_frame = new_frame.to_frame(expressions[0].alias).reset_index().drop(columns=['index'])
-        # elif aggregates and group_columns:
-        #     new_frame = new_frame.groupby()
+            new_frame = new_frame.aggregate(aggregates).to_frame().transpose()
+        elif aggregates and group_columns:
+            new_frame = new_frame.groupby(group_columns).aggregate(aggregates).reset_index()
 
         if query_info["distinct"]:
             new_frame.drop_duplicates(keep='first', inplace=True)

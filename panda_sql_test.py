@@ -328,20 +328,22 @@ def test_multiple_aggs():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("select min(temp), max(temp), avg(temp), max(wind) from forest_fires")
-    pandas_frame = forest_Fires['min_temp'] = forest_Fires.temp.copy()
-    pandas_frame = forest_Fires['max_temp'] = forest_Fires.temp.copy()
-    pandas_frame = forest_Fires['mean_temp'] = forest_Fires.temp.copy()
-    pandas_frame = forest_Fires.agg({'min_temp': np.min, 'max_temp': np.max, 'mean_temp': np.mean, 'wind': np.max})
+    pandas_frame = forest_Fires.copy()
+    pandas_frame['min_temp'] = forest_Fires.temp.copy()
+    pandas_frame['max_temp'] = forest_Fires.temp.copy()
+    pandas_frame['mean_temp'] = forest_Fires.temp.copy()
+    pandas_frame = pandas_frame.agg({'min_temp': np.min, 'max_temp': np.max, 'mean_temp': np.mean, 'wind': np.max})
     pandas_frame.rename({'wind': 'max_wind'}, inplace=True)
     pandas_frame = pandas_frame.to_frame().transpose()
     assert pandas_frame.equals(my_frame)
+
 
 def test_agg_w_groupby():
     """
     Test using aggregates and group by together
     :return:
     """
-    my_frame = sql_to_pandas_with_vars("select day, min(temp), max(temp) group by day")
+    my_frame = sql_to_pandas_with_vars("select day, month, min(temp), max(temp) from forest_fires group by day, month")
 
 
 def test_where_clause():
@@ -351,6 +353,7 @@ def test_where_clause():
     """
     my_frame = sql_to_pandas_with_vars("""select * from forest_fires where month = 'mar'""")
 
+
 def test_having():
     """
     Test having clause
@@ -358,5 +361,6 @@ def test_having():
     """
     sql_to_pandas_with_vars("select min(temp) from forest_fires having max(temp) > 20")
 
+
 if __name__ == "__main__":
-    test_multiple_aggs()
+    test_where_clause()
