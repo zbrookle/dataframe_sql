@@ -20,12 +20,6 @@ FUNCTION_MAPPING = {'average': 'mean', 'avg': 'mean', 'mean': 'mean',
                     'maximum': 'max', 'max': 'max',
                     'minimum': 'min', 'min': 'min'}
 
-def get_child_from_list(tree: Tree):
-    """
-    Returns value from the first token in a list of child tokens
-    """
-    return tree.children[0]
-
 
 def num_eval(arg):
     """
@@ -38,6 +32,7 @@ def num_eval(arg):
         # pylint: disable=eval-used
         return eval(arg)
     return arg
+
 
 class Value:
     """
@@ -67,6 +62,7 @@ class Value:
         self.alias = alias
         self.final_name = alias
 
+
 class Number(Value):
     """
     Stores numerical data
@@ -74,6 +70,17 @@ class Number(Value):
 
     def __init__(self, value):
         super(Number, self).__init__(value)
+
+    def get_frame(self, frame_name) -> DataFrame:
+        """
+        Returns the dataframe with the name given
+        :param frame_name:
+        :return:
+        """
+        if isinstance(frame_name, Subquery):
+            return self._temp_dataframes_dict[frame_name.name]
+        return self.dataframe_map[frame_name]
+
 
 class Expression(Value):
     """
@@ -158,6 +165,181 @@ class Subquery:
     def __repr__(self):
         return f"Subquery(name={self.name}, query_info={self.query_info})"
 
+
+class InternalTransformer(Transformer):
+    """
+    Evaluates subtrees with knowledge of provided tables that are in the proper scope
+    """
+    def __init__(self, tables, dataframe_name_map, dataframe_map, column_name_map, temp_dataframes_dict):
+        self.tables = tables
+        self.dataframe_name_map = dataframe_name_map
+        self.dataframe_map = dataframe_map
+        self.column_name_map = column_name_map
+        self._temp_dataframes_dict = temp_dataframes_dict
+
+    # def bool_expression(self, expression):
+    #     print(expression)
+
+    def mul(self, args):
+        """
+        Returns the product two numbers
+        """
+        print(args)
+        arg1 = args[0]
+        arg2 = args[1]
+        return num_eval(arg1) * num_eval(arg2)
+
+    def add(self, args):
+        """
+        Returns the sum two numbers
+        """
+        arg1 = args[0]
+        arg2 = args[1]
+        return num_eval(arg1) + num_eval(arg2)
+
+    def sub(self, args):
+        """
+        Returns the difference between two numbers
+        """
+        arg1 = args[0]
+        arg2 = args[1]
+        return num_eval(arg1) - num_eval(arg2)
+
+    def div(self, args):
+        """
+        Returns the division of two numbers
+        """
+        arg1 = args[0]
+        arg2 = args[1]
+        return num_eval(arg1) / num_eval(arg2)
+
+    def number(self, numerical_value):
+        """
+        Return a number token with a numeric value as a child
+        :param numerical_value:
+        :return:
+        """
+        return Number(num_eval(numerical_value[0]))
+
+    def function_name(self, function_name):
+        function_name = function_name[0].lower()
+        true_function_name = FUNCTION_MAPPING.get(function_name)
+        if true_function_name:
+            return Tree("aggregate", true_function_name)
+        else:
+            return Tree("function", function_name)
+
+    def string(self, value):
+        return Token("string", str(value))
+
+    def get_frame(self, frame_name) -> DataFrame:
+        """
+        Returns the dataframe with the name given
+        :param frame_name:
+        :return:
+        """
+        print("Get frame:", frame_name, type(frame_name))
+        if isinstance(frame_name, Token):
+            frame_name = frame_name.value
+        if isinstance(frame_name, Subquery):
+            return self._temp_dataframes_dict[frame_name.name]
+        print(type(self.dataframe_map[frame_name]))
+        return self.dataframe_map[frame_name]
+
+    def set_column_value(self, column: Column):
+        """
+        Sets the column value based on what it is in the dataframe
+        :param column:
+        :param dataframe_names:
+        :return:
+        """
+        for dataframe_name in self.tables:
+            dataframe = self.get_frame(dataframe_name)
+            if column.name in dataframe.columns:
+                if isinstance(column.value, Series) or column.value:
+                    raise Exception(f"Ambiguous column reference: {column.name}")
+                column.value = dataframe[column.name]
+
+    def column_name(self, name: str):
+        """
+        Returns a column token with the name extracted
+        :param names: Name of column
+        :return: Tree with column token
+        """
+        column = Column(name="".join(name))
+        self.set_column_value(column)
+        return column
+
+
+    def alias_string(self, name: str):
+        """
+        Returns an alias token with the name extracted
+        :param name:
+        :return:
+        """
+        return Tree("alias", str(name[0]))
+    #
+    # # def equals(self, expressions):
+    # #     for expression in expressions:
+    # #         if isinstance(expression, Column):
+    # #             self.set_column_value(expression)
+    #
+    def from_expression(self, expression):
+        expression = expression[0]
+        if isinstance(expression, Subquery):
+            value = expression
+        else:
+            value = expression.value
+        return Token("from_expression", expression)
+
+    def select_expression(self, expression_and_alias):
+        """
+        Returns the appropriate object for the given expression
+        :param expression: An expression token
+        :param alias: A token containing the name to be assigned to the expression
+        :return:
+        """
+        expression = expression_and_alias[0]
+        alias = ''
+        if len(expression_and_alias) == 2:
+            alias = expression_and_alias[1]
+        if isinstance(expression, Tree):
+            value = expression.children
+            if expression.data == "sql_function":
+                function = value[0].children
+                value = value[1]
+                expression = Expression(value=value, function=function)
+
+        print(expression)
+        if alias:
+            print(expression)
+            expression.set_alias(alias.children)
+        return expression
+
+    def join(self, *args):
+        print("Join args", args)
+        return args[0]
+
+    def group_by(self, column):
+        return Token("group", str(column.name))
+
+    def as_type(self, column_and_type):
+        """
+        Extracts token type and returns tree object with expression and type
+        :param expression: Expression to be evaluated / the name of a column
+        :param typename: Data type
+        :return:
+        """
+        column = column_and_type[0]
+        typename = column_and_type[1]
+        column.typename = typename.value
+        return column
+
+    def subquery(self, query_info, alias):
+        alias_name = alias.children
+        self._temp_dataframes_dict[alias_name] = self.to_dataframe(query_info)
+        return Subquery(name=alias_name, query_info=query_info)
+
 # pylint: disable=no-self-use, super-init-not-called
 @v_args(inline=True)
 class SQLTransformer(Transformer):
@@ -178,38 +360,6 @@ class SQLTransformer(Transformer):
                 for column in dataframe.columns:
                     self.column_name_map[key][column.lower()] = column
 
-    def mul(self, arg1, arg2):
-        """
-        Returns the product two numbers
-        """
-        return num_eval(arg1) * num_eval(arg2)
-
-    def add(self, arg1, arg2):
-        """
-        Returns the sum two numbers
-        """
-        return num_eval(arg1) + num_eval(arg2)
-
-    def sub(self, arg1, arg2):
-        """
-        Returns the difference between two numbers
-        """
-        return num_eval(arg1) - num_eval(arg2)
-
-    def div(self, arg1, arg2):
-        """
-        Returns the division of two numbers
-        """
-        return num_eval(arg1) / num_eval(arg2)
-
-    def function_name(self, function_name):
-        function_name = function_name.lower()
-        true_function_name = FUNCTION_MAPPING.get(function_name)
-        if true_function_name:
-            return Token("aggregate", true_function_name)
-        else:
-            return Token("function", function_name)
-
     def table(self, table_name):
         """
         Check for existance of pandas dataframe with same name
@@ -220,64 +370,22 @@ class SQLTransformer(Transformer):
         table_name = table_name.lower()
         if table_name not in self.dataframe_name_map:
             raise DataFrameDoesNotExist(table_name)
-        return self.dataframe_name_map[table_name]
+        return Token("table", self.dataframe_name_map[table_name])
 
-    def number(self, numerical_value):
-        """
-        Return a number token with a numeric value as a child
-        :param numerical_value:
-        :return:
-        """
-        return Number(numerical_value)
+    def full_query(self, query_info):
+        # TODO Add in support for set operations like union
+        return query_info
 
-    def column_name(self, *names: str):
-        """
-        Returns a column token with the name extracted
-        :param name: Name of column
-        :return: Tree with column token
-        """
+    def column_name(self, *names):
         full_name = ".".join([str(name) for name in names])
-        return Column(full_name)
+        return Tree("column_name", full_name)
 
-    def alias_string(self, name: str):
-        """
-        Returns an alias token with the name extracted
-        :param name:
-        :return:
-        """
-        return Tree("alias", str(name))
+    def join(self, join_expression):
+        return join_expression
 
-    def as_type(self, expression, typename):
-        """
-        Extracts token type and returns tree object with expression and type
-        :param expression: Expression to be evaluated / the name of a column
-        :param typename: Data type
-        :return:
-        """
-        expression.typename = typename.value
-        return expression
-
-    def from_expression(self, column):
-        return Token("from_expression", column)
-
-    def select_expression(self, expression, alias: Tree = ''):
-        """
-        Returns the appropriate object for the given expression
-        :param expression: An expression token
-        :param alias: A token containing the name to be assigned to the expression
-        :return:
-        """
-        if isinstance(expression, Tree):
-            value = expression.children
-            if expression.data == "sql_function":
-                function = value[0]
-                value = value[1]
-                expression = Expression(value=value, function=function)
-
-        if alias:
-            expression.set_alias(alias.children)
-        # return Expression(value=value, alias=found_alias, typename=typename, function=function)
-        return expression
+    # def select_expression(self, expression, *args):
+    #     print(*args)
+    #     return expression
 
     def get_lower_columns(self, table_name):
         """
@@ -320,9 +428,6 @@ class SQLTransformer(Transformer):
             else:
                 raise Exception("Column does not exist in either table")
 
-    def join(self, *args):
-        return args[0]
-
     def join_expression(self, *args):
         """
         Evaluate a join into one dataframe using a merge method
@@ -354,8 +459,8 @@ class SQLTransformer(Transformer):
         # Check that there is a column from both sides
         boolean_expression = join_condition.children[0]
         column_comparison = boolean_expression.children
-        column1 = str(column_comparison[0].name)
-        column2 = str(column_comparison[1].name)
+        column1 = str(column_comparison[0].children)
+        column2 = str(column_comparison[1].children)
 
         column1_side, column1 = self.determine_column_side(column1, table1, table2)
         column2_side, column2 = self.determine_column_side(column2, table1, table2)
@@ -376,13 +481,6 @@ class SQLTransformer(Transformer):
                                                                    left_on=left_on, right_on=right_on)
         return Subquery(dictionary_name, query_info="")
 
-    def group_by(self, column):
-        return Token("group", str(column.name))
-
-    def full_query(self, query_info):
-        # TODO Add in support for set operations like union
-        return query_info
-
     def get_frame(self, frame_name) -> DataFrame:
         """
         Returns the dataframe with the name given
@@ -393,37 +491,6 @@ class SQLTransformer(Transformer):
             return self._temp_dataframes_dict[frame_name.name]
         return self.dataframe_map[frame_name]
 
-    @staticmethod
-    def has_star(column_list: List[str]):
-        """
-        Returns true if any columns have a star
-        :param column_list:
-        :return:
-        """
-        for column_name in column_list:
-            if re.match(r"\*", column_name):
-                return True
-        return False
-
-    def subquery(self, query_info, alias):
-        alias_name = alias.children
-        self._temp_dataframes_dict[alias_name] = self.to_dataframe(query_info)
-        return Subquery(name=alias_name, query_info=query_info)
-
-    def set_column_value(self, column: Column, dataframe_names: List[str]):
-        """
-        Sets the column value based on what it is in the dataframe
-        :param column:
-        :param dataframe_names:
-        :return:
-        """
-        for dataframe_name in dataframe_names:
-            dataframe = self.get_frame(dataframe_name)
-            if column.name in dataframe.columns:
-                if isinstance(column.value, Series) or column.value:
-                    raise Exception(f"Ambiguous column reference: {column.name}")
-                column.value = dataframe[column.name]
-
     def select(self, *select_expressions: Tuple[Tree]):
         """
         Forms the final sequence of methods that will be executed
@@ -432,6 +499,17 @@ class SQLTransformer(Transformer):
         """
         print("Select Expressions:", select_expressions)
 
+        tables = []
+        for select_expression in select_expressions:
+            if isinstance(select_expression, Tree):
+                if select_expression.data == 'from_expression':
+                    tables.append(select_expression.children[0])
+
+        internal_transformer = InternalTransformer(tables, self.dataframe_name_map, self.dataframe_map,
+                                                   self.column_name_map, self._temp_dataframes_dict)
+        tree = Tree("query", select_expressions)
+        new_tree = internal_transformer.transform(tree)
+        select_expressions = new_tree.children
         distinct = False
         if isinstance(select_expressions[0], Token):
             select_constraint_token = select_expressions[0]
@@ -442,18 +520,22 @@ class SQLTransformer(Transformer):
         expressions = []
         numbers = []
         group_columns = []
-        dataframe_names = []
+        frame_names = []
         aliases = {}
         all_names = []
         name_order = {}
         conversions = {}
         aggregates = {}
+        boolean_expressions = []
         for token_pos, token in enumerate(select_expressions):
             if isinstance(token, Token):
                 if token.type == "from_expression":
-                    dataframe_names.append(token.value)
+                    frame_names.append(token.value)
                 elif token.type == "group":
                     group_columns.append(token.value)
+            elif isinstance(token, Tree):
+                if token.data == "bool_expression":
+                    boolean_expressions.append(token)
             else:
                 all_names.append(token.final_name)
                 name_order[token.final_name] = token_pos
@@ -476,14 +558,27 @@ class SQLTransformer(Transformer):
                 if isinstance(token, Number):
                     numbers.append(token)
 
-        for expression in expressions:
-            if isinstance(expression.value, Column):
-                column = expression.value
-                self.set_column_value(column, dataframe_names)
+        # for expression in expressions:
+        #     if isinstance(expression.value, Column):
+        #         column = expression.value
+        #         self.set_column_value(column, frame_names)
 
-        return {"columns": columns, "expressions": expressions, "dataframes": dataframe_names,
+
+        return {"columns": columns, "expressions": expressions, "dataframes": frame_names,
                 "name_order": name_order, "all_names": all_names, "conversions": conversions, "distinct": distinct,
                 "group_columns": group_columns, "aliases": aliases, "numbers": numbers, "aggregates": aggregates}
+
+    @staticmethod
+    def has_star(column_list: List[str]):
+        """
+        Returns true if any columns have a star
+        :param column_list:
+        :return:
+        """
+        for column_name in column_list:
+            if re.match(r"\*", column_name):
+                return True
+        return False
 
     def to_dataframe(self, query_info):
         """
@@ -516,6 +611,8 @@ class SQLTransformer(Transformer):
             new_frame[expression.alias] = expression.evaluate()
 
         for number in numbers:
+            print(new_frame)
+            print(number.value)
             new_frame[number.alias] = number.value
 
         if conversions:
@@ -548,7 +645,9 @@ class SqlToPandas:
         else:
             self.parser = Lark(GRAMMAR_TEXT, parser='lalr', transformer=SQLTransformer(all_global_vars))
         self.ast = self.parse_sql()
+        print("Result:")
         if SHOW_TREE:
+            print(self.ast)
             print(self.ast.pretty())
         else:
             print(self.ast)

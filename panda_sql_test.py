@@ -7,7 +7,7 @@ from pandas import read_csv
 from sql_to_pandas import SqlToPandas
 from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
 
-forest_Fires = read_csv('~/PycharmProjects/sql_to_pandas/data/forestfires.csv') # Name is weird intentionally
+FOREST_FIRES = read_csv('~/PycharmProjects/sql_to_pandas/data/forestfires.csv') # Name is weird intentionally
 
 digimon_mon_list = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_digimonlist.csv')
 digimon_move_list = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_movelist.csv')
@@ -61,7 +61,7 @@ def test_select_star():
     :return:
     """
     myframe = sql_to_pandas_with_vars("select * from forest_fires")
-    assert forest_Fires.equals(myframe)
+    assert FOREST_FIRES.equals(myframe)
 
 
 def test_case_insensitivity():
@@ -69,7 +69,7 @@ def test_case_insensitivity():
     Tests to ensure that the sql is case insensitive for table names
     :return:
     """
-    assert forest_Fires.equals(sql_to_pandas_with_vars("select * from FOREST_fires"))
+    assert FOREST_FIRES.equals(sql_to_pandas_with_vars("select * from FOREST_fires"))
 
 
 def test_select_specific_fields():
@@ -78,7 +78,7 @@ def test_select_specific_fields():
     :return:
     """
     myframe = sql_to_pandas_with_vars("select temp,RH,wind,rain as water,area from forest_fires")
-    pandas_frame = forest_Fires[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'rain': 'water'})
+    pandas_frame = FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'rain': 'water'})
     assert myframe.equals(pandas_frame)
 
 
@@ -87,8 +87,9 @@ def test_type_conversion():
     Tests sql as statements
     :return:
     """
-    myframe = sql_to_pandas_with_vars("select cast(temp as int64),cast(RH as float64) my_rh,wind,rain,area , cast(2 as int64) my_num from forest_fires")
-    fire_frame = forest_Fires[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'RH': 'my_rh'})
+    myframe = sql_to_pandas_with_vars("""select cast(temp as int64),cast(RH as float64) my_rh,wind,rain,area , 
+    cast(2 as int64) my_num from forest_fires""")
+    fire_frame = FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'RH': 'my_rh'})
     fire_frame["my_num"] = 2
     pandas_frame = fire_frame.astype({'temp': 'int64', 'my_rh': 'float64', 'my_num': 'int64'})
     assert pandas_frame.equals(myframe)
@@ -111,7 +112,7 @@ def test_using_math():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("select temp, 1 + 2 * 3 as my_number from forest_fires")
-    pandas_frame = forest_Fires[['temp']].copy()
+    pandas_frame = FOREST_FIRES[['temp']].copy()
     pandas_frame['my_number'] = 1 + 2 * 3
     print(pandas_frame)
     assert pandas_frame.equals(my_frame)
@@ -123,7 +124,7 @@ def test_distinct():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("select distinct area, rain from forest_fires")
-    pandas_frame = forest_Fires[['area', 'rain']].copy()
+    pandas_frame = FOREST_FIRES[['area', 'rain']].copy()
     pandas_frame.drop_duplicates(keep='first', inplace=True)
     pandas_frame.reset_index(inplace=True)
     pandas_frame.drop(columns='index', inplace=True)
@@ -136,7 +137,7 @@ def test_subquery():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("select * from (select area, rain from forest_fires) rain_area")
-    pandas_frame = forest_Fires[['area', 'rain']].copy()
+    pandas_frame = FOREST_FIRES[['area', 'rain']].copy()
     assert pandas_frame.equals(my_frame)
 
 
@@ -281,7 +282,7 @@ def test_group_by():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("""select month, day from forest_fires group by month, day""")
-    pandas_frame = forest_Fires.groupby(["month", "day"]).size().to_frame('size').reset_index().drop(columns=['size'])
+    pandas_frame = FOREST_FIRES.groupby(["month", "day"]).size().to_frame('size').reset_index().drop(columns=['size'])
     assert pandas_frame.equals(my_frame)
 
 
@@ -291,7 +292,7 @@ def test_avg():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("select avg(temp) from forest_fires")
-    pandas_frame = forest_Fires.agg({'temp': np.mean}).to_frame('mean_temp').reset_index().drop(columns=['index'])
+    pandas_frame = FOREST_FIRES.agg({'temp': np.mean}).to_frame('mean_temp').reset_index().drop(columns=['index'])
     assert pandas_frame.equals(my_frame)
 
 def test_sum():
@@ -300,7 +301,7 @@ def test_sum():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("select sum(temp) from forest_fires")
-    pandas_frame = forest_Fires.agg({'temp': np.sum}).to_frame('sum_temp').reset_index().drop(columns=['index'])
+    pandas_frame = FOREST_FIRES.agg({'temp': np.sum}).to_frame('sum_temp').reset_index().drop(columns=['index'])
     assert pandas_frame.equals(my_frame)
 
 
@@ -310,7 +311,7 @@ def test_max():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("select max(temp) from forest_fires")
-    pandas_frame = forest_Fires.agg({'temp': np.max}).to_frame('max_temp').reset_index().drop(columns=['index'])
+    pandas_frame = FOREST_FIRES.agg({'temp': np.max}).to_frame('max_temp').reset_index().drop(columns=['index'])
     assert pandas_frame.equals(my_frame)
 
 def test_min():
@@ -319,7 +320,7 @@ def test_min():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("select min(temp) from forest_fires")
-    pandas_frame = forest_Fires.agg({'temp': np.min}).to_frame('min_temp').reset_index().drop(columns=['index'])
+    pandas_frame = FOREST_FIRES.agg({'temp': np.min}).to_frame('min_temp').reset_index().drop(columns=['index'])
     assert pandas_frame.equals(my_frame)
 
 def test_multiple_aggs():
@@ -328,10 +329,10 @@ def test_multiple_aggs():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("select min(temp), max(temp), avg(temp), max(wind) from forest_fires")
-    pandas_frame = forest_Fires.copy()
-    pandas_frame['min_temp'] = forest_Fires.temp.copy()
-    pandas_frame['max_temp'] = forest_Fires.temp.copy()
-    pandas_frame['mean_temp'] = forest_Fires.temp.copy()
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame['min_temp'] = FOREST_FIRES.temp.copy()
+    pandas_frame['max_temp'] = FOREST_FIRES.temp.copy()
+    pandas_frame['mean_temp'] = FOREST_FIRES.temp.copy()
     pandas_frame = pandas_frame.agg({'min_temp': np.min, 'max_temp': np.max, 'mean_temp': np.mean, 'wind': np.max})
     pandas_frame.rename({'wind': 'max_wind'}, inplace=True)
     pandas_frame = pandas_frame.to_frame().transpose()
@@ -363,4 +364,4 @@ def test_having():
 
 
 if __name__ == "__main__":
-    test_where_clause()
+    test_subquery()
