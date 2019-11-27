@@ -230,16 +230,68 @@ class Subquery:
     def __repr__(self):
         return f"Subquery(name={self.name}, query_info={self.query_info})"
 
-# pylint: disable=no-self-use
-class InternalTransformer(Transformer):
+
+class TransformerBaseClass(Transformer):
+    """
+    Base class for transformers
+    """
+    def __init__(self, dataframe_name_map=None, dataframe_map=None, column_name_map=None, column_to_dataframe_name=None,
+                 _temp_dataframes_dict=None):
+        super(TransformerBaseClass, self).__init__(visit_tokens=False)
+        self.dataframe_name_map = dataframe_name_map
+        self.dataframe_map = dataframe_map
+        self.column_name_map = column_name_map
+        self.column_to_dataframe_name = column_to_dataframe_name
+        self._temp_dataframes_dict = _temp_dataframes_dict
+
+    def get_frame(self, frame_name) -> DataFrame:
+        """
+        Returns the dataframe with the name given
+        :param frame_name:
+        :return:
+        """
+        if isinstance(frame_name, Token):
+            frame_name = frame_name.value
+        if isinstance(frame_name, Subquery):
+            return self._temp_dataframes_dict[frame_name.name]
+        return self.dataframe_map[frame_name]
+
+    def set_column_value(self, column: Column):
+        """
+        Sets the column value based on what it is in the dataframe
+        :param column:
+        :return:
+        """
+        if column.name != "*":
+            dataframe_name = self.column_to_dataframe_name.get(column.name.lower())
+            if isinstance(dataframe_name, AmbiguousColumn):
+                raise Exception(f"Ambiguous column reference: {column.name}")
+            dataframe = self.get_frame(dataframe_name)
+            column_true_name = self.column_name_map[dataframe_name][column.name.lower()]
+            column.value = dataframe[column_true_name]
+            column.table = dataframe_name
+
+    def column_name(self, name_list_format: List[str]):
+        """
+        Returns a column token with the name extracted
+        :param name_list_format: List formatted name
+        :return: Tree with column token
+        """
+        name = "".join(name_list_format)
+        column = Column(name="".join(name))
+        self.set_column_value(column)
+        return column
+
+
+# pylint: disable=no-self-use, too-many-public-methods
+class InternalTransformer(TransformerBaseClass):
     """
     Evaluates subtrees with knowledge of provided tables that are in the proper scope
     """
     def __init__(self, tables, dataframe_map, column_name_map, column_to_dataframe_name):
+        super(InternalTransformer, self).__init__(dataframe_map=dataframe_map, column_name_map=column_name_map)
         self.tables = tables
-        self.dataframe_map = dataframe_map
-        self.column_name_map = column_name_map
-        self.column_to_dataframe_name = {column:column_to_dataframe_name[column] for column in column_to_dataframe_name
+        self.column_to_dataframe_name = {column: column_to_dataframe_name[column] for column in column_to_dataframe_name
                                          if column_to_dataframe_name[column] in self.tables}
 
     def mul(self, args):
@@ -371,50 +423,16 @@ class InternalTransformer(Transformer):
         return Token("where_expr", truth_value_dataframe[0])
 
     def function_name(self, function_name):
+        """
+        Returns the function name tree
+        :param function_name:
+        :return:
+        """
         function_name = function_name[0].lower()
         true_function_name = FUNCTION_MAPPING.get(function_name)
         if true_function_name:
             return Tree("aggregate", true_function_name)
-        else:
-            return Tree("function", function_name)
-
-    def get_frame(self, frame_name) -> DataFrame:
-        """
-        Returns the dataframe with the name given
-        :param frame_name:
-        :return:
-        """
-        if isinstance(frame_name, Token):
-            frame_name = frame_name.value
-        if isinstance(frame_name, Subquery):
-            return self._temp_dataframes_dict[frame_name.name]
-        return self.dataframe_map[frame_name]
-
-    def set_column_value(self, column: Column):
-        """
-        Sets the column value based on what it is in the dataframe
-        :param column:
-        :param dataframe_names:
-        :return:
-        """
-        if column.name != "*":
-            dataframe_name = self.column_to_dataframe_name[column.name.lower()]
-            if isinstance(dataframe_name, AmbiguousColumn):
-                raise Exception(f"Ambiguous column reference: {column.name}")
-            dataframe = self.get_frame(dataframe_name)
-            column_true_name = self.column_name_map[dataframe_name][column.name.lower()]
-            column.value = dataframe[column_true_name]
-            column.table = dataframe_name
-
-    def column_name(self, name: str):
-        """
-        Returns a column token with the name extracted
-        :param names: Name of column
-        :return: Tree with column token
-        """
-        column = Column(name="".join(name))
-        self.set_column_value(column)
-        return column
+        return Tree("function", function_name)
 
     def alias_string(self, name: str):
         """
@@ -425,18 +443,22 @@ class InternalTransformer(Transformer):
         return Tree("alias", str(name[0]))
 
     def from_expression(self, expression):
+        """
+        Return a from expression token
+        :param expression:
+        :return: Token from expression
+        """
         expression = expression[0]
         if isinstance(expression, Subquery):
             value = expression
         else:
             value = expression.value
-        return Token("from_expression", expression)
+        return Token("from_expression", value)
 
     def select_expression(self, expression_and_alias):
         """
         Returns the appropriate object for the given expression
-        :param expression: An expression token
-        :param alias: A token containing the name to be assigned to the expression
+        :param expression_and_alias: An expression token and A token containing the name to be assigned
         :return:
         """
         expression = expression_and_alias[0]
@@ -455,9 +477,19 @@ class InternalTransformer(Transformer):
         return expression
 
     def join(self, *args):
+        """
+        Extracts the join expression
+        :param args: Arguments that are passed to the join
+        :return: join expression
+        """
         return args[0]
 
     def group_by(self, column):
+        """
+        Returns a group token
+        :param column: Column to group by
+        :return: group token
+        """
         column = column[0]
         return Token("group", str(column.name))
 
@@ -473,21 +505,19 @@ class InternalTransformer(Transformer):
         column.typename = typename.value
         return column
 
+
 # pylint: disable=no-self-use
-class HavingTransformer(Transformer):
+class HavingTransformer(TransformerBaseClass):
     """
     Transformer for having clauses since group by needs to be applied first
     """
 
-    def __init__(self, tables, group_by, dataframe_name_map, dataframe_map, column_name_map, temp_dataframes_dict,
-                 column_to_dataframe_name):
+    # pylint: disable=too-many-arguments
+    def __init__(self, tables, group_by, dataframe_map, column_name_map, column_to_dataframe_name):
         self.tables = tables
         self.group_by = group_by
-        self.dataframe_name_map = dataframe_name_map
-        self.dataframe_map = dataframe_map
-        self.column_name_map = column_name_map
-        self._temp_dataframes_dict = temp_dataframes_dict
-        self.column_to_dataframe_name = column_to_dataframe_name
+        super(HavingTransformer, self).__init__(dataframe_map=dataframe_map, column_name_map=column_name_map,
+                                                column_to_dataframe_name=column_to_dataframe_name)
 
     def aggregate(self, function_name_list_form):
         """
@@ -496,17 +526,6 @@ class HavingTransformer(Transformer):
         :return:
         """
         return "".join(function_name_list_form)
-
-    def column_name(self, name_list_format: List[str]):
-        """
-        Returns a column token with the name extracted
-        :param names: Name of column
-        :return: Tree with column token
-        """
-        name = "".join(name_list_format)
-        column = Column(name="".join(name))
-        self.set_column_value(column)
-        return column
 
     def function_name(self, tokens):
         """
@@ -527,50 +546,22 @@ class HavingTransformer(Transformer):
             new_series = table.aggregate(aggregates).to_frame().transpose()
         return new_series[column.name]
 
-    def get_frame(self, frame_name) -> DataFrame:
-        """
-        Returns the dataframe with the name given
-        :param frame_name:
-        :return:
-        """
-        if isinstance(frame_name, Subquery):
-            return self._temp_dataframes_dict[frame_name.name]
-        return self.dataframe_map[frame_name]
-
-    def set_column_value(self, column: Column):
-        """
-        Sets the column value based on what it is in the dataframe
-        :param column:
-        :param dataframe_names:
-        :return:
-        """
-        if column.name != "*":
-            dataframe_name = self.column_to_dataframe_name[column.name.lower()]
-            if isinstance(dataframe_name, AmbiguousColumn):
-                raise Exception(f"Ambiguous column reference: {column.name}")
-            dataframe = self.get_frame(dataframe_name)
-            column.value = dataframe[column.name]
-            column.table = dataframe_name
-
     def having_expr(self, having_expr):
         internal_transformer = InternalTransformer(self.tables, self.dataframe_map, self.column_name_map,
                                                    self.column_to_dataframe_name)
         having_expr = Tree("having_expr", having_expr)
         return internal_transformer.transform(having_expr)
 
+
 # pylint: disable=no-self-use, super-init-not-called
 @v_args(inline=True)
-class SQLTransformer(Transformer):
+class SQLTransformer(TransformerBaseClass):
     """
     Transformer for the lark sql parser
     """
     def __init__(self, env):
-        # These are mostly dictionaries meant for optimization of name retrieval
-        self.dataframe_name_map = {}
-        self.dataframe_map = {}
-        self.column_name_map = {}
-        self.column_to_dataframe_name = {}
-        self._temp_dataframes_dict = {}
+        super(SQLTransformer, self).__init__(dataframe_name_map={}, dataframe_map={}, column_name_map={},
+                                             column_to_dataframe_name={}, _temp_dataframes_dict={})
         for key in env:
             if isinstance(env[key], DataFrame):
                 dataframe = env[key]
@@ -580,13 +571,22 @@ class SQLTransformer(Transformer):
                 for column in dataframe.columns:
                     lower_column = column.lower()
                     self.column_name_map[key][lower_column] = column
-                    if self.column_to_dataframe_name.get(lower_column) is None:
-                        self.column_to_dataframe_name[lower_column] = key
-                    elif isinstance(self.column_to_dataframe_name[lower_column], AmbiguousColumn):
-                        self.column_to_dataframe_name[lower_column].tables.append(key)
-                    else:
-                        original_table = self.column_to_dataframe_name[lower_column]
-                        self.column_to_dataframe_name[lower_column] = AmbiguousColumn([original_table, key])
+                    self.add_column_to_column_to_dataframe_name_map(lower_column, key)
+
+    def add_column_to_column_to_dataframe_name_map(self, column, table):
+        """
+        Adds a column to the column_to_dataframe_name_map
+        :param column:
+        :param table:
+        :return:
+        """
+        if self.column_to_dataframe_name.get(column) is None:
+            self.column_to_dataframe_name[column] = table
+        elif isinstance(self.column_to_dataframe_name[column], AmbiguousColumn):
+            self.column_to_dataframe_name[column].tables.append(table)
+        else:
+            original_table = self.column_to_dataframe_name[column]
+            self.column_to_dataframe_name[column] = AmbiguousColumn([original_table, table])
 
     def table(self, table_name, alias=''):
         """
@@ -622,7 +622,7 @@ class SQLTransformer(Transformer):
             asc_desc = 'asc'
         else:
             asc_desc = ORDER_TYPES_MAPPING[asc_desc]
-        asc_desc = True if asc_desc == 'asc' else False
+        asc_desc = asc_desc == 'asc'
         return Token("order_by", (column.children, asc_desc))
 
     def integer(self, integer_token):
@@ -659,7 +659,12 @@ class SQLTransformer(Transformer):
     def subquery(self, query_info, alias):
         alias_name = alias.children[0].value
         self._temp_dataframes_dict[alias_name] = self.to_dataframe(query_info)
-        return Subquery(name=alias_name, query_info=query_info)
+        subquery = Subquery(name=alias_name, query_info=query_info)
+        for column in self._temp_dataframes_dict[alias_name].columns:
+            self.add_column_to_column_to_dataframe_name_map(column, alias_name)
+        # TODO Fix nested subqueries
+        print(self.column_to_dataframe_name)
+        return subquery
 
     def column_name(self, *names):
         full_name = ".".join([str(name) for name in names])
@@ -697,25 +702,20 @@ class SQLTransformer(Transformer):
         if column_table:
             if column_table == left_table and column in left_columns:
                 return "left", column
-            elif column_table == right_table and column in right_columns:
+            if column_table == right_table and column in right_columns:
                 return "right", column
             raise Exception("Table specified in join columns not present in join")
-        else:
-            if column in left_columns and column in right_columns:
-                raise Exception(f"Ambiguous column: {column}\nSpecify table name with table_name.{column}")
-            elif column in left_columns:
-                return "left", column
-            elif column in right_columns:
-                return "right", column
-            raise Exception("Column does not exist in either table")
+        if column in left_columns and column in right_columns:
+            raise Exception(f"Ambiguous column: {column}\nSpecify table name with table_name.{column}")
+        if column in left_columns:
+            return "left", column
+        if column in right_columns:
+            return "right", column
+        raise Exception("Column does not exist in either table")
 
     def join_expression(self, *args):
         """
         Evaluate a join into one dataframe using a merge method
-        :param table1: The first dataframe
-        :param join_type: The type of join ex: inner, outer, right, left
-        :param table2:
-        :param join_condition:
         :return:
         """
         # There will only ever be four args if a join is specified and three if a join isn't specified
@@ -734,12 +734,9 @@ class SQLTransformer(Transformer):
                 join_type = match.group("type")
             if join_type in ("full", "cross"):
                 join_type = "outer"
-        frame1: DataFrame = self.get_frame(table1)
-        frame2: DataFrame = self.get_frame(table2)
 
         # Check that there is a column from both sides
-        boolean_expression = join_condition.children[0]
-        column_comparison = boolean_expression.children
+        column_comparison = join_condition.children[0].children
         column1 = str(column_comparison[0].children)
         column2 = str(column_comparison[1].children)
 
@@ -757,19 +754,10 @@ class SQLTransformer(Transformer):
             right_on = column1
 
         dictionary_name = f"{table1}x{table2}"
-        self._temp_dataframes_dict[dictionary_name] = frame1.merge(right=frame2, how=join_type,
-                                                                   left_on=left_on, right_on=right_on)
+        self._temp_dataframes_dict[dictionary_name] = self.get_frame(table1).merge(right=self.get_frame(table2),
+                                                                                   how=join_type, left_on=left_on,
+                                                                                   right_on=right_on)
         return Subquery(dictionary_name, query_info="")
-
-    def get_frame(self, frame_name) -> DataFrame:
-        """
-        Returns the dataframe with the name given
-        :param frame_name:
-        :return:
-        """
-        if isinstance(frame_name, Subquery):
-            return self._temp_dataframes_dict[frame_name.name]
-        return self.dataframe_map[frame_name]
 
     @staticmethod
     def has_star(column_list: List[str]):
@@ -806,16 +794,13 @@ class SQLTransformer(Transformer):
 
         internal_transformer = InternalTransformer(tables, self.dataframe_map, self.column_name_map,
                                                    self.column_to_dataframe_name)
-        tree = Tree("select", select_expressions_no_having)
-        new_tree = internal_transformer.transform(tree)
-        select_expressions = new_tree.children
+        select_expressions = internal_transformer.transform(Tree("select", select_expressions_no_having)).children
 
         distinct = False
         if isinstance(select_expressions[0], Token):
-            select_constraint_token = select_expressions[0]
-            select_expressions = select_expressions[1:]
-            if str(select_constraint_token) == "distinct":
+            if str(select_expressions[0]) == "distinct":
                 distinct = True
+            select_expressions = select_expressions[1:]
 
         columns = []
         expressions = []
@@ -862,10 +847,8 @@ class SQLTransformer(Transformer):
                     numbers.append(token)
 
         if having_expr is not None:
-            having_transformer = HavingTransformer(tables, group_columns, self.dataframe_name_map, self.dataframe_map,
-                                                   self.column_name_map, self._temp_dataframes_dict,
-                                                   self.column_to_dataframe_name)
-            having_expr = having_transformer.transform(having_expr).children[0]
+            having_expr = HavingTransformer(tables, group_columns, self.dataframe_map, self.column_name_map,
+                                            self.column_to_dataframe_name).transform(having_expr).children[0]
 
         return {"columns": columns, "expressions": expressions, "dataframes": frame_names, "name_order": name_order,
                 "all_names": all_names, "conversions": conversions, "distinct": distinct, "aggregates": aggregates,
@@ -956,6 +939,7 @@ class SQLTransformer(Transformer):
             new_frame = new_frame.head(limit)
 
         return new_frame
+
 
 class SqlToPandas:
     """

@@ -443,7 +443,7 @@ def test_operations_between_columns_and_numbers():
     assert pandas_frame.equals(my_frame)
 
 
-def select_star_from_multiple_tables():
+def test_select_star_from_multiple_tables():
     """
     Test selecting from two different tables
     :return:
@@ -457,7 +457,7 @@ def select_star_from_multiple_tables():
     assert pandas_frame.equals(my_frame)
 
 
-def select_columns_from_two_tables_with_same_column_name():
+def test_select_columns_from_two_tables_with_same_column_name():
     """
     Test selecting tables
     :return:
@@ -471,5 +471,16 @@ def select_columns_from_two_tables_with_same_column_name():
     assert pandas_frame.equals(my_frame)
 
 
+# def test_nested_subquery():
+#     """
+#     Test nested subqueries
+#     :return:
+#     """
+#     my_frame = sql_to_pandas_with_vars(
+#         """select * from
+#             (select wind, rh from
+#               (select * from forest_fires) fires) wind_rh""")
+
+
 if __name__ == "__main__":
-    select_columns_from_two_tables_with_same_column_name()
+    test_nested_subquery()
