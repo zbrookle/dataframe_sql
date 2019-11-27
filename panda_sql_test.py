@@ -3,15 +3,17 @@ Test cases for panda to sql
 """
 # pylint: disable=broad-except
 import numpy as np
-from pandas import read_csv
+from pandas import read_csv, merge
 from sql_to_pandas import SqlToPandas
 from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
 
 FOREST_FIRES = read_csv('~/PycharmProjects/sql_to_pandas/data/forestfires.csv') # Name is weird intentionally
 
-digimon_mon_list = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_digimonlist.csv')
-digimon_move_list = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_movelist.csv')
-digimon_support_list = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_supportlist.csv')
+DIGIMON_MON_LIST = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_digimonlist.csv')
+DIGIMON_MOVE_LIST = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_movelist.csv')
+DIGIMON_SUPPORT_LIST = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_supportlist.csv')
+DIGIMON_MON_LIST['mon_attribute'] = DIGIMON_MON_LIST['Attribute']
+DIGIMON_MOVE_LIST['move_attribute'] = DIGIMON_MOVE_LIST['Attribute']
 
 
 def lower_case_globals():
@@ -87,12 +89,12 @@ def test_type_conversion():
     Tests sql as statements
     :return:
     """
-    myframe = sql_to_pandas_with_vars("""select cast(temp as int64),cast(RH as float64) my_rh,wind,rain,area , 
+    my_frame = sql_to_pandas_with_vars("""select cast(temp as int64),cast(RH as float64) my_rh, wind, rain, area,
     cast(2 as int64) my_num from forest_fires""")
     fire_frame = FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'RH': 'my_rh'})
     fire_frame["my_num"] = 2
     pandas_frame = fire_frame.astype({'temp': 'int64', 'my_rh': 'float64', 'my_num': 'int64'})
-    assert pandas_frame.equals(myframe)
+    assert pandas_frame.equals(my_frame)
 
 
 def test_for_non_existent_table():
@@ -101,7 +103,7 @@ def test_for_non_existent_table():
     :return:
     """
     try:
-        sql_to_pandas_with_vars("select * from a_table_thats_not_here")
+        sql_to_pandas_with_vars("select * from a_table_that_is_not_here")
     except Exception as err:
         assert isinstance(err, DataFrameDoesNotExist)
 
@@ -150,9 +152,26 @@ def test_join_no_inner():
         """select * from digimon_mon_list join
             digimon_move_list
             on digimon_mon_list.attribute = digimon_move_list.attribute""")
-    pandas_frame1 = digimon_mon_list
-    pandas_frame2 = digimon_move_list
+    pandas_frame1 = DIGIMON_MON_LIST
+    pandas_frame2 = DIGIMON_MOVE_LIST
     merged_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
+    assert merged_frame.equals(my_frame)
+
+
+def test_join_wo_specifying_table():
+    """
+    Test join where table isn't specified in join
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars(
+        """
+        select * from digimon_mon_list join
+        digimon_move_list
+        on mon_attribute = move_attribute
+        """)
+    pandas_frame1 = DIGIMON_MON_LIST
+    pandas_frame2 = DIGIMON_MOVE_LIST
+    merged_frame = pandas_frame1.merge(pandas_frame2, left_on="mon_attribute", right_on="move_attribute")
     assert merged_frame.equals(my_frame)
 
 
@@ -165,8 +184,8 @@ def test_join_w_inner():
         """select * from digimon_mon_list inner join
             digimon_move_list
             on digimon_mon_list.attribute = digimon_move_list.attribute""")
-    pandas_frame1 = digimon_mon_list
-    pandas_frame2 = digimon_move_list
+    pandas_frame1 = DIGIMON_MON_LIST
+    pandas_frame2 = DIGIMON_MOVE_LIST
     merged_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
     assert merged_frame.equals(my_frame)
 
@@ -180,8 +199,8 @@ def test_outer_join_no_outer():
         """select * from digimon_mon_list full outer join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""")
-    pandas_frame1 = digimon_mon_list
-    pandas_frame2 = digimon_move_list
+    pandas_frame1 = DIGIMON_MON_LIST
+    pandas_frame2 = DIGIMON_MOVE_LIST
     merged_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
     assert merged_frame.equals(my_frame)
 
@@ -195,8 +214,8 @@ def test_outer_join_w_outer():
         """select * from digimon_mon_list full join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""")
-    pandas_frame1 = digimon_mon_list
-    pandas_frame2 = digimon_move_list
+    pandas_frame1 = DIGIMON_MON_LIST
+    pandas_frame2 = DIGIMON_MOVE_LIST
     merged_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
     assert merged_frame.equals(my_frame)
 
@@ -210,8 +229,8 @@ def test_left_joins():
         """select * from digimon_mon_list left join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""")
-    pandas_frame1 = digimon_mon_list
-    pandas_frame2 = digimon_move_list
+    pandas_frame1 = DIGIMON_MON_LIST
+    pandas_frame2 = DIGIMON_MOVE_LIST
     merged_frame = pandas_frame1.merge(pandas_frame2, how="left", on="Type")
     assert merged_frame.equals(my_frame)
 
@@ -225,8 +244,8 @@ def test_left_outer_joins():
         """select * from digimon_mon_list left outer join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""")
-    pandas_frame1 = digimon_mon_list
-    pandas_frame2 = digimon_move_list
+    pandas_frame1 = DIGIMON_MON_LIST
+    pandas_frame2 = DIGIMON_MOVE_LIST
     merged_frame = pandas_frame1.merge(pandas_frame2, how="left", on="Type")
     assert merged_frame.equals(my_frame)
 
@@ -240,8 +259,8 @@ def test_right_joins():
         """select * from digimon_mon_list right join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""")
-    pandas_frame1 = digimon_mon_list
-    pandas_frame2 = digimon_move_list
+    pandas_frame1 = DIGIMON_MON_LIST
+    pandas_frame2 = DIGIMON_MOVE_LIST
     merged_frame = pandas_frame1.merge(pandas_frame2, how="right", on="Type")
     assert merged_frame.equals(my_frame)
 
@@ -255,8 +274,8 @@ def test_right_outer_joins():
         """select * from digimon_mon_list right outer join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""")
-    pandas_frame1 = digimon_mon_list
-    pandas_frame2 = digimon_move_list
+    pandas_frame1 = DIGIMON_MON_LIST
+    pandas_frame2 = DIGIMON_MOVE_LIST
     merged_frame = pandas_frame1.merge(pandas_frame2, how="right", on="Type")
     assert merged_frame.equals(my_frame)
 
@@ -270,8 +289,8 @@ def test_cross_joins():
         """select * from digimon_mon_list cross join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""")
-    pandas_frame1 = digimon_mon_list
-    pandas_frame2 = digimon_move_list
+    pandas_frame1 = DIGIMON_MON_LIST
+    pandas_frame2 = DIGIMON_MOVE_LIST
     merged_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
     assert merged_frame.equals(my_frame)
 
@@ -345,6 +364,12 @@ def test_agg_w_groupby():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("select day, month, min(temp), max(temp) from forest_fires group by day, month")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame['min_temp'] = pandas_frame.temp
+    pandas_frame['max_temp'] = pandas_frame.temp
+    pandas_frame = pandas_frame.groupby(["day", "month"]).aggregate({'min_temp': np.min, 'max_temp': np.max})\
+        .reset_index()
+    assert pandas_frame.equals(my_frame)
 
 
 def test_where_clause():
@@ -353,6 +378,30 @@ def test_where_clause():
     :return:
     """
     my_frame = sql_to_pandas_with_vars("""select * from forest_fires where month = 'mar'""")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame = pandas_frame[pandas_frame.month == 'mar']
+    assert pandas_frame.equals(my_frame)
+
+
+def test_order_by():
+    """
+    Test order by clause
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""select * from forest_fires order by temp desc, wind asc, area""")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame.sort_values(by=['temp', 'wind', 'area'], ascending=[0, 1, 1], inplace=True)
+    assert pandas_frame.equals(my_frame)
+
+
+def test_limit():
+    """
+    Test limit clause
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""select * from forest_fires limit 10""")
+    pandas_frame = FOREST_FIRES.copy().head(10)
+    assert pandas_frame.equals(my_frame)
 
 
 def test_having():
@@ -360,8 +409,67 @@ def test_having():
     Test having clause
     :return:
     """
-    sql_to_pandas_with_vars("select min(temp) from forest_fires having max(temp) > 20")
+    my_frame = sql_to_pandas_with_vars("select min(temp) from forest_fires having min(temp) > 2")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame['min_temp'] = FOREST_FIRES['temp']
+    aggregated_df = pandas_frame.aggregate({'min_temp': 'min'}).to_frame().transpose()
+    pandas_frame = aggregated_df[aggregated_df['min_temp'] > 2]
+    assert pandas_frame.equals(my_frame)
+
+
+def test_having_with_group_by():
+    """
+    Test having clause
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("select day, min(temp) from forest_fires group by day having min(temp) > 5")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame['min_temp'] = FOREST_FIRES['temp']
+    pandas_frame = pandas_frame[['day', 'min_temp']].groupby('day').aggregate({'min_temp': np.min})
+    pandas_frame = pandas_frame[pandas_frame['min_temp'] > 5].reset_index()
+    assert pandas_frame.equals(my_frame)
+
+
+def test_operations_between_columns_and_numbers():
+    """
+    Tests operations between columns
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""select temp * wind + rain / dmc + 37 from forest_fires""")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame['temp_mul_wind_add_rain_div_dmc_add_37'] = pandas_frame['temp'] * pandas_frame['wind'] + \
+                                                            pandas_frame['rain'] / pandas_frame['DMC'] + 37
+    pandas_frame = pandas_frame['temp_mul_wind_add_rain_div_dmc_add_37'].to_frame()
+    assert pandas_frame.equals(my_frame)
+
+
+def select_star_from_multiple_tables():
+    """
+    Test selecting from two different tables
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""select * from forest_fires, digimon_mon_list""")
+    forest_fires = FOREST_FIRES.copy()
+    digimon_mon_list_new = DIGIMON_MON_LIST.copy()
+    forest_fires['_temp_id'] = 1
+    digimon_mon_list_new['_temp_id'] = 1
+    pandas_frame = merge(forest_fires, digimon_mon_list_new, on='_temp_id').drop(columns=['_temp_id'])
+    assert pandas_frame.equals(my_frame)
+
+
+def select_columns_from_two_tables_with_same_column_name():
+    """
+    Test selecting tables
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""select * from forest_fires table1, forest_fires table2""")
+    table1 = FOREST_FIRES.copy()
+    table2 = FOREST_FIRES.copy()
+    table1['_temp_id'] = 1
+    table2['_temp_id'] = 1
+    pandas_frame = merge(table1, table2, on='_temp_id').drop(columns=['_temp_id'])
+    assert pandas_frame.equals(my_frame)
 
 
 if __name__ == "__main__":
-    test_subquery()
+    select_columns_from_two_tables_with_same_column_name()

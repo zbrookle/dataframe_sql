@@ -1,27 +1,26 @@
 start: query_expr -> to_dataframe
 
-query_expr: [query_expr set_op] select [ "ORDER"i "BY"i order_by_expr ] [ "LIMIT"i count [ "OFFSET"i skip_rows ] ] -> full_query
+query_expr: [query_expr set_op] select [ "ORDER"i "BY"i (order_by_expr ",")*  order_by_expr] [ "LIMIT"i limit_count [ "OFFSET"i skip_rows ] ] -> full_query
 
-select: "SELECT"i [SELECT_CONSTRAINT] [(select_expr ",")*] select_expr [ "FROM"i [(from_expr ",")*] from_expr ] [ "WHERE"i bool_expression ] [ "GROUP"i "BY"i [(groupby_expr ",")*] groupby_expr
-        | "ROLLUP"i rollup_expr ] [ "HAVING"i bool_expression ] [ "WINDOW"i window_expr ]
+select: "SELECT"i [SELECT_CONSTRAINT] [(select_expr ",")*] select_expr "FROM"i [(from_expr ",")*] from_expr [ "WHERE"i where_expr ] [ "GROUP"i "BY"i [(groupby_expr ",")*] groupby_expr ] [ "HAVING"i having_expr] [ "WINDOW"i window_expr ]
 
-select_expr.0: expression [ [ "AS"i ] alias ] -> select_expression
+where_expr: bool_expression
+
+select_expr.0: expression_math [ [ "AS"i ] alias ] -> select_expression
 
 ?from_expr: from_item -> from_expression
 
-order_by_expr: [order_by_expr ","] expression [( "ASC"i | "DESC"i )]  -> sort_data
+order_by_expr: expression [ order ]  -> order_by_expression
 
-replace_expr: [replace_expr ","] expression [ "AS"i ] NAME
+having_expr: bool_expression
 
 groupby_expr: expression -> group_by
-
-rollup_expr: [rollup_expr ","] expression  -> roll_up
 
 window_expr: [window_expr ","] _window_name "AS"i ( window_definition )
 
 set_op: "UNION"i ( "ALL"i | "DISTINCT"i ) | "INTERSECT"i "DISTINCT"i | "EXCEPT"i "DISTINCT"i
 
-from_item: NAME [ [ "AS"i ] alias ] [ "FOR"i "SYSTEM_TIME"i "AS"i "OF"i timestamp_expression ] -> table
+from_item: NAME [ [ "AS"i ] alias ] -> table
             | join -> join
             | ( "(" query_expr ")" ) [ [ "AS"i ] alias ] -> subquery
             | with_query_name [ [ "AS"i ] alias ]
@@ -35,19 +34,23 @@ JOIN_TYPE.5: "INNER"i | "CROSS"i | /FULL\sOUTER/i | /LEFT\sOUTER/i |  /RIGHT\sOU
             | "CAST"i "(" expression "AS"i TYPENAME ")" -> as_type
             | function "(" expression ")" -> sql_function
 
-math: integer "-" integer -> sub
-    | integer "+" integer -> add
-    | integer "*" integer -> mul
-    | integer "/" integer -> div
+?expression_math: expression_product
+               | expression_math "+" expression_product -> expression_add
+               | expression_math "-" expression_product -> expression_sub
+
+column_name: [NAME "."] NAME
+?expression_product: expression
+                  | expression_product "*" expression -> expression_mul
+                  | expression_product "/" expression -> expression_div
 
 SELECT_CONSTRAINT.5: "ALL"i | "DISTINCT"i
 TYPENAME: "object"i | "int64"i | "float64"i | "bool"i | "datetime64"i | "timedelta[ns]"i | "category"i
 ?function: NAME -> function_name
 alias: NAME -> alias_string
 _window_name: NAME
-count: integer
+limit_count: integer -> limit_count
 skip_rows: integer
-bool_expression: [bool_expression ("AND"i | "OR"i)] (equals | not_equals)
+bool_expression: [bool_expression ("AND"i | "OR"i)] (equals | not_equals | greater_than | less_than)
 equals: expression "=" expression
 not_equals: expression ("<>" | "!=") expression
 greater_than: expression ">" expression
@@ -57,7 +60,6 @@ less_than: expression "<" expression
        | "'" /[^']+/ "'" -> string
 boolean: "true"i -> true
        | "false"i -> false
-// string:
 ?number_expr: product
             | number_expr "+" product -> add
             | number_expr "-" product -> sub
@@ -65,13 +67,13 @@ boolean: "true"i -> true
 ?product: NUMBER
         | product "*" NUMBER -> mul
         | product "/" NUMBER -> div
+
 integer: /[1-9][0-9]*/
 STAR: "*"
+order: NAME -> order
 window_definition:
 with_query_name:
 timestamp_expression:
-array_expression:
-array_path:
 
 %import common.CNAME -> NAME
 %import common.NUMBER
