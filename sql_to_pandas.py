@@ -2,8 +2,8 @@
 Convert sql statement to run on pandas dataframes
 """
 from lark import Lark, UnexpectedToken
-from parsers import SQLTransformer
 from sqlparse import split
+from parsers import SQLTransformer
 from sql_exception import MultipleQueriesException, InvalidQueryException
 
 SHOW_TREE = False

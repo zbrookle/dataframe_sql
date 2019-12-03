@@ -673,7 +673,6 @@ class SQLTransformer(TransformerBaseClass):
         :param args: Additional arguments aside from query info
         :return: Query info
         """
-        # TODO Add in support for set operations like union
         order_by = []
         limit = None
         for token in args:
@@ -924,6 +923,45 @@ class SQLTransformer(TransformerBaseClass):
             df2.drop(columns=[temp_key_name], inplace=True)
         return new_frame
 
+    @staticmethod
+    def handle_aggregation(aggregates, group_columns, dataframe: DataFrame):
+        """
+        Handles all aggregation operations when translating from dictionary info to dataframe
+        :param aggregates:
+        :param group_columns:
+        :return:
+        """
+        if group_columns and not aggregates:
+            dataframe = dataframe.groupby(group_columns).size().to_frame('size').reset_index().drop(columns=['size'])
+        elif aggregates and not group_columns:
+            dataframe = dataframe.aggregate(aggregates).to_frame().transpose()
+        elif aggregates and group_columns:
+            dataframe = dataframe.groupby(group_columns).aggregate(aggregates).reset_index()
+
+        return dataframe
+
+    def handle_naming(self, columns: list, aliases: dict, first_frame: DataFrame):
+        """
+        Returns frame with appropriately selected and named columns
+        :param columns:
+        :param aliases:
+        :param first_frame:
+        :return:
+        """
+        column_names = [column.name for column in columns]
+        if self.has_star(column_names):
+            new_frame: DataFrame = first_frame.copy()
+        else:
+            column_names = []
+            for column in columns:
+                true_column_name = self.column_name_map[column.table][column.name.lower()]
+                column_names.append(true_column_name)
+                if aliases.get(true_column_name) is None:
+                    aliases[true_column_name] = column.name
+            new_frame: DataFrame = first_frame[column_names].rename(columns=aliases)
+
+        return new_frame
+
     def to_dataframe(self, query_info):
         """
         Returns the dataframe resulting from the SQL query
@@ -942,17 +980,7 @@ class SQLTransformer(TransformerBaseClass):
             next_frame = self.get_frame(frame_name)
             first_frame = self.cross_join(first_frame, next_frame)
 
-        column_names = [column.name for column in query_info["columns"]]
-        if self.has_star(column_names):
-            new_frame: DataFrame = first_frame.copy()
-        else:
-            column_names = []
-            for column in query_info["columns"]:
-                true_column_name = self.column_name_map[column.table][column.name.lower()]
-                column_names.append(true_column_name)
-                if query_info["aliases"].get(true_column_name) is None:
-                    query_info["aliases"][true_column_name] = column.name
-            new_frame: DataFrame = first_frame[column_names].rename(columns=query_info["aliases"])
+        new_frame = self.handle_naming(query_info["columns"], query_info["aliases"], first_frame)
 
         # Evaluate in-line expressions
         for expression in query_info["expressions"]:
@@ -967,14 +995,7 @@ class SQLTransformer(TransformerBaseClass):
         if query_info["where_expr"] is not None:
             new_frame = new_frame[query_info["where_expr"]]
 
-        aggregates = query_info["aggregates"]
-        group_columns = query_info["group_columns"]
-        if group_columns and not aggregates:
-            new_frame = new_frame.groupby(group_columns).size().to_frame('size').reset_index().drop(columns=['size'])
-        elif aggregates and not group_columns:
-            new_frame = new_frame.aggregate(aggregates).to_frame().transpose()
-        elif aggregates and group_columns:
-            new_frame = new_frame.groupby(group_columns).aggregate(aggregates).reset_index()
+        new_frame = self.handle_aggregation(query_info["aggregates"], query_info["group_columns"], new_frame)
 
         if having_expr is not None:
             new_frame = new_frame[having_expr].reset_index(drop=True)
