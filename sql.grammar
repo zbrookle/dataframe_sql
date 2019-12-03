@@ -1,6 +1,13 @@
-start: query_expr -> to_dataframe
+start: set_expr -> final
 
-query_expr: [query_expr set_op] select [ "ORDER"i "BY"i (order_by_expr ",")*  order_by_expr] [ "LIMIT"i limit_count [ "OFFSET"i skip_rows ] ] -> full_query
+set_expr: query_expr
+        | set_expr "UNION"i ["DISTINCT"i] set_expr -> union_distinct
+        | set_expr "UNION"i "ALL"i set_expr -> union_all
+        | set_expr "INTERSECT"i ["DISTINCT"i] set_expr -> intersect_distinct
+        | set_expr "EXCEPT"i ["DISTINCT"i] set_expr -> except_distinct
+        | set_expr "EXCEPT"i "ALL"i set_expr -> except_all
+
+query_expr: select [ "ORDER"i "BY"i (order_by_expr ",")*  order_by_expr] [ "LIMIT"i limit_count [ "OFFSET"i skip_rows ] ]
 
 select: "SELECT"i [SELECT_CONSTRAINT] [(select_expr ",")*] select_expr "FROM"i [(from_expr ",")*] from_expr [ "WHERE"i where_expr ] [ "GROUP"i "BY"i [(groupby_expr ",")*] groupby_expr ] [ "HAVING"i having_expr] [ "WINDOW"i window_expr ]
 
@@ -18,7 +25,7 @@ groupby_expr: expression -> group_by
 
 window_expr: [window_expr ","] _window_name "AS"i ( window_definition )
 
-set_op: "UNION"i ( "ALL"i | "DISTINCT"i ) | "INTERSECT"i "DISTINCT"i | "EXCEPT"i "DISTINCT"i
+SET_OP: "UNION"i [ ("ALL"i | "DISTINCT"i) ] | "INTERSECT"i "DISTINCT"i | "EXCEPT"i "DISTINCT"i
 
 from_item: NAME [ [ "AS"i ] alias ] -> table
             | join -> join

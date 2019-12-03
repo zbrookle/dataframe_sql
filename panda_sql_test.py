@@ -3,7 +3,7 @@ Test cases for panda to sql
 """
 # pylint: disable=broad-except
 import numpy as np
-from pandas import read_csv, merge
+from pandas import read_csv, merge, concat
 from sql_to_pandas import SqlToPandas
 from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
 
@@ -427,6 +427,7 @@ def test_having_with_group_by():
     pandas_frame['min_temp'] = FOREST_FIRES['temp']
     pandas_frame = pandas_frame[['day', 'min_temp']].groupby('day').aggregate({'min_temp': np.min})
     pandas_frame = pandas_frame[pandas_frame['min_temp'] > 5].reset_index()
+    print(pandas_frame)
     assert pandas_frame.equals(my_frame)
 
 
@@ -471,16 +472,121 @@ def test_select_columns_from_two_tables_with_same_column_name():
     assert pandas_frame.equals(my_frame)
 
 
-# def test_nested_subquery():
-#     """
-#     Test nested subqueries
-#     :return:
-#     """
-#     my_frame = sql_to_pandas_with_vars(
-#         """select * from
-#             (select wind, rh from
-#               (select * from forest_fires) fires) wind_rh""")
+def test_maintain_case_in_query():
+    """
+    Test nested subqueries
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars(
+        """select wind, rh from forest_fires""")
+    pandas_frame = FOREST_FIRES.copy()[['wind', 'RH']].rename(columns={"RH": "rh"})
+    assert pandas_frame.equals(my_frame)
 
+
+def test_nested_subquery():
+    """
+    Test nested subqueries
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars(
+        """select * from
+            (select wind, rh from
+              (select * from forest_fires) fires) wind_rh""")
+    pandas_frame = FOREST_FIRES.copy()[['wind', 'RH']].rename(columns={"RH": "rh"})
+    assert pandas_frame.equals(my_frame)
+
+
+def test_union():
+    """
+    Test union in queries
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select * from forest_fires order by wind desc limit 5
+     union 
+    select * from forest_fires order by wind asc limit 5
+    """)
+    pandas_frame1 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(5)
+    pandas_frame2 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[True]).head(5)
+    pandas_frame = concat([pandas_frame1, pandas_frame2], ignore_index=True).drop_duplicates().reset_index(drop=True)
+    assert pandas_frame.equals(my_frame)
+
+def test_union_distinct():
+    """
+    Test union distinct in queries
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+        select * from forest_fires order by wind desc limit 5
+         union distinct
+        select * from forest_fires order by wind asc limit 5
+        """)
+    pandas_frame1 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(5)
+    pandas_frame2 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[True]).head(5)
+    pandas_frame = concat([pandas_frame1, pandas_frame2], ignore_index=True).drop_duplicates().reset_index(drop=True)
+    assert pandas_frame.equals(my_frame)
+
+def test_union_all():
+    """
+    Test union distinct in queries
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+        select * from forest_fires order by wind desc limit 5
+         union all
+        select * from forest_fires order by wind asc limit 5
+        """)
+    pandas_frame1 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(5)
+    pandas_frame2 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[True]).head(5)
+    pandas_frame = concat([pandas_frame1, pandas_frame2], ignore_index=True).reset_index(drop=True)
+    print(pandas_frame)
+    assert pandas_frame.equals(my_frame)
+
+def test_intersect_distinct():
+    """
+    Test union distinct in queries
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+            select * from forest_fires order by wind desc limit 5
+             intersect distinct
+            select * from forest_fires order by wind desc limit 3
+            """)
+    pandas_frame1 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(5)
+    pandas_frame2 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(3)
+    pandas_frame = merge(left=pandas_frame1, right=pandas_frame2, how='inner', on=list(pandas_frame1.columns))
+    assert pandas_frame.equals(my_frame)
+
+def test_except_distinct():
+    """
+    Test except distinct in queries
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+                select * from forest_fires order by wind desc limit 5
+                 except distinct
+                select * from forest_fires order by wind desc limit 3
+                """)
+    pandas_frame1 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(5)
+    pandas_frame2 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(3)
+    pandas_frame = pandas_frame1[~pandas_frame1.isin(pandas_frame2).all(axis=1)].drop_duplicates().reset_index(
+        drop=True)
+    assert pandas_frame.equals(my_frame)
+
+def test_except_all():
+    """
+    Test except distinct in queries
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+                select * from forest_fires order by wind desc limit 5
+                 except all
+                select * from forest_fires order by wind desc limit 3
+                """)
+    pandas_frame1 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(5)
+    pandas_frame2 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(3)
+    pandas_frame = pandas_frame1[~pandas_frame1.isin(pandas_frame2).all(axis=1)].reset_index(drop=True)
+    assert pandas_frame.equals(my_frame)
 
 if __name__ == "__main__":
-    test_nested_subquery()
+    test_union_all()
