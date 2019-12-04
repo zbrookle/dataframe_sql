@@ -6,7 +6,7 @@ from typing import Tuple, List
 from lark import Transformer, v_args
 from lark.lexer import Token
 from lark.tree import Tree
-from pandas import DataFrame, merge, concat
+from pandas import DataFrame, Series, merge, concat
 from sql_objects import AmbiguousColumn, Column, Subquery, Number, Expression
 from sql_exception import DataFrameDoesNotExist
 
@@ -31,6 +31,7 @@ def num_eval(arg):
         # pylint: disable=eval-used
         return eval(arg)
     return arg
+
 
 class TransformerBaseClass(Transformer):
     """
@@ -221,6 +222,23 @@ class InternalTransformer(TransformerBaseClass):
         """
         return expressions[0] < expressions[1]
 
+    def between(self, expressions):
+        """
+        Performs a less than or equal and greater than or equal
+        :param expressions:
+        :return:
+        """
+        return (expressions[0] >= expressions[1]) & (expressions[0] <= expressions[2])
+
+    def in_expr(self, expressions):
+        """
+        Evaluate in expression
+        :param expressions:
+        :return:
+        """
+        in_list = [expression.value if isinstance(expression, Number) else expression for expression in expressions[1:]]
+        return expressions[0].value.isin(in_list)
+
     def bool_expression(self, bool_expression):
         """
         Return the bool expression
@@ -228,6 +246,14 @@ class InternalTransformer(TransformerBaseClass):
         :return: boolean expression
         """
         return bool_expression[0]
+
+    def negated_bool_expression(self, bool_expression):
+        """
+        Returns a negated boolean expression
+        :param bool_expression:
+        :return:
+        """
+        print(bool_expression)
 
     def where_expr(self, truth_value_dataframe):
         """
@@ -269,6 +295,28 @@ class InternalTransformer(TransformerBaseClass):
         else:
             value = expression.value
         return Token("from_expression", value)
+
+    def when_then(self, when_then):
+        """
+        When / then expression
+        :param when_then:
+        :return:
+        """
+        return when_then[0], when_then[1]
+
+    def case_expression(self, when_expressions):
+        """
+        Handles sql case expressions
+        :param when_expressions:
+        :return:
+        """
+        new_column = when_expressions[0][0]
+        for when_expression in when_expressions:
+            if isinstance(when_expression, Tuple):
+                new_column[when_expression[0]] = when_expression[1]
+            else:
+                new_column[new_column == False] = when_expression
+        return Expression(value=new_column)
 
     def select_expression(self, expression_and_alias):
         """
@@ -376,6 +424,7 @@ class HavingTransformer(TransformerBaseClass):
                                                    self.column_to_dataframe_name)
         having_expr = Tree("having_expr", having_expr)
         return internal_transformer.transform(having_expr)
+
 
 # pylint: disable=no-self-use, super-init-not-called
 @v_args(inline=True)
@@ -505,7 +554,6 @@ class SQLTransformer(TransformerBaseClass):
 
     # pylint: disable=arguments-differ
     def column_name(self, *names):
-        print(names)
         full_name = ".".join([str(name) for name in names])
         return Tree("column_name", full_name)
 
@@ -786,7 +834,6 @@ class SQLTransformer(TransformerBaseClass):
 
         new_frame = self.handle_naming(query_info["columns"], query_info["aliases"], first_frame)
 
-        # Evaluate in-line expressions
         for expression in query_info["expressions"]:
             new_frame[expression.alias] = expression.evaluate()
 
@@ -802,11 +849,10 @@ class SQLTransformer(TransformerBaseClass):
         new_frame = self.handle_aggregation(query_info["aggregates"], query_info["group_columns"], new_frame)
 
         if having_expr is not None:
-            new_frame = new_frame[having_expr].reset_index(drop=True)
+            new_frame = new_frame[having_expr]
 
         if query_info["distinct"]:
             new_frame.drop_duplicates(keep='first', inplace=True)
-            new_frame.reset_index(inplace=True, drop=True)
 
         order_by = query_info["order_by"]
         if order_by:
@@ -824,7 +870,7 @@ class SQLTransformer(TransformerBaseClass):
         :param query_info:
         :return:
         """
-        return self.to_dataframe(query_info)
+        return self.to_dataframe(query_info).reset_index(drop=True)
 
     def union_all(self, frame1: DataFrame, frame2: DataFrame):
         """
@@ -851,7 +897,7 @@ class SQLTransformer(TransformerBaseClass):
         :param frame2: Right dataframe
         :return:
         """
-        return merge(left=frame1, right=frame2, how='inner', on=frame1.columns.to_list())
+        return merge(left=frame1, right=frame2, how='inner', on=frame1.columns.to_list()).reset_index(drop=True)
 
     def except_distinct(self, frame1: DataFrame, frame2: DataFrame):
         """

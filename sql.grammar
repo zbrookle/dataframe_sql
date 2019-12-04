@@ -36,32 +36,39 @@ join: from_item [ JOIN_TYPE ] "JOIN"i from_item [ "ON"i bool_expression ] -> joi
 
 JOIN_TYPE.5: "INNER"i | "CROSS"i | /FULL\sOUTER/i | /LEFT\sOUTER/i |  /RIGHT\sOUTER/i | "FULL"i | "LEFT"i | "RIGHT"i
 
-?expression: [NAME "."] (NAME | STAR) -> column_name
-            | literal
-            | "CAST"i "(" expression "AS"i TYPENAME ")" -> as_type
-            | function "(" expression ")" -> sql_function
-
 ?expression_math: expression_product
                | expression_math "+" expression_product -> expression_add
                | expression_math "-" expression_product -> expression_sub
+               | "CASE"i (when_then)+ "ELSE"i expression_math "END"i -> case_expression
+               | "CAST"i "(" expression_math "AS"i TYPENAME ")" -> as_type
+               | function "(" expression_math ")" -> sql_function
+
+when_then: "WHEN"i bool_expression "THEN"i expression_math
 
 column_name: [NAME "."] NAME
 ?expression_product: expression
                   | expression_product "*" expression -> expression_mul
                   | expression_product "/" expression -> expression_div
 
-SELECT_CONSTRAINT.5: "ALL"i | "DISTINCT"i
+?expression: [NAME "."] (NAME | STAR) -> column_name
+            | literal
+
+
+SELECT_CONSTRAINT.9: "ALL"i | "DISTINCT"i
 TYPENAME: "object"i | "int64"i | "float64"i | "bool"i | "datetime64"i | "timedelta[ns]"i | "category"i
 ?function: NAME -> function_name
 alias: NAME -> alias_string
 _window_name: NAME
 limit_count: integer -> limit_count
 skip_rows: integer
-bool_expression: [bool_expression ("AND"i | "OR"i)] (equals | not_equals | greater_than | less_than)
-equals: expression "=" expression
-not_equals: expression ("<>" | "!=") expression
-greater_than: expression ">" expression
-less_than: expression "<" expression
+bool_expression: "NOT"i bool_expression -> negated_bool_expression
+                | [bool_expression ("AND"i | "OR"i)] (equals | not_equals | greater_than | less_than | between | in_expr)
+equals: expression_math "=" expression_math
+not_equals: expression_math ("<>" | "!=") expression_math
+greater_than: expression_math ">" expression_math
+less_than: expression_math "<" expression_math
+between: expression_math "BETWEEN"i expression_math "AND"i expression_math
+in_expr: expression_math "IN"i "(" [expression_math ","] expression_math ")"
 ?literal: boolean -> bool
        | number_expr -> number
        | "'" /[^']+/ "'" -> string

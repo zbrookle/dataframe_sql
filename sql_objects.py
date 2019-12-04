@@ -115,6 +115,19 @@ class Number(Value):
             return self.value < other.value
         return self.value < other
 
+    def __ge__(self, other):
+        if isinstance(other, Number):
+            return self.value >= other.value
+        return self.value >= other
+
+    def __le__(self, other):
+        if isinstance(other, Number):
+            return self.value <= other.value
+        return self.value <= other
+
+    def __repr__(self):
+        return super(Number, self).__repr__() + ")"
+
 
 class Expression(Value):
     """
@@ -180,6 +193,18 @@ class Column(Value):
     def __gt__(self, other):
         other = self.get_other_value(other)
         return self.value > other
+
+    def __lt__(self, other):
+        other = self.get_other_value(other)
+        return self.value < other
+
+    def __ge__(self, other):
+        other = self.get_other_value(other)
+        return self.value >= other
+
+    def __le__(self, other):
+        other = self.get_other_value(other)
+        return self.value <= other
 
     def set_value(self, new_value: Series):
         """

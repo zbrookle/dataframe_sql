@@ -379,7 +379,7 @@ def test_where_clause():
     """
     my_frame = sql_to_pandas_with_vars("""select * from forest_fires where month = 'mar'""")
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame = pandas_frame[pandas_frame.month == 'mar']
+    pandas_frame = pandas_frame[pandas_frame.month == 'mar'].reset_index(drop=True)
     assert pandas_frame.equals(my_frame)
 
 
@@ -391,6 +391,7 @@ def test_order_by():
     my_frame = sql_to_pandas_with_vars("""select * from forest_fires order by temp desc, wind asc, area""")
     pandas_frame = FOREST_FIRES.copy()
     pandas_frame.sort_values(by=['temp', 'wind', 'area'], ascending=[0, 1, 1], inplace=True)
+    pandas_frame.reset_index(drop=True, inplace=True)
     assert pandas_frame.equals(my_frame)
 
 
@@ -511,6 +512,7 @@ def test_union():
     pandas_frame = concat([pandas_frame1, pandas_frame2], ignore_index=True).drop_duplicates().reset_index(drop=True)
     assert pandas_frame.equals(my_frame)
 
+
 def test_union_distinct():
     """
     Test union distinct in queries
@@ -525,6 +527,7 @@ def test_union_distinct():
     pandas_frame2 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[True]).head(5)
     pandas_frame = concat([pandas_frame1, pandas_frame2], ignore_index=True).drop_duplicates().reset_index(drop=True)
     assert pandas_frame.equals(my_frame)
+
 
 def test_union_all():
     """
@@ -542,6 +545,7 @@ def test_union_all():
     print(pandas_frame)
     assert pandas_frame.equals(my_frame)
 
+
 def test_intersect_distinct():
     """
     Test union distinct in queries
@@ -556,6 +560,7 @@ def test_intersect_distinct():
     pandas_frame2 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(3)
     pandas_frame = merge(left=pandas_frame1, right=pandas_frame2, how='inner', on=list(pandas_frame1.columns))
     assert pandas_frame.equals(my_frame)
+
 
 def test_except_distinct():
     """
@@ -573,6 +578,7 @@ def test_except_distinct():
         drop=True)
     assert pandas_frame.equals(my_frame)
 
+
 def test_except_all():
     """
     Test except distinct in queries
@@ -588,5 +594,92 @@ def test_except_all():
     pandas_frame = pandas_frame1[~pandas_frame1.isin(pandas_frame2).all(axis=1)].reset_index(drop=True)
     assert pandas_frame.equals(my_frame)
 
+
+def test_between_operator():
+    """
+    Test using between operator
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select * from forest_fires
+    where wind between 5 and 6
+    """)
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame = pandas_frame[(pandas_frame.wind >= 5) & (pandas_frame.wind <= 6)].reset_index(drop=True)
+    assert pandas_frame.equals(my_frame)
+
+
+def test_in_operator():
+    """
+    Test using in operator in a sql query
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select * from forest_fires where day in ('fri', 'sun')
+    """)
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame = pandas_frame[pandas_frame.day.isin(('fri', 'sun'))].reset_index(drop=True)
+    assert pandas_frame.equals(my_frame)
+
+
+def test_in_operator_expression_numerical():
+    """
+    Test using in operator in a sql query
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select * from forest_fires where X + 1 in (5, 9)
+    """)
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame = pandas_frame[(pandas_frame['X'] + 1).isin((5, 9))].reset_index(drop=True)
+    print(pandas_frame)
+    assert pandas_frame.equals(my_frame)
+
+
+def test_not_in_operator():
+    """
+    Test using in operator in a sql query
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select * from forest_fires where day not in ('fri', 'sun')
+    """)
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame = pandas_frame[~pandas_frame.day.isin(('fri', 'sun'))].reset_index(drop=True)
+    assert pandas_frame.equals(my_frame)
+
+
+def test_case_statement_w_name():
+    """
+    Test using case statements
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+        select case when wind > 5 then 'strong' when wind = 5 then 'mid' else 'weak' end as wind_strength from forest_fires
+        """)
+    pandas_frame = FOREST_FIRES.copy()[['wind']]
+    pandas_frame.loc[pandas_frame.wind > 5, 'wind_strength'] = 'strong'
+    pandas_frame.loc[pandas_frame.wind == 5, 'wind_strength'] = 'mid'
+    pandas_frame.loc[~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), 'wind_strength'] = 'weak'
+    pandas_frame.drop(columns=['wind'], inplace=True)
+    assert pandas_frame.equals(my_frame)
+
+
+def test_case_statement_w_no_name():
+    """
+    Test using case statements
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+        select case when wind > 5 then 'strong' when wind = 5 then 'mid' else 'weak' end from forest_fires
+        """)
+    pandas_frame = FOREST_FIRES.copy()[['wind']]
+    pandas_frame.loc[pandas_frame.wind > 5, 'wind_strength'] = 'strong'
+    pandas_frame.loc[pandas_frame.wind == 5, 'wind_strength'] = 'mid'
+    pandas_frame.loc[~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), 'wind_strength'] = 'weak'
+    pandas_frame.drop(columns=['wind'], inplace=True)
+    assert pandas_frame.equals(my_frame)
+
+
 if __name__ == "__main__":
-    test_union_all()
+    test_in_operator_expression_numerical()
