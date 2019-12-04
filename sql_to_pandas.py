@@ -6,7 +6,7 @@ from sqlparse import split
 from parsers import SQLTransformer
 from sql_exception import MultipleQueriesException, InvalidQueryException
 
-SHOW_TREE = True
+SHOW_TREE = False
 with open(file="sql.grammar") as sql_grammar_file:
     GRAMMAR_TEXT = sql_grammar_file.read()
 

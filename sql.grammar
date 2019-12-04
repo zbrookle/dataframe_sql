@@ -61,14 +61,14 @@ alias: NAME -> alias_string
 _window_name: NAME
 limit_count: integer -> limit_count
 skip_rows: integer
-bool_expression: "NOT"i bool_expression -> negated_bool_expression
-                | [bool_expression ("AND"i | "OR"i)] (equals | not_equals | greater_than | less_than | between | in_expr)
+bool_expression: [bool_expression ("AND"i | "OR"i)] (equals | not_equals | greater_than | less_than | between | in_expr | not_in_expr)
 equals: expression_math "=" expression_math
 not_equals: expression_math ("<>" | "!=") expression_math
 greater_than: expression_math ">" expression_math
 less_than: expression_math "<" expression_math
 between: expression_math "BETWEEN"i expression_math "AND"i expression_math
 in_expr: expression_math "IN"i "(" [expression_math ","] expression_math ")"
+not_in_expr: expression_math "NOT"i "IN"i "(" [expression_math ","] expression_math ")"
 ?literal: boolean -> bool
        | number_expr -> number
        | "'" /[^']+/ "'" -> string

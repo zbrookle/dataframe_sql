@@ -239,6 +239,14 @@ class InternalTransformer(TransformerBaseClass):
         in_list = [expression.value if isinstance(expression, Number) else expression for expression in expressions[1:]]
         return expressions[0].value.isin(in_list)
 
+    def not_in_expr(self, expressions):
+        """
+        Negate in expr
+        :param expressions:
+        :return:
+        """
+        return ~self.in_expr(expressions)
+
     def bool_expression(self, bool_expression):
         """
         Return the bool expression

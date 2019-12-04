@@ -682,4 +682,4 @@ def test_case_statement_w_no_name():
 
 
 if __name__ == "__main__":
-    test_in_operator_expression_numerical()
+    test_not_in_operator()
