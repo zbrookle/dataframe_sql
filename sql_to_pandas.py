@@ -7,6 +7,7 @@ from parsers import SQLTransformer
 from sql_exception import MultipleQueriesException, InvalidQueryException
 
 SHOW_TREE = False
+SHOW_DF = False
 with open(file="sql.grammar") as sql_grammar_file:
     GRAMMAR_TEXT = sql_grammar_file.read()
 
@@ -27,9 +28,9 @@ class SqlToPandas:
         if SHOW_TREE:
             print(self.ast)
             print(self.ast.pretty())
-        else:
+        if SHOW_DF:
             print(self.ast)
-            self.data_frame = self.ast
+        self.data_frame = self.ast
 
     def verify_sql(self):
         """
@@ -48,8 +49,7 @@ class SqlToPandas:
         try:
             return self.parser.parse(self.sql)
         except UnexpectedToken as err:
-            message = f"Invalid query!\n" \
-                      f"Expected one of the following input(s): {err.expected}\n" \
+            message = f"Expected one of the following input(s): {err.expected}\n" \
                       f"Unexpected input at line {err.line}, column {err.column}\n" \
                       f"{err.get_context(self.sql)}"
             raise InvalidQueryException(message)

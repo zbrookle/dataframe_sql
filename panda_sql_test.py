@@ -116,7 +116,6 @@ def test_using_math():
     my_frame = sql_to_pandas_with_vars("select temp, 1 + 2 * 3 as my_number from forest_fires")
     pandas_frame = FOREST_FIRES[['temp']].copy()
     pandas_frame['my_number'] = 1 + 2 * 3
-    print(pandas_frame)
     assert pandas_frame.equals(my_frame)
 
 
@@ -428,7 +427,6 @@ def test_having_with_group_by():
     pandas_frame['min_temp'] = FOREST_FIRES['temp']
     pandas_frame = pandas_frame[['day', 'min_temp']].groupby('day').aggregate({'min_temp': np.min})
     pandas_frame = pandas_frame[pandas_frame['min_temp'] > 5].reset_index()
-    print(pandas_frame)
     assert pandas_frame.equals(my_frame)
 
 
@@ -542,7 +540,6 @@ def test_union_all():
     pandas_frame1 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[False]).head(5)
     pandas_frame2 = FOREST_FIRES.copy().sort_values(by=['wind'], ascending=[True]).head(5)
     pandas_frame = concat([pandas_frame1, pandas_frame2], ignore_index=True).reset_index(drop=True)
-    print(pandas_frame)
     assert pandas_frame.equals(my_frame)
 
 
@@ -632,7 +629,6 @@ def test_in_operator_expression_numerical():
     """)
     pandas_frame = FOREST_FIRES.copy()
     pandas_frame = pandas_frame[(pandas_frame['X'] + 1).isin((5, 9))].reset_index(drop=True)
-    print(pandas_frame)
     assert pandas_frame.equals(my_frame)
 
 
@@ -674,12 +670,110 @@ def test_case_statement_w_no_name():
         select case when wind > 5 then 'strong' when wind = 5 then 'mid' else 'weak' end from forest_fires
         """)
     pandas_frame = FOREST_FIRES.copy()[['wind']]
-    pandas_frame.loc[pandas_frame.wind > 5, 'wind_strength'] = 'strong'
-    pandas_frame.loc[pandas_frame.wind == 5, 'wind_strength'] = 'mid'
-    pandas_frame.loc[~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), 'wind_strength'] = 'weak'
+    pandas_frame.loc[pandas_frame.wind > 5, '_expression0'] = 'strong'
+    pandas_frame.loc[pandas_frame.wind == 5, '_expression0'] = 'mid'
+    pandas_frame.loc[~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), '_expression0'] = 'weak'
     pandas_frame.drop(columns=['wind'], inplace=True)
     assert pandas_frame.equals(my_frame)
 
 
+def test_rank_statement_one_column():
+    """
+    Test rank statement
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select wind, rank() over(order by wind) as wind_rank from forest_fires
+    """)
+    pandas_frame = FOREST_FIRES.copy()[['wind']]
+    pandas_frame['wind_rank'] = pandas_frame.wind.rank(method='min').astype('int')
+    assert pandas_frame.equals(my_frame)
+
+
+def test_rank_statement_many_columns():
+    """
+    Test rank statement
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select wind, rain, month, rank() over(order by wind desc, rain asc, month) as rank from forest_fires
+    """)
+    pandas_frame = FOREST_FIRES.copy()[['wind', 'rain', 'month']]
+    pandas_frame.sort_values(by=['wind', 'rain', 'month'], ascending=[False, True, True], inplace=True)
+    pandas_frame.reset_index(inplace=True)
+    rank_map = {}
+    rank_counter = 1
+    rank_offset = 0
+    pandas_frame['rank'] = 0
+    rank_series = pandas_frame['rank'].copy()
+    for row_num, row in enumerate(pandas_frame.iterrows()):
+        key = "".join(map(str, list(list(row)[1])[1:4]))
+        if rank_map.get(key):
+            rank_offset += 1
+            rank = rank_map[key]
+        else:
+            rank = rank_counter + rank_offset
+            rank_map[key] = rank
+            rank_counter += 1
+        rank_series[row_num] = rank
+    pandas_frame['rank'] = rank_series
+    pandas_frame.set_index('index', inplace=True)
+    pandas_frame.sort_index(inplace=True)
+    assert pandas_frame.equals(my_frame)
+
+
+def test_dense_rank_statement_many_columns():
+    """
+    Test dense_rank statement
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select wind, rain, month, dense_rank() over(order by wind desc, rain asc, month) as rank from forest_fires
+    """)
+    pandas_frame = FOREST_FIRES.copy()[['wind', 'rain', 'month']]
+    pandas_frame.sort_values(by=['wind', 'rain', 'month'], ascending=[False, True, True], inplace=True)
+    pandas_frame.reset_index(inplace=True)
+    rank_map = {}
+    rank_counter = 1
+    pandas_frame['rank'] = 0
+    rank_series = pandas_frame['rank'].copy()
+    for row_num, row in enumerate(pandas_frame.iterrows()):
+        key = "".join(map(str, list(list(row)[1])[1:4]))
+        if rank_map.get(key):
+            rank = rank_map[key]
+        else:
+            rank = rank_counter
+            rank_map[key] = rank
+            rank_counter += 1
+        rank_series[row_num] = rank
+    pandas_frame['rank'] = rank_series
+    pandas_frame.set_index('index', inplace=True)
+    pandas_frame.sort_index(inplace=True)
+    assert pandas_frame.equals(my_frame)
+
+
+def test_rank_over_partition_by():
+    """
+    Test rank partition by statement
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select wind, rain, month, day, rank() over(partition by day order by wind desc, rain asc, month) as rank
+    from forest_fires
+    """)
+    print(my_frame.sort_values(['rank'])[my_frame.day == 'mon'])
+
+
+def test_dense_rank_over_partition_by():
+    """
+    Test rank partition by statement
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select wind, rain, month, day, dense_rank() over(partition by day order by wind desc, rain asc, month) as rank
+    from forest_fires
+    """)
+
+
 if __name__ == "__main__":
-    test_not_in_operator()
+    test_dense_rank_over_partition_by()

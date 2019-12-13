@@ -17,7 +17,7 @@ select_expr.0: expression_math [ [ "AS"i ] alias ] -> select_expression
 
 ?from_expr: from_item -> from_expression
 
-order_by_expr: expression [ order ]  -> order_by_expression
+order_by_expr: order -> order_by_expression
 
 having_expr: bool_expression
 
@@ -42,8 +42,15 @@ JOIN_TYPE.5: "INNER"i | "CROSS"i | /FULL\sOUTER/i | /LEFT\sOUTER/i |  /RIGHT\sOU
                | "CASE"i (when_then)+ "ELSE"i expression_math "END"i -> case_expression
                | "CAST"i "(" expression_math "AS"i TYPENAME ")" -> as_type
                | function "(" expression_math ")" -> sql_function
+               | "RANK"i "(" ")" rank_form -> rank_expression
+               | "DENSE_RANK"i "(" ")" rank_form -> dense_rank_expression
+
+rank_form: "OVER"i "(" ["PARTITION"i "BY"i (partition_by)+] "ORDER"i "BY"i (order ",")* order ")"
+partition_by: expression_math
 
 when_then: "WHEN"i bool_expression "THEN"i expression_math
+order: expression_math ["ASC"i] -> order_asc
+          | expression_math "DESC"i -> order_desc
 
 column_name: [NAME "."] NAME
 ?expression_product: expression
@@ -84,7 +91,6 @@ boolean: "true"i -> true
 
 integer: /[1-9][0-9]*/
 STAR: "*"
-order: NAME -> order
 window_definition:
 with_query_name:
 timestamp_expression:

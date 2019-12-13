@@ -6,11 +6,14 @@ from typing import Tuple, List
 from lark import Transformer, v_args
 from lark.lexer import Token
 from lark.tree import Tree
-from pandas import DataFrame, Series, merge, concat
+from pandas import DataFrame, merge, concat, options
 from sql_objects import AmbiguousColumn, Column, Subquery, Number, Expression
 from sql_exception import DataFrameDoesNotExist
 
+options.display.min_rows = 14
+
 DEBUG = False
+PRINT = False
 
 ORDER_TYPES = ['asc', 'desc', 'ascending', 'descending']
 ORDER_TYPES_MAPPING = {'asc':'asc', 'desc':'desc', 'ascending':'asc', 'descending':'desc'}
@@ -90,7 +93,7 @@ class TransformerBaseClass(Transformer):
         return column
 
 
-# pylint: disable=no-self-use, too-many-public-methods
+# pylint: disable=no-self-use, too-many-public-methods, too-many-instance-attributes
 class InternalTransformer(TransformerBaseClass):
     """
     Evaluates subtrees with knowledge of provided tables that are in the proper scope
@@ -109,6 +112,16 @@ class InternalTransformer(TransformerBaseClass):
                     self.column_to_dataframe_name[column] = table_name
             if table in self.tables:
                 self.column_to_dataframe_name[column] = table
+
+        # These variables need instance scope for rank instance method
+        self.partition_func_dict = {self.set_rank_regular: self.set_rank_regular_partition,
+                                    self.set_rank_dense: self.set_rank_dense_partition}
+        self.partition_rank_counter = {}
+        self.partition_rank_offset = {}
+        self.rank_counter = 1
+        self.rank_offset = 0
+        self.rank_map = {}
+        self.last_key = None
 
     def mul(self, args):
         """
@@ -261,7 +274,7 @@ class InternalTransformer(TransformerBaseClass):
         :param bool_expression:
         :return:
         """
-        print(bool_expression)
+        print("Negated bool", bool_expression)
 
     def where_expr(self, truth_value_dataframe):
         """
@@ -318,13 +331,187 @@ class InternalTransformer(TransformerBaseClass):
         :param when_expressions:
         :return:
         """
+        # TODO Possibly a problem when dealing with booleans
         new_column = when_expressions[0][0]
         for when_expression in when_expressions:
             if isinstance(when_expression, Tuple):
                 new_column[when_expression[0]] = when_expression[1]
             else:
+                # pylint: disable=singleton-comparison
                 new_column[new_column == False] = when_expression
         return Expression(value=new_column)
+
+    def rank_form(self, form):
+        """
+        Returns the rank form
+        :param form:
+        :return:
+        """
+        return form
+
+    def order_asc(self, column):
+        """
+        Return expression in asc order
+        :param expression:
+        :return:
+        """
+        column = column[0]
+        column.value = column.value.copy().sort_values(ascending=True)
+        return Token("order", (column, True))
+
+    def order_desc(self, column):
+        """
+        Return expression in asc order
+        :param expression:
+        :return:
+        """
+        column = column[0]
+        column.value = column.value.copy().sort_values(ascending=False)
+        return Token("order", (column, False))
+
+    def set_rank_dense(self, row):
+        """
+        Set rank dense rank without gaps between consecutive ranks
+        :param row: A pandas row object
+        :return: The dense rank of the current row
+        """
+        key = str(list(row))
+        if self.rank_map.get(key):
+            return self.rank_map[key]
+        self.rank_map[key] = self.rank_counter
+        rank = self.rank_counter
+        self.rank_counter += 1
+        return rank
+
+    def set_rank_regular(self, row):
+        """
+        Set rank in traditional SQL database fashion
+        :param row: A pandas row object
+        :return: The rank of the current row
+        """
+        key = str(list(row))
+        if self.rank_map.get(key):
+            self.rank_offset += 1
+            return self.rank_map[key]
+        rank = self.rank_counter + self.rank_offset
+        self.rank_map[key] = rank
+        self.rank_counter += 1
+        return rank
+
+    def set_rank_regular_partition(self, row, partition_slice):
+        """
+        Set rank with a partition
+        :param row: A pandas row object
+        :param partition_slice: Integer to slice the values in the row based on partition
+        :return: The partitioned rank of the current row
+        """
+        row_list = list(row)[:partition_slice]
+        partition_list = list(row)[partition_slice:]
+        key = str(row_list)
+        partition_key = str(partition_list)
+        if self.rank_map.get(partition_key):
+            if self.rank_map[partition_key].get(key):
+                self.partition_rank_counter[partition_key] += 1
+                return self.rank_map[partition_key][key]
+            rank = self.partition_rank_counter[partition_key] + self.partition_rank_offset[partition_key]
+            self.rank_map[partition_key][key] = rank
+            self.partition_rank_counter[partition_key] += 1
+        else:
+            rank = 1
+            self.rank_map[partition_key] = {}
+            self.partition_rank_counter[partition_key] = 1
+            self.partition_rank_offset[partition_key] = 0
+            self.rank_map[partition_key][key] = rank
+        return rank
+
+    def set_rank_dense_partition(self, row, partition_slice):
+        """
+        Set rank with a partition
+        :param row: A pandas row object
+        :param partition_slice: Integer to slice the values in the row based on partition
+        :return: The partitioned rank of the current row
+        """
+        row_list = list(row)[:partition_slice]
+        partition_list = list(row)[partition_slice:]
+        key = str(row_list)
+        partition_key = str(partition_list)
+        if self.rank_map.get(partition_key):
+            if self.rank_map[partition_key].get(key):
+                self.partition_rank_counter[partition_key] += 1
+                return self.rank_map[partition_key][key]
+            rank = self.partition_rank_counter[partition_key]
+            self.rank_map[partition_key][key] = rank
+            self.partition_rank_counter[partition_key] += 1
+        else:
+            rank = 1
+            self.rank_map[partition_key] = {}
+            self.partition_rank_counter[partition_key] = 1
+            self.rank_map[partition_key][key] = rank
+        return rank
+
+    def partition_by(self, column_list):
+        """
+        Returns a partition token containing the corresponding column
+        :param column_list: List containing only one column
+        :return:
+        """
+        column = column_list[0]
+        return Token("partition", column)
+
+    def rank(self, tokens, rank_function):
+        """
+        Returns the evaluated rank expressions
+        :param tokens: Tokens making up the rank expression
+        :param rank_function: Function to be used in rank evaluation
+        :return:
+        """
+        expressions = tokens[0]
+        series_list = []
+        order_list = []
+        partition_list = []
+        for token in expressions:
+            if token.type == "order":
+                column = token.value[0]
+                ascending = token.value[1]
+                series_list.append(column.value)
+                order_list.append(ascending)
+            elif token.type == "partition":
+                column = token.value
+                partition_list.append(column.value)
+        rank_df = concat(series_list, axis=1)
+        column_names = rank_df.columns.to_list()
+        if partition_list:
+            rank_df = concat(series_list + partition_list, axis=1)
+            rank_function = self.partition_func_dict[rank_function]
+            column_slice = len(column_names)
+        rank_df.sort_values(by=column_names, ascending=order_list, inplace=True)
+        if partition_list:
+            rank = rank_df.apply(rank_function, args=(column_slice,), axis=1)
+            self.partition_rank_counter = {}
+            self.partition_rank_offset = {}
+        else:
+            rank = rank_df.apply(rank_function, axis=1)
+            self.rank_counter = 1
+            self.rank_offset = 0
+        self.rank_map = {}
+        rank_df['rank'] = rank
+        return Expression(value=rank)
+
+    def rank_expression(self, tokens):
+        """
+        Handles rank expressions
+        :param tokens:
+        :return:
+        """
+        return self.rank(tokens, self.set_rank_regular)
+
+    def dense_rank_expression(self, tokens):
+        """
+        Handles dense_rank_expressions
+        :param tokens:
+        :return:
+        """
+        return self.rank(tokens, self.set_rank_dense)
 
     def select_expression(self, expression_and_alias):
         """
@@ -483,30 +670,15 @@ class SQLTransformer(TransformerBaseClass):
             self.dataframe_name_map[alias] = self.dataframe_name_map[table_name]
         return Token("table", self.dataframe_name_map[table_name])
 
-    def order(self, order_by_token):
-        """
-        Returns and validates the order name, can be asc, desc, ascending, descending
-        :param order_by_name:
-        :return:
-        """
-        name = order_by_token.value.lower()
-        if name not in ORDER_TYPES:
-            raise Exception(f'Order type must be one of {ORDER_TYPES}')
-        return name
-
-    def order_by_expression(self, column, asc_desc=''):
+    def order_by_expression(self, rank_tree):
         """
         Returns the column name for the order expression
-        :param column:
-        :param asc_desc: Determines whether the sort is ascending or descending
+        :param rank_tree: Tree containing order info
         :return:
         """
-        if not asc_desc:
-            asc_desc = 'asc'
-        else:
-            asc_desc = ORDER_TYPES_MAPPING[asc_desc]
-        asc_desc = asc_desc == 'asc'
-        return Token("order_by", (column.children, asc_desc))
+        order_type = rank_tree.data
+        ascending = order_type == 'order_asc'
+        return Token("order_by", (rank_tree.children[0].children, ascending))
 
     def integer(self, integer_token):
         """
@@ -520,7 +692,7 @@ class SQLTransformer(TransformerBaseClass):
     def limit_count(self, limit_count_value):
         """
         Returns a limit token
-        :param integer_tree:
+        :param limit_count_value:
         :return:
         """
         return Token("limit", limit_count_value)

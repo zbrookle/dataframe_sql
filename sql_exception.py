@@ -17,7 +17,7 @@ class InvalidQueryException(Exception):
     Raised when an invalid query is passed into a sql to pandas.
     """
     def __init__(self, message):
-        super(InvalidQueryException, self).__init__(message)
+        super(InvalidQueryException, self).__init__(f"Invalid query!\n" + message)
 
 
 class DataFrameDoesNotExist(Exception):

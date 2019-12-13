@@ -133,6 +133,7 @@ class Expression(Value):
     """
     Store information about an expression
     """
+    expressions = 0
 
     def __init__(self, value, alias='', typename='', function=''):
         super(Expression, self).__init__(value, alias, typename)
@@ -140,7 +141,12 @@ class Expression(Value):
         if self.alias:
             self.final_name = self.alias
         else:
-            self.final_name = self.value
+            if isinstance(self.value, Series):
+                self.final_name = f"_expression{self.expressions}"
+                self.alias = self.final_name
+                self.expressions += 1
+            else:
+                self.final_name = str(self.value)
             if self.function:
                 if isinstance(self.value, Column):
                     expression_name = self.value.name
