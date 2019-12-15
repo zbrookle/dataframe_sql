@@ -761,8 +761,41 @@ def test_rank_over_partition_by():
     select wind, rain, month, day, rank() over(partition by day order by wind desc, rain asc, month) as rank
     from forest_fires
     """)
-    print(my_frame.sort_values(['rank'])[my_frame.day == 'mon'])
-
+    pandas_frame = FOREST_FIRES.copy()[['wind', 'rain', 'month', 'day']]
+    partition_slice = 4
+    rank_map = {}
+    partition_rank_counter = {}
+    partition_rank_offset = {}
+    pandas_frame.sort_values(by=['wind', 'rain', 'month'], ascending=[False, True, True], inplace=True)
+    pandas_frame.reset_index(inplace=True)
+    pandas_frame['rank'] = 0
+    rank_series = pandas_frame['rank'].copy()
+    for row_num, series_tuple in enumerate(pandas_frame.iterrows()):
+        row = series_tuple[1]
+        row_list = list(row)[1:partition_slice]
+        partition_list = list(row)[partition_slice:5]
+        key = str(row_list)
+        partition_key = str(partition_list)
+        if rank_map.get(partition_key):
+            if rank_map[partition_key].get(key):
+                partition_rank_counter[partition_key] += 1
+                rank = rank_map[partition_key][key]
+            else:
+                partition_rank_counter[partition_key] += 1
+                rank = partition_rank_counter[partition_key] + partition_rank_offset[partition_key]
+                rank_map[partition_key][key] = rank
+        else:
+            rank = 1
+            rank_map[partition_key] = {}
+            partition_rank_counter[partition_key] = 1
+            partition_rank_offset[partition_key] = 0
+            rank_map[partition_key][key] = rank
+        # print(rank, partition_key, key)
+        rank_series[row_num] = rank
+    pandas_frame['rank'] = rank_series
+    pandas_frame.set_index('index', inplace=True)
+    pandas_frame.sort_index(inplace=True)
+    assert pandas_frame.equals(my_frame)
 
 def test_dense_rank_over_partition_by():
     """
@@ -773,7 +806,37 @@ def test_dense_rank_over_partition_by():
     select wind, rain, month, day, dense_rank() over(partition by day order by wind desc, rain asc, month) as rank
     from forest_fires
     """)
-
+    pandas_frame = FOREST_FIRES.copy()[['wind', 'rain', 'month', 'day']]
+    partition_slice = 4
+    rank_map = {}
+    partition_rank_counter = {}
+    pandas_frame.sort_values(by=['wind', 'rain', 'month'], ascending=[False, True, True], inplace=True)
+    pandas_frame.reset_index(inplace=True)
+    pandas_frame['rank'] = 0
+    rank_series = pandas_frame['rank'].copy()
+    for row_num, series_tuple in enumerate(pandas_frame.iterrows()):
+        row = series_tuple[1]
+        row_list = list(row)[1:partition_slice]
+        partition_list = list(row)[partition_slice:]
+        key = str(row_list)
+        partition_key = str(partition_list)
+        if rank_map.get(partition_key):
+            if rank_map[partition_key].get(key):
+                rank = rank_map[partition_key][key]
+            else:
+                partition_rank_counter[partition_key] += 1
+                rank = partition_rank_counter[partition_key]
+                rank_map[partition_key][key] = rank
+        else:
+            rank = 1
+            rank_map[partition_key] = {}
+            partition_rank_counter[partition_key] = 1
+            rank_map[partition_key][key] = rank
+        rank_series[row_num] = rank
+    pandas_frame['rank'] = rank_series
+    pandas_frame.set_index('index', inplace=True)
+    pandas_frame.sort_index(inplace=True)
+    assert pandas_frame.equals(my_frame)
 
 if __name__ == "__main__":
     test_dense_rank_over_partition_by()

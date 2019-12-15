@@ -24,7 +24,8 @@ class SqlToPandas:
         else:
             self.parser = Lark(GRAMMAR_TEXT, parser='lalr', transformer=SQLTransformer(all_global_vars))
         self.ast = self.parse_sql()
-        print("Result:")
+        if SHOW_TREE or SHOW_DF:
+            print("Result:")
         if SHOW_TREE:
             print(self.ast)
             print(self.ast.pretty())

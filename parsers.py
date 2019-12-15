@@ -411,15 +411,15 @@ class InternalTransformer(TransformerBaseClass):
         partition_key = str(partition_list)
         if self.rank_map.get(partition_key):
             if self.rank_map[partition_key].get(key):
-                self.partition_rank_counter[partition_key] += 1
+                self.partition_rank_offset[partition_key] += 1
                 return self.rank_map[partition_key][key]
+            self.partition_rank_counter[partition_key] += 1
             rank = self.partition_rank_counter[partition_key] + self.partition_rank_offset[partition_key]
             self.rank_map[partition_key][key] = rank
-            self.partition_rank_counter[partition_key] += 1
         else:
             rank = 1
             self.rank_map[partition_key] = {}
-            self.partition_rank_counter[partition_key] = 1
+            self.partition_rank_counter[partition_key] = rank
             self.partition_rank_offset[partition_key] = 0
             self.rank_map[partition_key][key] = rank
         return rank
@@ -437,11 +437,10 @@ class InternalTransformer(TransformerBaseClass):
         partition_key = str(partition_list)
         if self.rank_map.get(partition_key):
             if self.rank_map[partition_key].get(key):
-                self.partition_rank_counter[partition_key] += 1
                 return self.rank_map[partition_key][key]
+            self.partition_rank_counter[partition_key] += 1
             rank = self.partition_rank_counter[partition_key]
             self.rank_map[partition_key][key] = rank
-            self.partition_rank_counter[partition_key] += 1
         else:
             rank = 1
             self.rank_map[partition_key] = {}
