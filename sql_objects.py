@@ -72,7 +72,7 @@ class Value:
             return other.name
         if isinstance(other, Expression):
             return other.alias
-        if isinstance(other, Number):
+        if isinstance(other, Literal):
             return str(other.value)
         return str(other)
 
@@ -83,7 +83,7 @@ class Value:
         :param other:
         :return:
         """
-        if isinstance(other, (Number, Column, Expression)):
+        if isinstance(other, (Literal, Column, Expression)):
             return other.value
         return other
 
@@ -97,7 +97,39 @@ class Value:
         self.final_name = alias
 
 
-class Number(Value):
+class Literal(Value):
+    """
+    Stores literal data
+    """
+
+    def __init__(self, value):
+        super(Literal, self).__init__(value)
+
+    def __gt__(self, other):
+        if isinstance(other, Literal):
+            return self.value > other.value
+        return self.value > other
+
+    def __lt__(self, other):
+        if isinstance(other, Literal):
+            return self.value < other.value
+        return self.value < other
+
+    def __ge__(self, other):
+        if isinstance(other, Literal):
+            return self.value >= other.value
+        return self.value >= other
+
+    def __le__(self, other):
+        if isinstance(other, Literal):
+            return self.value <= other.value
+        return self.value <= other
+
+    def __repr__(self):
+        return super(Literal, self).__repr__() + ")"
+
+
+class Number(Literal):
     """
     Stores numerical data
     """
@@ -105,28 +137,32 @@ class Number(Value):
     def __init__(self, value):
         super(Number, self).__init__(value)
 
-    def __gt__(self, other):
-        if isinstance(other, Number):
-            return self.value > other.value
-        return self.value > other
 
-    def __lt__(self, other):
-        if isinstance(other, Number):
-            return self.value < other.value
-        return self.value < other
+class String(Literal):
+    """
+    Store information about a string literal
+    """
 
-    def __ge__(self, other):
-        if isinstance(other, Number):
-            return self.value >= other.value
-        return self.value >= other
+    def __init__(self, value):
+        super(String, self).__init__(value)
 
-    def __le__(self, other):
-        if isinstance(other, Number):
-            return self.value <= other.value
-        return self.value <= other
 
-    def __repr__(self):
-        return super(Number, self).__repr__() + ")"
+class Date(Literal):
+    """
+    Store information about a date literal
+    """
+
+    def __init__(self, value):
+        super(Date, self).__init__(value)
+
+
+class Bool(Literal):
+    """
+    Store information about a date literal
+    """
+
+    def __init__(self, value):
+        super(Bool, self).__init__(value)
 
 
 class Expression(Value):

@@ -3,7 +3,7 @@ Test cases for panda to sql
 """
 # pylint: disable=broad-except
 import numpy as np
-from pandas import read_csv, merge, concat
+from pandas import read_csv, merge, concat, datetime
 from sql_to_pandas import SqlToPandas
 from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
 
@@ -79,7 +79,7 @@ def test_select_specific_fields():
     Tests selecting specific fields
     :return:
     """
-    myframe = sql_to_pandas_with_vars("select temp,RH,wind,rain as water,area from forest_fires")
+    myframe = sql_to_pandas_with_vars("select temp, RH, wind, rain as water, area from forest_fires")
     pandas_frame = FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'rain': 'water'})
     assert myframe.equals(pandas_frame)
 
@@ -89,11 +89,16 @@ def test_type_conversion():
     Tests sql as statements
     :return:
     """
-    my_frame = sql_to_pandas_with_vars("""select cast(temp as int64),cast(RH as float64) my_rh, wind, rain, area,
-    cast(2 as int64) my_num from forest_fires""")
+    my_frame = sql_to_pandas_with_vars("""select cast(temp as int64), cast(RH as float64) my_rh, wind, rain, area,
+    cast(2.0 as int64) my_int, cast(3 as float64) as my_float, cast(7 as object) as my_object, 
+    cast(0 as bool) as my_bool from forest_fires""")
     fire_frame = FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'RH': 'my_rh'})
-    fire_frame["my_num"] = 2
-    pandas_frame = fire_frame.astype({'temp': 'int64', 'my_rh': 'float64', 'my_num': 'int64'})
+    fire_frame["my_int"] = 2
+    fire_frame["my_float"] = 3
+    fire_frame["my_object"] = str(7)
+    fire_frame["my_bool"] = 0
+    pandas_frame = fire_frame.astype({'temp': 'int64', 'my_rh': 'float64', 'my_int': 'int64', 'my_float': 'float64',
+                                      'my_bool': 'bool'})
     assert pandas_frame.equals(my_frame)
 
 
@@ -677,6 +682,23 @@ def test_case_statement_w_no_name():
     assert pandas_frame.equals(my_frame)
 
 
+def test_case_statement_w_other_columns_as_reult():
+    """
+    Test using case statements
+    :return:
+    """
+    #TODO Implement this test
+    my_frame = sql_to_pandas_with_vars("""
+        select case when wind > 5 then month when wind = 5 then 'mid' else day end from forest_fires
+        """)
+    # pandas_frame = FOREST_FIRES.copy()[['wind']]
+    # pandas_frame.loc[pandas_frame.wind > 5, '_expression0'] = 'strong'
+    # pandas_frame.loc[pandas_frame.wind == 5, '_expression0'] = 'mid'
+    # pandas_frame.loc[~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), '_expression0'] = 'weak'
+    # pandas_frame.drop(columns=['wind'], inplace=True)
+    # assert pandas_frame.equals(my_frame)
+
+
 def test_rank_statement_one_column():
     """
     Test rank statement
@@ -838,5 +860,32 @@ def test_dense_rank_over_partition_by():
     pandas_frame.sort_index(inplace=True)
     assert pandas_frame.equals(my_frame)
 
+
+def test_set_string_value_as_column_value():
+    """
+    Select a string like 'Yes' as a column value
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select wind, 'yes' as wind_yes from forest_fires""")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame['wind_yes'] = 'yes'
+    pandas_frame = pandas_frame[['wind', 'wind_yes']]
+    assert pandas_frame.equals(my_frame)
+
+
+def test_date_cast():
+    """
+    Select casting a string as a date
+    :return:
+    """
+    my_frame = sql_to_pandas_with_vars("""
+    select wind, cast('2019-01-01' as datetime64) as my_date from forest_fires""")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame['my_date'] = datetime.strptime('2019-01-01', "%Y-%m-%d")
+    pandas_frame = pandas_frame[['wind', 'my_date']]
+    assert pandas_frame.equals(my_frame)
+
+
 if __name__ == "__main__":
-    test_dense_rank_over_partition_by()
+    test_type_conversion()

@@ -41,6 +41,7 @@ JOIN_TYPE.5: "INNER"i | "CROSS"i | /FULL\sOUTER/i | /LEFT\sOUTER/i |  /RIGHT\sOU
                | expression_math "-" expression_product -> expression_sub
                | "CASE"i (when_then)+ "ELSE"i expression_math "END"i -> case_expression
                | "CAST"i "(" expression_math "AS"i TYPENAME ")" -> as_type
+               | "CAST"i "(" literal "AS"i TYPENAME ")" -> literal_cast
                | function "(" expression_math ")" -> sql_function
                | "RANK"i "(" ")" rank_form -> rank_expression
                | "DENSE_RANK"i "(" ")" rank_form -> dense_rank_expression

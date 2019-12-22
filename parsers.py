@@ -2,12 +2,13 @@
 Module containing all lark transformer classes
 """
 import re
+from datetime import datetime
 from typing import Tuple, List
 from lark import Transformer, v_args
 from lark.lexer import Token
 from lark.tree import Tree
 from pandas import DataFrame, merge, concat, options
-from sql_objects import AmbiguousColumn, Column, Subquery, Number, Expression
+from sql_objects import AmbiguousColumn, Column, Subquery, Literal, Number, String, Date, Bool, Expression
 from sql_exception import DataFrameDoesNotExist
 
 options.display.min_rows = 14
@@ -16,12 +17,13 @@ DEBUG = False
 PRINT = False
 
 ORDER_TYPES = ['asc', 'desc', 'ascending', 'descending']
-ORDER_TYPES_MAPPING = {'asc':'asc', 'desc':'desc', 'ascending':'asc', 'descending':'desc'}
+ORDER_TYPES_MAPPING = {'asc': 'asc', 'desc': 'desc', 'ascending': 'asc', 'descending': 'desc'}
 GET_TABLE_REGEX = re.compile(r"^(?P<table>[a-z_]\w*)\.(?P<column>[a-z_]\w*)$", re.IGNORECASE)
 FUNCTION_MAPPING = {'average': 'mean', 'avg': 'mean', 'mean': 'mean',
                     'maximum': 'max', 'max': 'max',
                     'minimum': 'min', 'min': 'min'}
-
+PANDAS_TYPE_PYTHON_TYPE_FUNCTION = {"object": str, "int64": int, "float64": float, "bool": bool}
+PANDAS_TYPE_TO_SQL_TYPE = {"object": String, "int64": Number, "float64": Number, "bool": Bool, "datetime64": Date}
 
 def num_eval(arg):
     """
@@ -34,6 +36,16 @@ def num_eval(arg):
         # pylint: disable=eval-used
         return eval(arg)
     return arg
+
+def get_literal_value(value):
+    """
+    If the value is a literal return it's value
+    :param literal:
+    :return:
+    """
+    if isinstance(value, Literal):
+        return value.value
+    return value
 
 
 class TransformerBaseClass(Transformer):
@@ -209,7 +221,7 @@ class InternalTransformer(TransformerBaseClass):
         :param string_token:
         :return:
         """
-        return string_token[0].value
+        return String(string_token[0].value)
 
     def equals(self, expressions):
         """
@@ -249,7 +261,8 @@ class InternalTransformer(TransformerBaseClass):
         :param expressions:
         :return:
         """
-        in_list = [expression.value if isinstance(expression, Number) else expression for expression in expressions[1:]]
+        in_list = [expression.value if isinstance(expression, Literal) else expression for expression in
+                   expressions[1:]]
         return expressions[0].value.isin(in_list)
 
     def not_in_expr(self, expressions):
@@ -323,7 +336,9 @@ class InternalTransformer(TransformerBaseClass):
         :param when_then:
         :return:
         """
-        return when_then[0], when_then[1]
+        then_value = get_literal_value(when_then[1])
+        print(then_value)
+        return when_then[0], then_value
 
     def case_expression(self, when_expressions):
         """
@@ -338,7 +353,7 @@ class InternalTransformer(TransformerBaseClass):
                 new_column[when_expression[0]] = when_expression[1]
             else:
                 # pylint: disable=singleton-comparison
-                new_column[new_column == False] = when_expression
+                new_column[new_column == False] = get_literal_value(when_expression)
         return Expression(value=new_column)
 
     def rank_form(self, form):
@@ -561,6 +576,22 @@ class InternalTransformer(TransformerBaseClass):
         typename = column_and_type[1]
         column.typename = typename.value
         return column
+
+    def literal_cast(self, value_and_type: list):
+        """
+        Cast variable as the given pandas_type for a literal
+        :param value_and_type: Value and pandas dtype to be cast as
+        :return:
+        """
+        value_wrapper = value_and_type[0]
+        pandas_type = value_and_type[1]
+        if pandas_type == 'datetime64':
+            date_value = datetime.strptime(value_wrapper.value, "%Y-%m-%d")
+            return Date(date_value)
+        conversion_func = PANDAS_TYPE_PYTHON_TYPE_FUNCTION[pandas_type]
+        new_type = PANDAS_TYPE_TO_SQL_TYPE[pandas_type]
+        new_value = new_type(conversion_func(value_wrapper.value))
+        return new_value
 
 
 # pylint: disable=no-self-use
@@ -869,8 +900,8 @@ class SQLTransformer(TransformerBaseClass):
             if token.function:
                 query_info["aggregates"][token.alias] = token.function
 
-        if isinstance(token, Number):
-            query_info["numbers"].append(token)
+        if isinstance(token, Literal):
+            query_info["literals"].append(token)
 
     def handle_token(self, query_info: dict, token, token_pos):
         """
@@ -903,7 +934,7 @@ class SQLTransformer(TransformerBaseClass):
             print("Select Expressions:", select_expressions)
 
         tables = []
-        query_info = {"columns": [], "expressions": [], "numbers": [], "frame_names": [], "aliases": {},
+        query_info = {"columns": [], "expressions": [], "literals": [], "frame_names": [], "aliases": {},
                       "all_names": [], "name_order": {}, "conversions": {}, "aggregates": {}, "group_columns": [],
                       "where_expr": None, "distinct": False, "having_expr": None}
         for select_expression in select_expressions:
@@ -1016,8 +1047,8 @@ class SQLTransformer(TransformerBaseClass):
         for expression in query_info["expressions"]:
             new_frame[expression.alias] = expression.evaluate()
 
-        for number in query_info["numbers"]:
-            new_frame[number.alias] = number.value
+        for literal in query_info["literals"]:
+            new_frame[literal.alias] = literal.value
 
         if query_info["conversions"]:
             return new_frame.astype(query_info["conversions"])
