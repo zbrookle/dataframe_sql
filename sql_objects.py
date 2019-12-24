@@ -102,8 +102,13 @@ class Literal(Value):
     Stores literal data
     """
 
-    def __init__(self, value):
-        super(Literal, self).__init__(value)
+    literal_count = 0
+
+    def __init__(self, value, alias=''):
+        super(Literal, self).__init__(value, alias)
+        if not alias:
+            self.alias = f"_literal{self.literal_count}"
+            self.literal_count += 1
 
     def __gt__(self, other):
         if isinstance(other, Literal):

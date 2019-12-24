@@ -3,7 +3,9 @@ Test cases for panda to sql
 """
 # pylint: disable=broad-except
 import numpy as np
+from datetime import date
 from pandas import read_csv, merge, concat, datetime
+from freezegun import freeze_time
 from sql_to_pandas import SqlToPandas
 from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
 
@@ -687,16 +689,15 @@ def test_case_statement_w_other_columns_as_reult():
     Test using case statements
     :return:
     """
-    #TODO Implement this test
     my_frame = sql_to_pandas_with_vars("""
         select case when wind > 5 then month when wind = 5 then 'mid' else day end from forest_fires
         """)
-    # pandas_frame = FOREST_FIRES.copy()[['wind']]
-    # pandas_frame.loc[pandas_frame.wind > 5, '_expression0'] = 'strong'
-    # pandas_frame.loc[pandas_frame.wind == 5, '_expression0'] = 'mid'
-    # pandas_frame.loc[~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), '_expression0'] = 'weak'
-    # pandas_frame.drop(columns=['wind'], inplace=True)
-    # assert pandas_frame.equals(my_frame)
+    pandas_frame = FOREST_FIRES.copy()[['wind']]
+    pandas_frame.loc[pandas_frame.wind > 5, '_expression0'] = FOREST_FIRES['month']
+    pandas_frame.loc[pandas_frame.wind == 5, '_expression0'] = 'mid'
+    pandas_frame.loc[~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), '_expression0'] = FOREST_FIRES['day']
+    pandas_frame.drop(columns=['wind'], inplace=True)
+    assert pandas_frame.equals(my_frame)
 
 
 def test_rank_statement_one_column():
@@ -812,7 +813,6 @@ def test_rank_over_partition_by():
             partition_rank_counter[partition_key] = 1
             partition_rank_offset[partition_key] = 0
             rank_map[partition_key][key] = rank
-        # print(rank, partition_key, key)
         rank_series[row_num] = rank
     pandas_frame['rank'] = rank_series
     pandas_frame.set_index('index', inplace=True)
@@ -887,5 +887,19 @@ def test_date_cast():
     assert pandas_frame.equals(my_frame)
 
 
+def test_timestamps():
+    """
+    Select now() as date
+    :return:
+    """
+    with freeze_time(datetime.now()):
+        my_frame = sql_to_pandas_with_vars("""
+        select wind, now(), today(), timestamp('2019-01-31', '23:20:32') from forest_fires""")
+        pandas_frame = FOREST_FIRES.copy()[['wind']]
+        pandas_frame['now()'] = datetime.now()
+        pandas_frame['today()'] = date.today()
+        pandas_frame['_literal0'] = datetime(2019, 1, 31, 23, 20, 32)
+        assert pandas_frame.equals(my_frame)
+
 if __name__ == "__main__":
-    test_type_conversion()
+    test_timestamps()

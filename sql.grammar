@@ -80,6 +80,7 @@ not_in_expr: expression_math "NOT"i "IN"i "(" [expression_math ","] expression_m
 ?literal: boolean -> bool
        | number_expr -> number
        | "'" /[^']+/ "'" -> string
+       | timestamp_expression -> timestamp_expression
 boolean: "true"i -> true
        | "false"i -> false
 ?number_expr: product
@@ -94,7 +95,18 @@ integer: /[1-9][0-9]*/
 STAR: "*"
 window_definition:
 with_query_name:
-timestamp_expression:
+timestamp_expression: "NOW"i "(" ")" -> datetime_now
+                    | "TODAY"i "(" ")" -> date_today
+                    | "TIMESTAMP"i "(" "'" date "'" "," "'" time "'" ")" -> custom_timestamp
+
+date: YEAR "-" MONTH "-" DAY
+YEAR: /[0-9]{4}/
+MONTH: /[0-9]{2}/
+DAY: /[0-9]{2}/
+time: HOURS ":" MINUTES ":" SECONDS
+HOURS: /[0-9]{2}/
+MINUTES: /[0-9]{2}/
+SECONDS: /[0-9]{2}/
 
 %import common.CNAME -> NAME
 %import common.NUMBER

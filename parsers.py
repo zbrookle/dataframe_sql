@@ -2,13 +2,13 @@
 Module containing all lark transformer classes
 """
 import re
-from datetime import datetime
+from datetime import datetime, date
 from typing import Tuple, List
 from lark import Transformer, v_args
 from lark.lexer import Token
 from lark.tree import Tree
 from pandas import DataFrame, merge, concat, options
-from sql_objects import AmbiguousColumn, Column, Subquery, Literal, Number, String, Date, Bool, Expression
+from sql_objects import AmbiguousColumn, Column, Subquery, Literal, Number, String, Date, Bool, Expression, Value
 from sql_exception import DataFrameDoesNotExist
 
 options.display.min_rows = 14
@@ -37,13 +37,13 @@ def num_eval(arg):
         return eval(arg)
     return arg
 
-def get_literal_value(value):
+def get_wrapper_value(value):
     """
     If the value is a literal return it's value
     :param literal:
     :return:
     """
-    if isinstance(value, Literal):
+    if isinstance(value, Value):
         return value.value
     return value
 
@@ -223,6 +223,62 @@ class InternalTransformer(TransformerBaseClass):
         """
         return String(string_token[0].value)
 
+    def timestamp_expression(self, date_list):
+        return date_list[0]
+
+    @staticmethod
+    def int_token_list(token_list):
+        """
+        Returns a list of integer from a list of tokens
+        :param self:
+        :return:
+        """
+        return [int(token.value) for token in token_list]
+
+    def date(self, date_list):
+        """
+        Returns list with correct date integers
+        :param date_list:
+        :return:
+        """
+        return self.int_token_list(date_list)
+
+    def time(self, time_list):
+        """
+        Returns list with correct time integers
+        :param time_list:
+        :return:
+        """
+        return self.int_token_list(time_list)
+
+    def custom_timestamp(self, datetime_list):
+        """
+        Return a custom time stamp based on user input
+        :param datetime_list:
+        :return:
+        """
+        return Date(datetime(*(datetime_list[0] + datetime_list[1])))
+
+    def datetime_now(self, *extra_args):
+        """
+        Return current date and time
+        :param extra_args: Arguments that lark parser must pass in
+        :return:
+        """
+        date_value = Date(datetime.now())
+        date_value.set_alias("now()")
+        return date_value
+
+    def date_today(self, *extra_args):
+        """
+        Return current date
+        :param extra_args: Arguments that lark parser must pass in
+        :return:
+        """
+        date_value = Date(date.today())
+        date_value.set_alias("today()")
+        return date_value
+
     def equals(self, expressions):
         """
         Compares two expressions for equality
@@ -336,8 +392,7 @@ class InternalTransformer(TransformerBaseClass):
         :param when_then:
         :return:
         """
-        then_value = get_literal_value(when_then[1])
-        print(then_value)
+        then_value = get_wrapper_value(when_then[1])
         return when_then[0], then_value
 
     def case_expression(self, when_expressions):
@@ -353,7 +408,7 @@ class InternalTransformer(TransformerBaseClass):
                 new_column[when_expression[0]] = when_expression[1]
             else:
                 # pylint: disable=singleton-comparison
-                new_column[new_column == False] = get_literal_value(when_expression)
+                new_column[new_column == False] = get_wrapper_value(when_expression)
         return Expression(value=new_column)
 
     def rank_form(self, form):
