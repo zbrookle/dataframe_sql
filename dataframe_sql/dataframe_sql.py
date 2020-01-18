@@ -1,14 +1,18 @@
 """
 Convert sql statement to run on pandas dataframes
 """
+import os
 from lark import Lark, UnexpectedToken
 from sqlparse import split
-from parsers import SQLTransformer
-from sql_exception import MultipleQueriesException, InvalidQueryException
+from dataframe_sql.parsers import SQLTransformer
+from dataframe_sql.exceptions.sql_exception import MultipleQueriesException, InvalidQueryException
+from pathlib import Path
 
 SHOW_TREE = False
 SHOW_DF = False
-with open(file="sql.grammar") as sql_grammar_file:
+_ROOT = Path(__file__).parent
+GRAMMAR_PATH = os.path.join(_ROOT, "grammar", "sql.grammar")
+with open(file=GRAMMAR_PATH) as sql_grammar_file:
     GRAMMAR_TEXT = sql_grammar_file.read()
 
 

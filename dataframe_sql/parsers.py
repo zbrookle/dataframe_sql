@@ -8,8 +8,9 @@ from lark import Transformer, v_args
 from lark.lexer import Token
 from lark.tree import Tree
 from pandas import DataFrame, merge, concat, options
-from sql_objects import AmbiguousColumn, Column, Subquery, Literal, Number, String, Date, Bool, Expression, Value
-from sql_exception import DataFrameDoesNotExist
+from dataframe_sql.sql_objects import AmbiguousColumn, Column, Subquery, Literal, Number, String, Date, Bool, \
+    Expression, Value
+from dataframe_sql.exceptions.sql_exception import DataFrameDoesNotExist
 
 options.display.min_rows = 14
 

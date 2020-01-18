@@ -4,16 +4,30 @@ Test cases for panda to sql
 # pylint: disable=broad-except
 import numpy as np
 from datetime import date
-from pandas import read_csv, merge, concat, datetime
+from pandas import read_csv, merge, concat, datetime, DataFrame
 from freezegun import freeze_time
-from sql_to_pandas import SqlToPandas
-from sql_exception import MultipleQueriesException, InvalidQueryException, DataFrameDoesNotExist
+from dataframe_sql.dataframe_sql import SqlToPandas
+from dataframe_sql.exceptions.sql_exception import MultipleQueriesException, InvalidQueryException, \
+    DataFrameDoesNotExist
+from dataframe_sql.dataframe_sql import _ROOT, os
 
-FOREST_FIRES = read_csv('~/PycharmProjects/sql_to_pandas/data/forestfires.csv') # Name is weird intentionally
+DATA_PATH = os.path.join(_ROOT, "data")
 
-DIGIMON_MON_LIST = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_digimonlist.csv')
-DIGIMON_MOVE_LIST = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_movelist.csv')
-DIGIMON_SUPPORT_LIST = read_csv('~/PycharmProjects/sql_to_pandas/data/DigiDB_supportlist.csv')
+def read_test_file_csv(data_file_name: str) -> DataFrame:
+    """
+    Return a dataframe resulting from the test file specified
+    :param data_file_name:
+    :return:
+    """
+    return read_csv(os.path.join(DATA_PATH, data_file_name))
+
+
+FOREST_FIRES = read_test_file_csv("forestfires.csv")
+DIGIMON_MON_LIST = read_test_file_csv('DigiDB_digimonlist.csv')
+DIGIMON_MOVE_LIST = read_test_file_csv('DigiDB_movelist.csv')
+DIGIMON_SUPPORT_LIST = read_test_file_csv('DigiDB_supportlist.csv')
+
+# Renamed for join testing
 DIGIMON_MON_LIST['mon_attribute'] = DIGIMON_MON_LIST['Attribute']
 DIGIMON_MOVE_LIST['move_attribute'] = DIGIMON_MOVE_LIST['Attribute']
 
