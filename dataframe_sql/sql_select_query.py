@@ -101,10 +101,10 @@ def query(sql: str):
 
 
     """
-    return SqlToPandas(sql).data_frame
+    return SqlToDataFrame(sql).data_frame
 
 
-class SqlToPandas:
+class SqlToDataFrame:
     def __init__(self, sql: str):
         self.sql = sql
         table_info = TableInfo()
