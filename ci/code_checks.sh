@@ -86,7 +86,7 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
     invgrep -R --include="*.py*" -E "from collections.abc import" dataframe_sql
     invgrep -R --include="*.py*" -E "from numpy import nan" dataframe_sql
 
-    # Checks for test suite
+    # Checks for function_object suite
     # Check for imports from pandas.util.testing instead of `import pandas.util.testing as tm`
     invgrep -R --include="*.py*" -E "from pandas.util.testing import" dataframe_sql/tests
     invgrep -R --include="*.py*" -E "from pandas.util import testing as tm" dataframe_sql/tests

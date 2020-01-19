@@ -120,7 +120,8 @@ def test_select_star():
     :return:
     """
     my_frame = query("select * from forest_fires")
-    tm.assert_frame_equal(FOREST_FIRES, my_frame)
+    pandas_frame = FOREST_FIRES
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_case_insensitivity():
@@ -128,7 +129,9 @@ def test_case_insensitivity():
     Tests to ensure that the sql is case insensitive for table names
     :return:
     """
-    tm.assert_frame_equal(FOREST_FIRES, query("select * from FOREST_fires"))
+    my_frame = query("select * from FOREST_fires")
+    pandas_frame = FOREST_FIRES
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_select_specific_fields():
@@ -232,8 +235,8 @@ def test_join_no_inner():
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    merged_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
-    tm.assert_frame_equal(merged_frame, my_frame)
+    pandas_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_join_wo_specifying_table():
@@ -250,10 +253,10 @@ def test_join_wo_specifying_table():
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    merged_frame = pandas_frame1.merge(
+    pandas_frame = pandas_frame1.merge(
         pandas_frame2, left_on="mon_attribute", right_on="move_attribute"
     )
-    tm.assert_frame_equal(merged_frame, my_frame)
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_join_w_inner():
@@ -268,8 +271,8 @@ def test_join_w_inner():
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    merged_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
-    tm.assert_frame_equal(merged_frame, my_frame)
+    pandas_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_outer_join_no_outer():
@@ -284,8 +287,8 @@ def test_outer_join_no_outer():
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    merged_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
-    tm.assert_frame_equal(merged_frame, my_frame)
+    pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_outer_join_w_outer():
@@ -300,8 +303,8 @@ def test_outer_join_w_outer():
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    merged_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
-    tm.assert_frame_equal(merged_frame, my_frame)
+    pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_left_joins():
@@ -316,8 +319,8 @@ def test_left_joins():
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    merged_frame = pandas_frame1.merge(pandas_frame2, how="left", on="Type")
-    tm.assert_frame_equal(merged_frame, my_frame)
+    pandas_frame = pandas_frame1.merge(pandas_frame2, how="left", on="Type")
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_left_outer_joins():
@@ -332,8 +335,8 @@ def test_left_outer_joins():
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    merged_frame = pandas_frame1.merge(pandas_frame2, how="left", on="Type")
-    tm.assert_frame_equal(merged_frame, my_frame)
+    pandas_frame = pandas_frame1.merge(pandas_frame2, how="left", on="Type")
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_right_joins():
@@ -348,8 +351,8 @@ def test_right_joins():
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    merged_frame = pandas_frame1.merge(pandas_frame2, how="right", on="Type")
-    tm.assert_frame_equal(merged_frame, my_frame)
+    pandas_frame = pandas_frame1.merge(pandas_frame2, how="right", on="Type")
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_right_outer_joins():
@@ -364,8 +367,8 @@ def test_right_outer_joins():
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    merged_frame = pandas_frame1.merge(pandas_frame2, how="right", on="Type")
-    tm.assert_frame_equal(merged_frame, my_frame)
+    pandas_frame = pandas_frame1.merge(pandas_frame2, how="right", on="Type")
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_cross_joins():
@@ -380,8 +383,8 @@ def test_cross_joins():
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    merged_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
-    tm.assert_frame_equal(merged_frame, my_frame)
+    pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 def test_group_by():
