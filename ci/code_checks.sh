@@ -21,9 +21,12 @@
 [[ -z "$1" || "$1" == "lint" || "$1" == "patterns" || "$1" == "code" || "$1" == "doctests" || "$1" == "docstrings" || "$1" == "dependencies" || "$1" == "typing" ]] || \
     { echo "Unknown command $1. Usage: $0 [lint|patterns|code|doctests|docstrings|dependencies|typing]"; exit 9999; }
 
-BASE_DIR="$(dirname $0)/.."
+#BASE_DIR="$(dirname $0)/.."
+BASE_DIR=$(pwd)
 RET=0
 CHECK=$1
+
+echo $BASE_DIR
 
 function invgrep {
     # grep with inverse exist status and formatting for azure-pipelines
@@ -83,64 +86,52 @@ fi
 ### PATTERNS ###
 if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
 
-    # Check for imports from pandas.core.common instead of `import pandas.core.common as com`
     # Check for imports from collections.abc instead of `from collections import abc`
     MSG='Check for non-standard imports' ; echo $MSG
-    invgrep -R --include="*.py*" -E "from pandas.core.common import" pandas
-    invgrep -R --include="*.py*" -E "from pandas.core import common" pandas
-    invgrep -R --include="*.py*" -E "from collections.abc import" pandas
-    invgrep -R --include="*.py*" -E "from numpy import nan" pandas
+    invgrep -R --include="*.py*" -E "from collections.abc import" dataframe_sql
+    invgrep -R --include="*.py*" -E "from numpy import nan" dataframe_sql
 
     # Checks for test suite
     # Check for imports from pandas.util.testing instead of `import pandas.util.testing as tm`
-    invgrep -R --include="*.py*" -E "from pandas.util.testing import" pandas/tests
-    invgrep -R --include="*.py*" -E "from pandas.util import testing as tm" pandas/tests
+    invgrep -R --include="*.py*" -E "from pandas.util.testing import" dataframe_sql/tests
+    invgrep -R --include="*.py*" -E "from pandas.util import testing as tm" dataframe_sql/tests
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for use of exec' ; echo $MSG
-    invgrep -R --include="*.py*" -E "[^a-zA-Z0-9_]exec\(" pandas
+    invgrep -R --include="*.py*" -E "[^a-zA-Z0-9_]exec\(" dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for pytest warns' ; echo $MSG
-    invgrep -r -E --include '*.py' 'pytest\.warns' pandas/tests/
+    invgrep -r -E --include '*.py' 'pytest\.warns' dataframe_sql/tests/
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for pytest raises without context' ; echo $MSG
-    invgrep -r -E --include '*.py' "[[:space:]] pytest.raises" pandas/tests/
+    invgrep -r -E --include '*.py' "[[:space:]] pytest.raises" dataframe_sql/tests/
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for python2-style file encodings' ; echo $MSG
-    invgrep -R --include="*.py" --include="*.pyx" -E "# -\*- coding: utf-8 -\*-" pandas scripts
+    invgrep -R --include="*.py" --include="*.pyx" -E "# -\*- coding: utf-8 -\*-" dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for python2-style super usage' ; echo $MSG
-    invgrep -R --include="*.py" -E "super\(\w*, (self|cls)\)" pandas
+    invgrep -R --include="*.py" -E "super\(\w*, (self|cls)\)" dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     # Check for the following code in testing: `np.testing` and `np.array_equal`
     MSG='Check for invalid testing' ; echo $MSG
-    invgrep -r -E --include '*.py' --exclude testing.py '(numpy|np)(\.testing|\.array_equal)' pandas/tests/
-    RET=$(($RET + $?)) ; echo $MSG "DONE"
-
-    # Check for the following code in the extension array base tests: `tm.assert_frame_equal` and `tm.assert_series_equal`
-    MSG='Check for invalid EA testing' ; echo $MSG
-    invgrep -r -E --include '*.py' --exclude base.py 'tm.assert_(series|frame)_equal' pandas/tests/extension/base
+    invgrep -r -E --include '*.py' --exclude testing.py '(numpy|np)(\.testing|\.array_equal)' dataframe_sql/tests/
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for deprecated messages without sphinx directive' ; echo $MSG
-    invgrep -R --include="*.py" --include="*.pyx" -E "(DEPRECATED|DEPRECATE|Deprecated)(:|,|\.)" pandas
+    invgrep -R --include="*.py" --include="*.pyx" -E "(DEPRECATED|DEPRECATE|Deprecated)(:|,|\.)" dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for python2 new-style classes and for empty parentheses' ; echo $MSG
-    invgrep -R --include="*.py" --include="*.pyx" -E "class\s\S*\((object)?\):" pandas asv_bench/benchmarks scripts
-    RET=$(($RET + $?)) ; echo $MSG "DONE"
-
-    MSG='Check for backticks incorrectly rendering because of missing spaces' ; echo $MSG
-    invgrep -R --include="*.rst" -E "[a-zA-Z0-9]\`\`?[a-zA-Z0-9]" doc/source/
+    invgrep -R --include="*.py" --include="*.pyx" -E "class\s\S*\((object)?\):" dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for incorrect sphinx directives' ; echo $MSG
-    invgrep -R --include="*.py" --include="*.pyx" --include="*.rst" -E "\.\. (autosummary|contents|currentmodule|deprecated|function|image|important|include|ipython|literalinclude|math|module|note|raw|seealso|toctree|versionadded|versionchanged|warning):[^:]" ./pandas ./doc/source
+    invgrep -R --include="*.py" --include="*.pyx" --include="*.rst" -E "\.\. (autosummary|contents|currentmodule|deprecated|function|image|important|include|ipython|literalinclude|math|module|note|raw|seealso|toctree|versionadded|versionchanged|warning):[^:]" ./dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     # Check for the following code in testing: `unittest.mock`, `mock.Mock()` or `mock.patch`
@@ -161,15 +152,15 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for use of comment-based annotation syntax' ; echo $MSG
-    invgrep -R --include="*.py" -P '# type: (?!ignore)' pandas
+    invgrep -R --include="*.py" -P '# type: (?!ignore)' dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for use of foo.__class__ instead of type(foo)' ; echo $MSG
-    invgrep -R --include=*.{py,pyx} '\.__class__' pandas
+    invgrep -R --include=*.{py,pyx} '\.__class__' dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for use of xrange instead of range' ; echo $MSG
-    invgrep -R --include=*.{py,pyx} 'xrange' pandas
+    invgrep -R --include=*.{py,pyx} 'xrange' dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check that no file in the repo contains trailing whitespaces' ; echo $MSG
@@ -177,30 +168,6 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
     invgrep -RI --exclude=\*.{svg,c,cpp,html,js} --exclude-dir=env "\s$" *
     RET=$(($RET + $?)) ; echo $MSG "DONE"
     unset INVGREP_APPEND
-fi
-
-### CODE ###
-if [[ -z "$CHECK" || "$CHECK" == "code" ]]; then
-
-    MSG='Check import. No warnings, and blacklist some optional dependencies' ; echo $MSG
-    python -W error -c "
-import sys
-import pandas
-
-blacklist = {'bs4', 'gcsfs', 'html5lib', 'http', 'ipython', 'jinja2', 'hypothesis',
-             'lxml', 'matplotlib', 'numexpr', 'openpyxl', 'py', 'pytest', 's3fs', 'scipy',
-             'tables', 'urllib.request', 'xlrd', 'xlsxwriter', 'xlwt'}
-
-# GH#28227 for some of these check for top-level modules, while others are
-#  more specific (e.g. urllib.request)
-import_mods = set(m.split('.')[0] for m in sys.modules) | set(sys.modules)
-mods = blacklist & import_mods
-if mods:
-    sys.stderr.write('err: pandas should not import: {}\n'.format(', '.join(mods)))
-    sys.exit(len(mods))
-    "
-    RET=$(($RET + $?)) ; echo $MSG "DONE"
-
 fi
 
 ### DOCSTRINGS ###

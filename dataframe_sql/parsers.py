@@ -3,12 +3,12 @@ Module containing all lark transformer classes
 """
 from datetime import date, datetime
 import re
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from lark import Transformer, v_args
 from lark.lexer import Token
 from lark.tree import Tree
-from pandas import DataFrame, concat, merge, options
+from pandas import DataFrame, concat, merge
 
 from dataframe_sql.exceptions.sql_exception import DataFrameDoesNotExist
 from dataframe_sql.sql_objects import (
@@ -23,8 +23,6 @@ from dataframe_sql.sql_objects import (
     Subquery,
     Value,
 )
-
-options.display.min_rows = 14
 
 DEBUG = False
 PRINT = False
@@ -79,7 +77,7 @@ def num_eval(arg):
 def get_wrapper_value(value):
     """
     If the value is a literal return it's value
-    :param literal:
+    :param value:
     :return:
     """
     if isinstance(value, Value):
@@ -100,7 +98,7 @@ class TransformerBaseClass(Transformer):
         column_to_dataframe_name=None,
         _temp_dataframes_dict=None,
     ):
-        super(TransformerBaseClass, self).__init__(visit_tokens=False)
+        Transformer.__init__(self, visit_tokens=False)
         self.dataframe_name_map = dataframe_name_map
         self.dataframe_map = dataframe_map
         self.column_name_map = column_name_map
@@ -116,7 +114,6 @@ class TransformerBaseClass(Transformer):
         if isinstance(frame_name, Token):
             frame_name = frame_name.value
         if isinstance(frame_name, Subquery):
-            # return self._temp_dataframes_dict[frame_name.name]
             frame_name = frame_name.name
         return self.dataframe_map[frame_name]
 
@@ -134,10 +131,6 @@ class TransformerBaseClass(Transformer):
             column_true_name = self.column_name_map[dataframe_name][column.name.lower()]
             column.value = dataframe[column_true_name]
             column.table = dataframe_name
-        # else:
-        #     if column.table is None and len(self.tables) > 1:
-        #         raise Exception(f"Must specify table for column: {column.name}")
-        #     column.table = str(self.tables[0])
 
     def column_name(self, name_list_format: List[str]):
         """
@@ -160,8 +153,8 @@ class InternalTransformer(TransformerBaseClass):
     def __init__(
         self, tables, dataframe_map, column_name_map, column_to_dataframe_name
     ):
-        super(InternalTransformer, self).__init__(
-            dataframe_map=dataframe_map, column_name_map=column_name_map
+        TransformerBaseClass.__init__(
+            self, dataframe_map=dataframe_map, column_name_map=column_name_map
         )
         self.tables = [
             table.name if isinstance(table, Subquery) else table for table in tables
@@ -170,8 +163,6 @@ class InternalTransformer(TransformerBaseClass):
         for column in column_to_dataframe_name:
             table = column_to_dataframe_name.get(column)
             if isinstance(table, AmbiguousColumn):
-                # if len(self.tables) > 1:
-                #     raise Exception(f"Please specify table or subquery for column: {column}")
                 table_name = self.tables[0]
                 if table_name in table.tables:
                     self.column_to_dataframe_name[column] = table_name
@@ -183,11 +174,11 @@ class InternalTransformer(TransformerBaseClass):
             self.set_rank_regular: self.set_rank_regular_partition,
             self.set_rank_dense: self.set_rank_dense_partition,
         }
-        self.partition_rank_counter = {}
-        self.partition_rank_offset = {}
+        self.partition_rank_counter: Dict[str, int] = {}
+        self.partition_rank_offset: Dict[str, int] = {}
         self.rank_counter = 1
         self.rank_offset = 0
-        self.rank_map = {}
+        self.rank_map: Dict[str, int] = {}
         self.last_key = None
 
     def mul(self, args):
@@ -279,6 +270,11 @@ class InternalTransformer(TransformerBaseClass):
         return String(string_token[0].value)
 
     def timestamp_expression(self, date_list):
+        """
+        Return a timestamp object
+        :param date_list:
+        :return:
+        """
         return date_list[0]
 
     @staticmethod
@@ -454,18 +450,19 @@ class InternalTransformer(TransformerBaseClass):
 
     def case_expression(self, when_expressions):
         """
-        Handles sql case expressions
+        Handles dataframe_sql case expressions
         :param when_expressions:
         :return:
         """
         # TODO Possibly a problem when dealing with booleans
         new_column = when_expressions[0][0]
         for when_expression in when_expressions:
-            if isinstance(when_expression, Tuple):
+            if isinstance(when_expression, Tuple):  # type: ignore
                 new_column[when_expression[0]] = when_expression[1]
             else:
-                # pylint: disable=singleton-comparison
-                new_column[new_column == False] = get_wrapper_value(when_expression)
+                new_column[new_column == False] = get_wrapper_value(
+                    when_expression
+                )  # noqa
         return Expression(value=new_column)
 
     def rank_form(self, form):
@@ -529,7 +526,8 @@ class InternalTransformer(TransformerBaseClass):
         """
         Set rank with a partition
         :param row: A pandas row object
-        :param partition_slice: Integer to slice the values in the row based on partition
+        :param partition_slice: Integer to slice the values in the row based on
+        partition
         :return: The partitioned rank of the current row
         """
         row_list = list(row)[:partition_slice]
@@ -558,7 +556,8 @@ class InternalTransformer(TransformerBaseClass):
         """
         Set rank with a partition
         :param row: A pandas row object
-        :param partition_slice: Integer to slice the values in the row based on partition
+        :param partition_slice: Integer to slice the values in the row based on
+        partition
         :return: The partitioned rank of the current row
         """
         row_list = list(row)[:partition_slice]
@@ -645,11 +644,12 @@ class InternalTransformer(TransformerBaseClass):
     def select_expression(self, expression_and_alias):
         """
         Returns the appropriate object for the given expression
-        :param expression_and_alias: An expression token and A token containing the name to be assigned
+        :param expression_and_alias: An expression token and A token containing the
+        name to be assigned
         :return:
         """
         expression = expression_and_alias[0]
-        alias = ""
+        alias = None
         if len(expression_and_alias) == 2:
             alias = expression_and_alias[1]
         if isinstance(expression, Tree):
@@ -721,7 +721,8 @@ class HavingTransformer(TransformerBaseClass):
     ):
         self.tables = tables
         self.group_by = group_by
-        super(HavingTransformer, self).__init__(
+        TransformerBaseClass.__init__(
+            self,
             dataframe_map=dataframe_map,
             column_name_map=column_name_map,
             column_to_dataframe_name=column_to_dataframe_name,
@@ -781,27 +782,24 @@ class HavingTransformer(TransformerBaseClass):
 @v_args(inline=True)
 class SQLTransformer(TransformerBaseClass):
     """
-    Transformer for the lark sql parser
+    Transformer for the lark dataframe_sql parser
     """
 
-    def __init__(self, env):
-        super(SQLTransformer, self).__init__(
-            dataframe_name_map={},
-            dataframe_map={},
-            column_name_map={},
-            column_to_dataframe_name={},
+    def __init__(
+        self,
+        dataframe_name_map={},
+        dataframe_map={},
+        column_name_map={},
+        column_to_dataframe_name={},
+    ):
+        TransformerBaseClass.__init__(
+            self,
+            dataframe_name_map,
+            dataframe_map,
+            column_name_map,
+            column_to_dataframe_name,
             _temp_dataframes_dict={},
         )
-        for key in env:
-            if isinstance(env[key], DataFrame):
-                dataframe = env[key]
-                self.dataframe_name_map[key.lower()] = key
-                self.dataframe_map[key] = dataframe
-                self.column_name_map[key] = {}
-                for column in dataframe.columns:
-                    lower_column = column.lower()
-                    self.column_name_map[key][lower_column] = column
-                    self.add_column_to_column_to_dataframe_name_map(lower_column, key)
 
     def add_column_to_column_to_dataframe_name_map(self, column, table):
         """
@@ -919,8 +917,8 @@ class SQLTransformer(TransformerBaseClass):
 
     def determine_column_side(self, column, left_table, right_table):
         """
-        Check if column table prefix is one of the two tables (if there is one) AND the column has to be in one of the
-        two tables
+        Check if column table prefix is one of the two tables (if there is one) AND
+        the column has to be in one of the two tables
         """
         column_match = GET_TABLE_REGEX.match(column)
         column_table = ""
@@ -943,7 +941,8 @@ class SQLTransformer(TransformerBaseClass):
             raise Exception("Table specified in join columns not present in join")
         if column in left_columns and column in right_columns:
             raise Exception(
-                f"Ambiguous column: {column}\nSpecify table name with table_name.{column}"
+                f"Ambiguous column: {column}\nSpecify table name with table_name"
+                f".{column}"
             )
         if column in left_columns:
             return "left", column
@@ -956,7 +955,8 @@ class SQLTransformer(TransformerBaseClass):
         Evaluate a join into one dataframe using a merge method
         :return:
         """
-        # There will only ever be four args if a join is specified and three if a join isn't specified
+        # There will only ever be four args if a join is specified and three if a
+        # join isn't specified
         if len(args) == 3:
             join_type = "inner"
             table1 = args[0]
@@ -969,7 +969,8 @@ class SQLTransformer(TransformerBaseClass):
             join_condition = args[3]
             if "outer" in join_type:
                 match = re.match(r"(?P<type>.*)\souter", join_type)
-                join_type = match.group("type")
+                if match:
+                    join_type = match.group("type")
             if join_type in ("full", "cross"):
                 join_type = "outer"
 
@@ -998,7 +999,7 @@ class SQLTransformer(TransformerBaseClass):
             left_on=left_on,
             right_on=right_on,
         )
-        return Subquery(dictionary_name, query_info="")
+        return Subquery(dictionary_name, query_info={})
 
     @staticmethod
     def has_star(column_list: List[str]):
@@ -1015,7 +1016,8 @@ class SQLTransformer(TransformerBaseClass):
     @staticmethod
     def handle_non_token_non_tree(query_info: dict, token, token_pos):
         """
-        Handles non token non tree items and extracts necessary query information from it
+        Handles non token non tree items and extracts necessary query information
+        from it
         :param query_info: Dictionary of all info about the query
         :param token: Item being handled
         :param token_pos: Ordinal position of the item
@@ -1073,7 +1075,7 @@ class SQLTransformer(TransformerBaseClass):
             print("Select Expressions:", select_expressions)
 
         tables = []
-        query_info = {
+        query_info: Dict[str, Any] = {
             "columns": [],
             "expressions": [],
             "literals": [],
@@ -1096,13 +1098,11 @@ class SQLTransformer(TransformerBaseClass):
                     query_info["having_expr"] = select_expression
 
         select_expressions_no_having = tuple(
-            [
-                select_expression
-                for select_expression in select_expressions
-                if isinstance(select_expression, Tree)
-                and select_expression.data != "having_expr"
-                or not isinstance(select_expression, Tree)
-            ]
+            select_expression
+            for select_expression in select_expressions
+            if isinstance(select_expression, Tree)
+            and select_expression.data != "having_expr"
+            or not isinstance(select_expression, Tree)
         )
 
         internal_transformer = InternalTransformer(
@@ -1159,7 +1159,8 @@ class SQLTransformer(TransformerBaseClass):
     @staticmethod
     def handle_aggregation(aggregates, group_columns, dataframe: DataFrame):
         """
-        Handles all aggregation operations when translating from dictionary info to dataframe
+        Handles all aggregation operations when translating from dictionary info
+        to dataframe
         :param aggregates:
         :param group_columns:
         :return:
@@ -1201,7 +1202,7 @@ class SQLTransformer(TransformerBaseClass):
                 column_names.append(true_column_name)
                 if aliases.get(true_column_name) is None:
                     aliases[true_column_name] = column.name
-            new_frame: DataFrame = first_frame[column_names].rename(columns=aliases)
+            new_frame = first_frame[column_names].rename(columns=aliases)
 
         return new_frame
 
@@ -1305,7 +1306,8 @@ class SQLTransformer(TransformerBaseClass):
 
     def except_distinct(self, frame1: DataFrame, frame2: DataFrame):
         """
-        Return first dataframe excluding everything that's also in the second dataframe, no duplicates
+        Return first dataframe excluding everything that's also in the second dataframe,
+        no duplicates
         :param frame1: Left dataframe
         :param frame2: Right dataframe
         :return:
@@ -1318,7 +1320,8 @@ class SQLTransformer(TransformerBaseClass):
 
     def except_all(self, frame1: DataFrame, frame2: DataFrame):
         """
-        Return first dataframe excluding everything that's also in the second dataframe, with duplicates
+        Return first dataframe excluding everything that's also in the second dataframe,
+        with duplicates
         :param frame1: Left dataframe
         :param frame2: Right dataframe
         :return:
