@@ -1,15 +1,19 @@
 """
 Test cases for panda to sql
 """
-# pylint: disable=broad-except
-import numpy as np
 from datetime import date
-from pandas import read_csv, merge, concat, datetime, DataFrame
+
+# pylint: disable=broad-except
 from freezegun import freeze_time
-from dataframe_sql.dataframe_sql import SqlToPandas
-from dataframe_sql.exceptions.sql_exception import MultipleQueriesException, InvalidQueryException, \
-    DataFrameDoesNotExist
-from dataframe_sql.dataframe_sql import _ROOT, os
+import numpy as np
+from pandas import DataFrame, concat, datetime, merge, read_csv
+
+from dataframe_sql.dataframe_sql import _ROOT, SqlToPandas, os
+from dataframe_sql.exceptions.sql_exception import (
+    DataFrameDoesNotExist,
+    InvalidQueryException,
+    MultipleQueriesException,
+)
 
 DATA_PATH = os.path.join(_ROOT, "data")
 
