@@ -1,1 +1,2 @@
 *.names
+.pytest_cache
