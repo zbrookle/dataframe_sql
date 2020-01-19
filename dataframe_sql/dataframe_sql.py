@@ -25,13 +25,16 @@ class SqlToPandas:
     """
     Class that handles conversion from sql to pandas data frame methods.
     """
+
     def __init__(self, sql: str, all_global_vars):
         self.sql = sql
         self.verify_sql()
         if SHOW_TREE:
-            self.parser = Lark(GRAMMAR_TEXT, parser='lalr')
+            self.parser = Lark(GRAMMAR_TEXT, parser="lalr")
         else:
-            self.parser = Lark(GRAMMAR_TEXT, parser='lalr', transformer=SQLTransformer(all_global_vars))
+            self.parser = Lark(
+                GRAMMAR_TEXT, parser="lalr", transformer=SQLTransformer(all_global_vars)
+            )
         self.ast = self.parse_sql()
         if SHOW_TREE or SHOW_DF:
             print("Result:")
@@ -59,7 +62,9 @@ class SqlToPandas:
         try:
             return self.parser.parse(self.sql)
         except UnexpectedToken as err:
-            message = f"Expected one of the following input(s): {err.expected}\n" \
-                      f"Unexpected input at line {err.line}, column {err.column}\n" \
-                      f"{err.get_context(self.sql)}"
+            message = (
+                f"Expected one of the following input(s): {err.expected}\n"
+                f"Unexpected input at line {err.line}, column {err.column}\n"
+                f"{err.get_context(self.sql)}"
+            )
             raise InvalidQueryException(message)
