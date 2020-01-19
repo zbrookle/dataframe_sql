@@ -59,7 +59,6 @@ if [[ -z "$CHECK" || "$CHECK" == "lint" ]]; then
     echo "flake8 --version"
     flake8 --version
 
-    # pandas/_libs/src is C code, so no need to search there.
     MSG='Linting .py code' ; echo $MSG
     flake8 --format="$FLAKE8_FORMAT" .
     RET=$(($RET + $?)) ; echo $MSG "DONE"
@@ -132,7 +131,7 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
 
     # Check for the following code in testing: `unittest.mock`, `mock.Mock()` or `mock.patch`
     MSG='Check that unittest.mock is not used (pytest builtin monkeypatch fixture should be used instead)' ; echo $MSG
-    invgrep -r -E --include '*.py' '(unittest(\.| import )mock|mock\.Mock\(\)|mock\.patch)' pandas/tests/
+    invgrep -r -E --include '*.py' '(unittest(\.| import )mock|mock\.Mock\(\)|mock\.patch)' dataframe_sql/tests/
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for wrong space after code-block directive and before colon (".. code-block ::" instead of ".. code-block::")' ; echo $MSG
@@ -191,7 +190,7 @@ if [[ -z "$CHECK" || "$CHECK" == "typing" ]]; then
     mypy --version
 
     MSG='Performing static analysis using mypy' ; echo $MSG
-    mypy pandas
+    mypy dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 fi
 
