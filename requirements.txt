@@ -1,0 +1,4 @@
+pandas
+sqlparse
+lark-parser
+cython
