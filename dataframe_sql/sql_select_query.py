@@ -9,7 +9,7 @@ from lark import Lark, UnexpectedToken
 from pandas.core.frame import DataFrame
 
 from dataframe_sql.exceptions.sql_exception import InvalidQueryException
-from dataframe_sql.parsers import SQLTransformer
+from dataframe_sql.parsing.parsers import SQLTransformer
 from dataframe_sql.sql_objects import AmbiguousColumn
 
 SHOW_TREE = False

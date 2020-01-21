@@ -11,7 +11,7 @@ from dataframe_sql.exceptions.sql_exception import (
     InvalidQueryException,
     MultipleQueriesException,
 )
-from dataframe_sql.parsers import SQLTransformer
+from dataframe_sql.parsing.parsers import SQLTransformer
 
 SHOW_TREE = False
 SHOW_DF = False
