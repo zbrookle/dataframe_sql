@@ -195,7 +195,7 @@ class ForestVisitor(object):
                     continue
 
                 if id(next_node) in visiting:
-                    raise ParseError("Infinite recursion in grammar, in rule '%s'!" % next_node.s.name)
+                    raise ParseError("Infinite recursion in grammar!")
 
                 input_stack.append(next_node)
                 continue
@@ -250,7 +250,7 @@ class ForestSumVisitor(ForestVisitor):
         return iter(node.children)
 
     def visit_packed_node_out(self, node):
-        priority = node.rule.options.priority if not node.parent.is_intermediate and node.rule.options.priority else 0
+        priority = node.rule.options.priority if not node.parent.is_intermediate and node.rule.options and node.rule.options.priority else 0
         priority += getattr(node.right, 'priority', 0)
         priority += getattr(node.left, 'priority', 0)
         node.priority = priority

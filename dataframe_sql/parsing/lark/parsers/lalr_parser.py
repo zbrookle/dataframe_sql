@@ -6,15 +6,16 @@ from ..exceptions import UnexpectedToken
 from ..lexer import Token
 from ..utils import Enumerator, Serialize
 
-from .lalr_analysis import LALR_Analyzer, Shift, Reduce, IntParseTable
+from .lalr_analysis import LALR_Analyzer, Shift, IntParseTable
 
 
 ###{standalone
 class LALR_Parser(object):
     def __init__(self, parser_conf, debug=False):
-        assert all(r.options.priority is None for r in parser_conf.rules), "LALR doesn't yet support prioritization"
+        assert all(r.options is None or r.options.priority is None
+                   for r in parser_conf.rules), "LALR doesn't yet support prioritization"
         analysis = LALR_Analyzer(parser_conf, debug=debug)
-        analysis.compute_lalr()
+        analysis.compute_lookahead()
         callbacks = parser_conf.callbacks
 
         self._parse_table = analysis.parse_table
@@ -96,9 +97,11 @@ class _Parser:
         token = Token.new_borrow_pos('$END', '', token) if token else Token('$END', '', 0, 1, 1)
         while True:
             _action, arg = get_action(token)
-            assert(_action is Reduce)
-            reduce(arg)
-            if state_stack[-1] == end_state:
-                return value_stack[-1]
+            if _action is Shift:
+                assert arg == end_state
+                val ,= value_stack
+                return val
+            else:
+                reduce(arg)
 
 ###}

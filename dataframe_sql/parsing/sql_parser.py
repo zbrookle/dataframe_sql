@@ -5,9 +5,9 @@ from datetime import date, datetime
 import re
 from typing import Any, Dict, List, Tuple
 
-from lark import Transformer, v_args
-from lark.lexer import Token
-from lark.tree import Tree
+from dataframe_sql.parsing.lark import Transformer, v_args
+from dataframe_sql.parsing.lark.lexer import Token
+from dataframe_sql.parsing.lark.tree import Tree
 from pandas import DataFrame, concat, merge
 
 from dataframe_sql.exceptions.sql_exception import DataFrameDoesNotExist

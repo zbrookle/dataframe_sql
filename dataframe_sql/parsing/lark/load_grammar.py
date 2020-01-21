@@ -2,10 +2,10 @@
 
 import os.path
 import sys
+from ast import literal_eval
 from copy import copy, deepcopy
-from io import open
 
-from .utils import bfs, eval_escaping
+from .utils import bfs
 from .lexer import Token, TerminalDef, PatternStr, PatternRE
 
 from .parse_tree_builder import ParseTreeBuilder
@@ -73,7 +73,7 @@ TERMINALS = {
     '_RPAR': r'\)',
     '_LBRA': r'\[',
     '_RBRA': r'\]',
-    'OP': '[+*]|[?](?![a-z])',
+    'OP': '[+*][?]?|[?](?![a-z])',
     '_COLON': ':',
     '_COMMA': ',',
     '_OR': r'\|',
@@ -345,6 +345,31 @@ def _rfind(s, choices):
 
 
 
+def _fix_escaping(s):
+    w = ''
+    i = iter(s)
+    for n in i:
+        w += n
+        if n == '\\':
+            try:
+                n2 = next(i)
+            except StopIteration:
+                raise ValueError("Literal ended unexpectedly (bad escaping): `%r`" % s)
+            if n2 == '\\':
+                w += '\\\\'
+            elif n2 not in 'uxnftr':
+                w += '\\'
+            w += n2
+    w = w.replace('\\"', '"').replace("'", "\\'")
+
+    to_eval = "u'''%s'''" % w
+    try:
+        s = literal_eval(to_eval)
+    except SyntaxError as e:
+        raise ValueError(s, e)
+
+    return s
+
 
 def _literal_to_pattern(literal):
     v = literal.value
@@ -357,7 +382,7 @@ def _literal_to_pattern(literal):
     assert v[0] == v[-1] and v[0] in '"/'
     x = v[1:-1]
 
-    s = eval_escaping(x)
+    s = _fix_escaping(x)
 
     if literal.type == 'STRING':
         s = s.replace('\\\\', '\\')
@@ -375,7 +400,7 @@ class PrepareLiterals(Transformer_InPlace):
         assert start.type == end.type == 'STRING'
         start = start.value[1:-1]
         end = end.value[1:-1]
-        assert len(eval_escaping(start)) == len(eval_escaping(end)) == 1, (start, end, len(eval_escaping(start)), len(eval_escaping(end)))
+        assert len(_fix_escaping(start)) == len(_fix_escaping(end)) == 1, (start, end, len(_fix_escaping(start)), len(_fix_escaping(end)))
         regexp = '[%s-%s]' % (start, end)
         return ST('pattern', [PatternRE(regexp)])
 
@@ -477,8 +502,7 @@ class Grammar:
         ebnf_to_bnf = EBNF_to_BNF()
         rules = []
         for name, rule_tree, options in rule_defs:
-            ebnf_to_bnf.rule_options = RuleOptions(keep_all_tokens=True) if options.keep_all_tokens else None
-            ebnf_to_bnf.prefix = name
+            ebnf_to_bnf.rule_options = RuleOptions(keep_all_tokens=True) if options and options.keep_all_tokens else None
             tree = transformer.transform(rule_tree)
             res = ebnf_to_bnf.transform(tree)
             rules.append((name, res, options))
@@ -502,7 +526,7 @@ class Grammar:
 
                 empty_indices = [x==_EMPTY for x in expansion]
                 if any(empty_indices):
-                    exp_options = copy(options) or RuleOptions()
+                    exp_options = copy(options) if options else RuleOptions()
                     exp_options.empty_indices = empty_indices
                     expansion = [x for x in expansion if x!=_EMPTY]
                 else:
@@ -518,8 +542,7 @@ class Grammar:
             for dups in duplicates.values():
                 if len(dups) > 1:
                     if dups[0].expansion:
-                        raise GrammarError("Rules defined twice: %s\n\n(Might happen due to colliding expansion of optionals: [] or ?)"
-                                           % ''.join('\n  * %s' % i for i in dups))
+                        raise GrammarError("Rules defined twice: %s\n\n(Might happen due to colliding expansion of optionals: [] or ?)" % ''.join('\n  * %s' % i for i in dups))
 
                     # Empty rule; assert all other attributes are equal
                     assert len({(r.alias, r.order, r.options) for r in dups}) == len(dups)
@@ -557,13 +580,13 @@ def import_grammar(grammar_path, base_paths=[]):
         for import_path in import_paths:
             with suppress(IOError):
                 joined_path = os.path.join(import_path, grammar_path)
-                with open(joined_path, encoding='utf8') as f:
+                with open(joined_path) as f:
                     text = f.read()
                 grammar = load_grammar(text, joined_path)
                 _imported_grammars[grammar_path] = grammar
                 break
         else:
-            open(grammar_path, encoding='utf8')
+            open(grammar_path)
             assert False
 
     return _imported_grammars[grammar_path]

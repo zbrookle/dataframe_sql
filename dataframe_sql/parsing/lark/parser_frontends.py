@@ -79,13 +79,14 @@ class WithLexer(_ParserFrontend):
     def _serialize(self, data, memo):
         data['parser'] = data['parser'].serialize(memo)
 
-    def lex(self, *args):
-        stream = self.lexer.lex(*args)
+    def lex(self, text):
+        stream = self.lexer.lex(text)
         return self.postlex.process(stream) if self.postlex else stream
 
     def parse(self, text, start=None):
         token_stream = self.lex(text)
-        return self._parse(token_stream, start)
+        sps = self.lexer.set_parser_state
+        return self._parse(token_stream, start, *[sps] if sps is not NotImplemented else [])
 
     def init_traditional_lexer(self):
         self.lexer = TraditionalLexer(self.lexer_conf.tokens, ignore=self.lexer_conf.ignore, user_callbacks=self.lexer_conf.callbacks)
@@ -113,15 +114,6 @@ class LALR_ContextualLexer(LALR_WithLexer):
                                      ignore=self.lexer_conf.ignore,
                                      always_accept=always_accept,
                                      user_callbacks=self.lexer_conf.callbacks)
-
-
-    def parse(self, text, start=None):
-        parser_state = [None]
-        def set_parser_state(s):
-            parser_state[0] = s
-
-        token_stream = self.lex(text, lambda: parser_state[0])
-        return self._parse(token_stream, start, set_parser_state)
 ###}
 
 class LALR_CustomLexer(LALR_WithLexer):

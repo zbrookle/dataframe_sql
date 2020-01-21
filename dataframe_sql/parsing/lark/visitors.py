@@ -22,8 +22,8 @@ class Transformer:
     Can be used to implement map or reduce.
     """
 
-    __visit_tokens__ = True   # For backwards compatibility
-    def __init__(self,  visit_tokens=True):
+    __visit_tokens__ = False   # For backwards compatibility
+    def __init__(self,  visit_tokens=False):
         self.__visit_tokens__ = visit_tokens
 
     def _call_userfunc(self, tree, new_children=None):
@@ -35,15 +35,20 @@ class Transformer:
             return self.__default__(tree.data, children, tree.meta)
         else:
             try:
-                wrapper = getattr(f, 'visit_wrapper', None)
-                if wrapper is not None:
-                    return f.visit_wrapper(f, tree.data, children, tree.meta)
+                if getattr(f, 'meta', False):
+                    return f(children, tree.meta)
+                elif getattr(f, 'inline', False):
+                    return f(*children)
+                elif getattr(f, 'whole_tree', False):
+                    if new_children is not None:
+                        tree.children = new_children
+                    return f(tree)
                 else:
                     return f(children)
             except (GrammarError, Discard):
                 raise
             except Exception as e:
-                raise VisitError(tree.data, tree, e)
+                raise VisitError(tree, e)
 
     def _call_userfunc_token(self, token):
         try:
@@ -56,7 +61,7 @@ class Transformer:
             except (GrammarError, Discard):
                 raise
             except Exception as e:
-                raise VisitError(token.type, token, e)
+                raise VisitError(token, e)
 
 
     def _transform_children(self, children):
@@ -181,11 +186,6 @@ class Visitor(VisitorBase):
             self._call_userfunc(subtree)
         return tree
 
-    def visit_topdown(self,tree):
-        for subtree in tree.iter_subtrees_topdown():
-            self._call_userfunc(subtree)
-        return tree
-
 class Visitor_Recursive(VisitorBase):
     """Bottom-up visitor, recursive
 
@@ -198,16 +198,8 @@ class Visitor_Recursive(VisitorBase):
             if isinstance(child, Tree):
                 self.visit(child)
 
-        self._call_userfunc(tree)
-        return tree
-
-    def visit_topdown(self,tree):
-        self._call_userfunc(tree)
-
-        for child in tree.children:
-            if isinstance(child, Tree):
-                self.visit_topdown(child)
-
+        f = getattr(self, tree.data, self.__default__)
+        f(tree)
         return tree
 
 
@@ -277,7 +269,8 @@ def inline_args(obj):   # XXX Deprecated
 
 
 
-def _visitor_args_func_dec(func, visit_wrapper=None, static=False):
+def _visitor_args_func_dec(func, inline=False, meta=False, whole_tree=False, static=False):
+    assert [whole_tree, meta, inline].count(True) <= 1
     def create_decorator(_f, with_self):
         if with_self:
             def f(self, *args, **kwargs):
@@ -292,42 +285,17 @@ def _visitor_args_func_dec(func, visit_wrapper=None, static=False):
     else:
         f = smart_decorator(func, create_decorator)
     f.vargs_applied = True
-    f.visit_wrapper = visit_wrapper
+    f.inline = inline
+    f.meta = meta
+    f.whole_tree = whole_tree
     return f
 
-
-def _vargs_inline(f, data, children, meta):
-    return f(*children)
-def _vargs_meta_inline(f, data, children, meta):
-    return f(meta, *children)
-def _vargs_meta(f, data, children, meta):
-    return f(children, meta)   # TODO swap these for consistency? Backwards incompatible!
-def _vargs_tree(f, data, children, meta):
-    return f(Tree(data, children, meta))
-
-def v_args(inline=False, meta=False, tree=False, wrapper=None):
+def v_args(inline=False, meta=False, tree=False):
     "A convenience decorator factory, for modifying the behavior of user-supplied visitor methods"
-    if tree and (meta or inline):
-        raise ValueError("Visitor functions cannot combine 'tree' with 'meta' or 'inline'.")
-
-    func = None
-    if meta:
-        if inline:
-            func = _vargs_meta_inline
-        else:
-            func = _vargs_meta
-    elif inline:
-        func = _vargs_inline
-    elif tree:
-        func = _vargs_tree
-
-    if wrapper is not None:
-        if func is not None:
-            raise ValueError("Cannot use 'wrapper' along with 'tree', 'meta' or 'inline'.")
-        func = wrapper
-
+    if [tree, meta, inline].count(True) > 1:
+        raise ValueError("Visitor functions can either accept tree, or meta, or be inlined. These cannot be combined.")
     def _visitor_args_dec(obj):
-        return _apply_decorator(obj, _visitor_args_func_dec, visit_wrapper=func)
+        return _apply_decorator(obj, _visitor_args_func_dec, inline=inline, meta=meta, whole_tree=tree)
     return _visitor_args_dec
 
 

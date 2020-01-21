@@ -90,9 +90,9 @@ class TerminalDef(Serialize):
 
 
 class Token(Str):
-    __slots__ = ('type', 'pos_in_stream', 'value', 'line', 'column', 'end_line', 'end_column', 'end_pos')
+    __slots__ = ('type', 'pos_in_stream', 'value', 'line', 'column', 'end_line', 'end_column')
 
-    def __new__(cls, type_, value, pos_in_stream=None, line=None, column=None, end_line=None, end_column=None, end_pos=None):
+    def __new__(cls, type_, value, pos_in_stream=None, line=None, column=None, end_line=None, end_column=None):
         try:
             self = super(Token, cls).__new__(cls, value)
         except UnicodeDecodeError:
@@ -106,19 +106,11 @@ class Token(Str):
         self.column = column
         self.end_line = end_line
         self.end_column = end_column
-        self.end_pos = end_pos
         return self
-
-    def update(self, type_=None, value=None):
-        return Token.new_borrow_pos(
-            type_ if type_ is not None else self.type,
-            value if value is not None else self.value,
-            self
-        )
 
     @classmethod
     def new_borrow_pos(cls, type_, value, borrow_t):
-        return cls(type_, value, borrow_t.pos_in_stream, borrow_t.line, borrow_t.column, borrow_t.end_line, borrow_t.end_column, borrow_t.end_pos)
+        return cls(type_, value, borrow_t.pos_in_stream, borrow_t.line, borrow_t.column, borrow_t.end_line, borrow_t.end_column)
 
     def __reduce__(self):
         return (self.__class__, (self.type, self.value, self.pos_in_stream, self.line, self.column, ))
@@ -183,25 +175,24 @@ class _Lex:
 
             value, type_ = res
 
+            t = None
             if type_ not in ignore_types:
                 t = Token(type_, value, line_ctr.char_pos, line_ctr.line, line_ctr.column)
-                line_ctr.feed(value, type_ in newline_types)
-                t.end_line = line_ctr.line
-                t.end_column = line_ctr.column
-                t.end_pos = line_ctr.char_pos
                 if t.type in lexer.callback:
                     t = lexer.callback[t.type](t)
                     if not isinstance(t, Token):
                         raise ValueError("Callbacks must return a token (returned %r)" % t)
-                yield t
                 last_token = t
+                yield t
             else:
                 if type_ in lexer.callback:
-                    t2 = Token(type_, value, line_ctr.char_pos, line_ctr.line, line_ctr.column)
-                    lexer.callback[type_](t2)
-                line_ctr.feed(value, type_ in newline_types)
+                    t = Token(type_, value, line_ctr.char_pos, line_ctr.line, line_ctr.column)
+                    lexer.callback[type_](t)
 
-
+            line_ctr.feed(value, type_ in newline_types)
+            if t:
+                t.end_line = line_ctr.line
+                t.end_column = line_ctr.column
 
 
 class UnlessCallback:
@@ -288,7 +279,10 @@ class Lexer(object):
 
     Method Signatures:
         lex(self, stream) -> Iterator[Token]
+
+        set_parser_state(self, state)   # Optional
     """
+    set_parser_state = NotImplemented
     lex = NotImplemented
 
 
@@ -303,7 +297,7 @@ class TraditionalLexer(Lexer):
         for t in terminals:
             try:
                 re.compile(t.pattern.to_regexp())
-            except re.error:
+            except:
                 raise LexError("Cannot compile token %s: %s" % (t.name, t.pattern))
 
             if t.pattern.min_width == 0:
@@ -346,7 +340,6 @@ class TraditionalLexer(Lexer):
 
 
 class ContextualLexer(Lexer):
-
     def __init__(self, terminals, states, ignore=(), always_accept=(), user_callbacks={}):
         tokens_by_name = {}
         for t in terminals:
@@ -369,15 +362,18 @@ class ContextualLexer(Lexer):
 
         self.root_lexer = TraditionalLexer(terminals, ignore=ignore, user_callbacks=user_callbacks)
 
-    def lex(self, stream, get_parser_state):
-        parser_state = get_parser_state()
-        l = _Lex(self.lexers[parser_state], parser_state)
+        self.set_parser_state(None) # Needs to be set on the outside
+
+    def set_parser_state(self, state):
+        self.parser_state = state
+
+    def lex(self, stream):
+        l = _Lex(self.lexers[self.parser_state], self.parser_state)
         try:
             for x in l.lex(stream, self.root_lexer.newline_types, self.root_lexer.ignore_types):
                 yield x
-                parser_state = get_parser_state()
-                l.lexer = self.lexers[parser_state]
-                l.state = parser_state # For debug only, no need to worry about multithreading
+                l.lexer = self.lexers[self.parser_state]
+                l.state = self.parser_state
         except UnexpectedCharacters as e:
             # In the contextual lexer, UnexpectedCharacters can mean that the terminal is defined,
             # but not in the current context.

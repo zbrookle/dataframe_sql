@@ -1,6 +1,6 @@
+from distutils.core import setup
 import os
 
-from distutils.core import setup
 from Cython.Build import cythonize
 
 CODE_DIRECTORY = "dataframe_sql"

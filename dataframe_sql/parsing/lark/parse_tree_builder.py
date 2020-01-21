@@ -3,7 +3,6 @@ from .lexer import Token
 from .tree import Tree
 from .visitors import InlineTransformer # XXX Deprecated
 from .visitors import Transformer_InPlace
-from . import visitors
 
 ###{standalone
 from functools import partial, wraps
@@ -29,7 +28,7 @@ class PropagatePositions:
 
         if isinstance(res, Tree):
             for c in children:
-                if isinstance(c, Tree) and not c.meta.empty:
+                if isinstance(c, Tree) and c.children and not c.meta.empty:
                     res.meta.line = c.meta.line
                     res.meta.column = c.meta.column
                     res.meta.start_pos = c.meta.start_pos
@@ -43,7 +42,7 @@ class PropagatePositions:
                     break
 
             for c in reversed(children):
-                if isinstance(c, Tree) and not c.meta.empty:
+                if isinstance(c, Tree) and c.children and not c.meta.empty:
                     res.meta.end_line = c.meta.end_line
                     res.meta.end_column = c.meta.end_column
                     res.meta.end_pos = c.meta.end_pos
@@ -52,7 +51,7 @@ class PropagatePositions:
                 elif isinstance(c, Token):
                     res.meta.end_line = c.end_line
                     res.meta.end_column = c.end_column
-                    res.meta.end_pos = c.end_pos
+                    res.meta.end_pos = c.pos_in_stream + len(c.value)
                     res.meta.empty = False
                     break
 
@@ -203,15 +202,6 @@ def inplace_transformer(func):
         return func(tree)
     return f
 
-def apply_visit_wrapper(func, name, wrapper):
-    if wrapper is visitors._vargs_meta or wrapper is visitors._vargs_meta_inline:
-        raise NotImplementedError("Meta args not supported for internal transformer")
-    @wraps(func)
-    def f(children):
-        return wrapper(func, name, children, None)
-    return f
-
-
 class ParseTreeBuilder:
     def __init__(self, rules, tree_class, propagate_positions=False, keep_all_tokens=False, ambiguous=False, maybe_placeholders=False):
         self.tree_class = tree_class
@@ -225,12 +215,12 @@ class ParseTreeBuilder:
     def _init_builders(self, rules):
         for rule in rules:
             options = rule.options
-            keep_all_tokens = self.always_keep_all_tokens or options.keep_all_tokens
-            expand_single_child = options.expand1
+            keep_all_tokens = self.always_keep_all_tokens or (options.keep_all_tokens if options else False)
+            expand_single_child = options.expand1 if options else False
 
             wrapper_chain = list(filter(None, [
                 (expand_single_child and not rule.alias) and ExpandSingleChild,
-                maybe_create_child_filter(rule.expansion, keep_all_tokens, self.ambiguous, options.empty_indices if self.maybe_placeholders else None),
+                maybe_create_child_filter(rule.expansion, keep_all_tokens, self.ambiguous, options.empty_indices if self.maybe_placeholders and options else None),
                 self.propagate_positions and PropagatePositions,
                 self.ambiguous and maybe_create_ambiguous_expander(self.tree_class, rule.expansion, keep_all_tokens),
             ]))
@@ -246,15 +236,12 @@ class ParseTreeBuilder:
             user_callback_name = rule.alias or rule.origin.name
             try:
                 f = getattr(transformer, user_callback_name)
+                assert not getattr(f, 'meta', False), "Meta args not supported for internal transformer"
                 # XXX InlineTransformer is deprecated!
-                wrapper = getattr(f, 'visit_wrapper', None)
-                if wrapper is not None:
-                    f = apply_visit_wrapper(f, user_callback_name, wrapper)
-                else:
-                    if isinstance(transformer, InlineTransformer):
-                        f = ptb_inline_args(f)
-                    elif isinstance(transformer, Transformer_InPlace):
-                        f = inplace_transformer(f)
+                if getattr(f, 'inline', False) or isinstance(transformer, InlineTransformer):
+                    f = ptb_inline_args(f)
+                elif hasattr(f, 'whole_tree') or isinstance(transformer, Transformer_InPlace):
+                    f = inplace_transformer(f)
             except AttributeError:
                 f = partial(self.tree_class, user_callback_name)
 

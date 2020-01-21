@@ -34,9 +34,6 @@
 #    See <http://www.gnu.org/licenses/>.
 #
 #
-
-import os
-from io import open
 ###}
 
 import pprint

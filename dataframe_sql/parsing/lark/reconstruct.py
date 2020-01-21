@@ -19,13 +19,9 @@ def is_iter_empty(i):
     except StopIteration:
         return True
 
-
 class WriteTokensTransformer(Transformer_InPlace):
-    "Inserts discarded tokens into their correct place, according to the rules of grammar"
-
-    def __init__(self, tokens, term_subs):
+    def __init__(self, tokens):
         self.tokens = tokens
-        self.term_subs = term_subs
 
     def __default__(self, data, children, meta):
         #  if not isinstance(t, MatchTree):
@@ -37,15 +33,10 @@ class WriteTokensTransformer(Transformer_InPlace):
         to_write = []
         for sym in meta.orig_expansion:
             if is_discarded_terminal(sym):
-                try:
-                    v = self.term_subs[sym.name](sym)
-                except KeyError:
-                    t = self.tokens[sym.name]
-                    if not isinstance(t.pattern, PatternStr):
-                        raise NotImplementedError("Reconstructing regexps not supported yet: %s" % t)
-
-                    v = t.pattern.value
-                to_write.append(v)
+                t = self.tokens[sym.name]
+                if not isinstance(t.pattern, PatternStr):
+                    raise NotImplementedError("Reconstructing regexps not supported yet: %s" % t)
+                to_write.append(t.pattern.value)
             else:
                 x = next(iter_args)
                 if isinstance(x, list):
@@ -75,40 +66,19 @@ class MakeMatchTree:
         t.meta.orig_expansion = self.expansion
         return t
 
-def best_from_group(seq, group_key, cmp_key):
-    d = {}
-    for item in seq:
-        key = group_key(item)
-        if key in d:
-            v1 = cmp_key(item)
-            v2 = cmp_key(d[key])
-            if v2 > v1:
-                d[key] = item
-        else:
-            d[key] = item
-    return list(d.values())
-
 class Reconstructor:
-    def __init__(self, parser, term_subs={}):
+    def __init__(self, parser):
         # XXX TODO calling compile twice returns different results!
-        assert parser.options.maybe_placeholders == False
         tokens, rules, _grammar_extra = parser.grammar.compile(parser.options.start)
 
-        self.write_tokens = WriteTokensTransformer({t.name:t for t in tokens}, term_subs)
+        self.write_tokens = WriteTokensTransformer({t.name:t for t in tokens})
         self.rules = list(self._build_recons_rules(rules))
-        self.rules.reverse()
-        # print(len(self.rules))
-        self.rules = best_from_group(self.rules, lambda r: r, lambda r: -len(r.expansion))
-        # print(len(self.rules))
-
-        # self.rules = list(set(list(self._build_recons_rules(rules))))
-        self.rules.sort(key=lambda r: len(r.expansion))
         callbacks = {rule: rule.alias for rule in self.rules}   # TODO pass callbacks through dict, instead of alias?
         self.parser = earley.Parser(ParserConf(self.rules, callbacks, parser.options.start),
                                     self._match, resolve_ambiguity=True)
 
     def _build_recons_rules(self, rules):
-        expand1s = {r.origin for r in rules if r.options.expand1}
+        expand1s = {r.origin for r in rules if r.options and r.options.expand1}
 
         aliases = defaultdict(list)
         for r in rules:
@@ -156,12 +126,4 @@ class Reconstructor:
                 yield item
 
     def reconstruct(self, tree):
-        x = self._reconstruct(tree)
-        y = []
-        prev_item = ''
-        for item in x:
-            if prev_item and item and prev_item[-1].isalnum() and item[0].isalnum():
-                y.append(' ')
-            y.append(item)
-            prev_item = item
-        return ''.join(y)
+        return ''.join(self._reconstruct(tree))
