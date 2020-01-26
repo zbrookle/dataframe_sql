@@ -1168,4 +1168,4 @@ def test_timestamps():
         tm.assert_frame_equal(pandas_frame, my_frame)
 
 if __name__ == "__main__":
-    test_select_star()
+    test_date_cast()

@@ -4,3 +4,6 @@
 *__pycache__*
 *.DS_Store*
 *.idea
+*.c
+build/*
+*.so

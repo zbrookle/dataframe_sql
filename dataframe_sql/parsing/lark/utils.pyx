@@ -162,6 +162,9 @@ def smart_decorator(f, create_decorator):
         # wraps does not work for partials in 2.7: https://bugs.python.org/issue3445
         return wraps(f.func)(create_decorator(lambda *args, **kw: f(*args[1:], **kw), True))
 
+    elif str(type(f)) == "<class 'cython_function_or_method'>":
+        return wraps(f)(create_decorator(f, True))
+
     else:
         return create_decorator(f.__func__.__call__, True)
 
@@ -208,20 +211,6 @@ except ImportError:
             pass
 
 
-
-
-try:
-    compare = cmp
-except NameError:
-    def compare(a, b):
-        if a == b:
-            return 0
-        elif a > b:
-            return 1
-        return -1
-
-
-
 class Enumerator(Serialize):
     def __init__(self):
         self.enums = {}
@@ -238,4 +227,3 @@ class Enumerator(Serialize):
         r = {v: k for k, v in self.enums.items()}
         assert len(r) == len(self.enums)
         return r
-

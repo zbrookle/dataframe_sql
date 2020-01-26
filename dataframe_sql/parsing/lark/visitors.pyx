@@ -48,6 +48,7 @@ class Transformer:
             except (GrammarError, Discard):
                 raise
             except Exception as e:
+                print(tree)
                 raise VisitError(tree, e)
 
     def _call_userfunc_token(self, token):
