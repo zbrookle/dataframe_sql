@@ -3,12 +3,19 @@ Convert dataframe_sql statement to run on pandas dataframes
 """
 import os
 from pathlib import Path
-from typing import Dict
+import re
+import sys
+import traceback
+from typing import Any, Dict
 
+from lark import Lark, Tree, UnexpectedToken
+from lark.exceptions import VisitError
 from pandas.core.frame import DataFrame
 
-from dataframe_sql.exceptions.sql_exception import InvalidQueryException
-from dataframe_sql.parsing.lark import Lark, UnexpectedToken
+from dataframe_sql.exceptions.sql_exception import (
+    DataFrameDoesNotExist,
+    InvalidQueryException,
+)
 from dataframe_sql.parsing.sql_parser import SQLTransformer
 from dataframe_sql.sql_objects import AmbiguousColumn
 
@@ -105,22 +112,12 @@ def query(sql: str):
 
 
 class SqlToDataFrame:
+    parser = Lark(_GRAMMAR_TEXT, parser="lalr")
+
     def __init__(self, sql: str):
         self.sql = sql
         table_info = TableInfo()
-        if SHOW_TREE:
-            self.parser = Lark(_GRAMMAR_TEXT, parser="lalr")
-        else:
-            self.parser = Lark(
-                _GRAMMAR_TEXT,
-                parser="lalr",
-                transformer=SQLTransformer(
-                    table_info.dataframe_name_map,
-                    table_info.dataframe_map,
-                    table_info.column_name_map,
-                    table_info.column_to_dataframe_name,
-                ),
-            )
+
         self.ast = self.parse_sql()
         if SHOW_TREE or SHOW_DF:
             print("Result:")
@@ -133,7 +130,16 @@ class SqlToDataFrame:
 
     def parse_sql(self):
         try:
-            return self.parser.parse(self.sql)
+            tree = self.parser.parse(self.sql)
+
+            table_info = TableInfo()
+
+            return SQLTransformer(
+                table_info.dataframe_name_map,
+                table_info.dataframe_map,
+                table_info.column_name_map,
+                table_info.column_to_dataframe_name,
+            ).transform(tree)
         except UnexpectedToken as err:
             message = (
                 f"Expected one of the following input(s): {err.expected}\n"
@@ -141,10 +147,20 @@ class SqlToDataFrame:
                 f"{err.get_context(self.sql)}"
             )
             raise InvalidQueryException(message)
+        except VisitError as err:
+            match = re.match(
+                r"(\n|.)*DataFrame\s(?P<table>.*)\shas\snot\sbeen\sdefined(\n|.)*",
+                str(err),
+                re.MULTILINE,
+            )
+            if match:
+                raise DataFrameDoesNotExist(table_name=match.group("table"))
+            else:
+                raise err
 
 
 class TableInfo:
-    column_to_dataframe_name: Dict[str, str] = {}
+    column_to_dataframe_name: Dict[str, Any] = {}
     column_name_map: Dict[str, Dict[str, str]] = {}
     dataframe_name_map: Dict[str, str] = {}
     dataframe_map: Dict[str, DataFrame] = {}

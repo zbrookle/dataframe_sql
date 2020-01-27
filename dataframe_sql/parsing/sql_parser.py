@@ -5,9 +5,7 @@ from datetime import date, datetime
 import re
 from typing import Any, Dict, List, Tuple
 
-from dataframe_sql.parsing.lark import Transformer, v_args
-from dataframe_sql.parsing.lark.lexer import Token
-from dataframe_sql.parsing.lark.tree import Tree
+from lark import Token, Transformer, Tree, v_args
 from pandas import DataFrame, concat, merge
 
 from dataframe_sql.exceptions.sql_exception import DataFrameDoesNotExist
@@ -117,7 +115,7 @@ class TransformerBaseClass(Transformer):
             frame_name = frame_name.name
         return self.dataframe_map[frame_name]
 
-    def set_column_value(self, column: Column):
+    def set_column_value(self, column: Column) -> None:
         """
         Sets the column value based on what it is in the dataframe
         :param column:
@@ -178,10 +176,10 @@ class InternalTransformer(TransformerBaseClass):
         self.partition_rank_offset: Dict[str, int] = {}
         self.rank_counter = 1
         self.rank_offset = 0
-        self.rank_map: Dict[str, int] = {}
+        self.rank_map = {}
         self.last_key = None
 
-    def mul(self, args):
+    def mul(self, args: Tuple[int, int]):
         """
         Returns the product two numbers
         """
@@ -189,7 +187,7 @@ class InternalTransformer(TransformerBaseClass):
         arg2 = args[1]
         return num_eval(arg1) * num_eval(arg2)
 
-    def expression_mul(self, args):
+    def expression_mul(self, args: Tuple):
         """
         Returns the product of two expressions
         :param args:
@@ -199,7 +197,7 @@ class InternalTransformer(TransformerBaseClass):
         arg2 = args[1]
         return arg1 * arg2
 
-    def add(self, args):
+    def add(self, args: Tuple):
         """
         Returns the sum two numbers
         """
@@ -207,7 +205,7 @@ class InternalTransformer(TransformerBaseClass):
         arg2 = args[1]
         return num_eval(arg1) + num_eval(arg2)
 
-    def expression_add(self, args):
+    def expression_add(self, args: Tuple):
         """
         Returns the sum of two expressions
         :param args:
@@ -217,7 +215,7 @@ class InternalTransformer(TransformerBaseClass):
         arg2 = args[1]
         return arg1 + arg2
 
-    def sub(self, args):
+    def sub(self, args: Tuple):
         """
         Returns the difference between two numbers
         """
@@ -225,7 +223,7 @@ class InternalTransformer(TransformerBaseClass):
         arg2 = args[1]
         return num_eval(arg1) - num_eval(arg2)
 
-    def expression_sub(self, args):
+    def expression_sub(self, args: Tuple):
         """
         Returns the difference between two expressions
         :param args:
@@ -235,7 +233,7 @@ class InternalTransformer(TransformerBaseClass):
         arg2 = args[1]
         return arg1 - arg2
 
-    def div(self, args):
+    def div(self, args: Tuple):
         """
         Returns the division of two numbers
         """
@@ -418,7 +416,7 @@ class InternalTransformer(TransformerBaseClass):
             return Tree("aggregate", true_function_name)
         return Tree("function", function_name)
 
-    def alias_string(self, name: str):
+    def alias_string(self, name: List[str]):
         """
         Returns an alias token with the name extracted
         :param name:
