@@ -1,10 +1,7 @@
-import os
-
 from distutils.core import setup
-from Cython.Build import cythonize
+from pathlib import Path
 
-CODE_DIRECTORY = "dataframe_sql"
+CODE_DIRECTORY = Path(__file__).parent
 
-setup(
-    ext_modules=cythonize(os.path.join(CODE_DIRECTORY, "parsers.py"), annotate=True)
-)
+
+setup(name="DataFrameSql",)

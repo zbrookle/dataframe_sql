@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="PylintConfigService">
-    <option name="customPylintPath" value="$USER_HOME$/miniconda3/envs/sql_to_pandas/bin/pylint" />
-    <option name="pylintArguments" value="--max-line-length=88" />
-    <option name="scanBeforeCheckin" value="false" />
-  </component>
-</project>

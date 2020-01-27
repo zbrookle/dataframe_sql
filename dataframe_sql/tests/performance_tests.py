@@ -6,8 +6,11 @@ from typing import List
 
 from dataframe_sql.tests.pandas_sql_functionality_test import *
 
-DONT_TEST = [test_add_remove_temp_table, test_for_valid_query,
-             test_for_non_existent_table]
+DONT_TEST = [
+    test_add_remove_temp_table,
+    test_for_valid_query,
+    test_for_non_existent_table,
+]
 INDENT_REGEX = re.compile(r"(\t|\s{4})(?P<code>.*)")
 
 
@@ -17,9 +20,9 @@ def get_pandas_tests():
     for global_key in global_dict:
         global_var = global_dict[global_key]
         if (
-                isinstance(global_var, FunctionType)
-                and "test" in global_var.__name__
-                and global_var not in DONT_TEST
+            isinstance(global_var, FunctionType)
+            and "test" in global_var.__name__
+            and global_var not in DONT_TEST
         ):
             test_list.append(global_var)
 
@@ -54,8 +57,8 @@ def fix_code_indent(function_code: List[str]):
 def remove_assertion(function_code: List[str]):
     """
     Remove assertion lines
-    :param function_code: 
-    :return: 
+    :param function_code:
+    :return:
     """
     for i, code_line in enumerate(function_code):
         if code_line == "tm.assert_frame_equal(pandas_frame, my_frame)":
@@ -92,9 +95,9 @@ def split_into_pandas_and_dataframe_sql(function_code: str):
         data_frame_sql_code_init
     )
     end_paren = (
-            find_end_paren(function_code, dataframe_sql_code_call_first_paren)
-            + len(data_frame_sql_code_init)
-            + 1
+        find_end_paren(function_code, dataframe_sql_code_call_first_paren)
+        + len(data_frame_sql_code_init)
+        + 1
     )
     dataframe_sql_code = function_code[dataframe_sql_code_start:end_paren]
     pandas_code = function_code[end_paren:]
@@ -114,7 +117,7 @@ def timeit(function: FunctionType):
         te = time.time()
 
         total_time = te - ts
-        print(f'func: {function.__name__} took {total_time}')
+        print(f"func: {function.__name__} took {total_time}")
         return total_time
 
     return timed
@@ -130,7 +133,7 @@ def test_performance(dataframe_sql_code: str, pandas_code: str):
         exec(pandas_code)
 
     time_diff = dataframe_sql_time() - pandas_code_time()
-    print(f"Time differece was {time_diff}\n")
+    print(f"Time difference was {time_diff}\n")
 
 
 if __name__ == "__main__":
@@ -143,5 +146,3 @@ if __name__ == "__main__":
         code = list(filter(lambda x: x, code))
         code_string = "\n".join(code)
         test_performance(*split_into_pandas_and_dataframe_sql(code_string))
-
-        # exit()

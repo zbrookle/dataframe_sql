@@ -4,14 +4,14 @@ Convert sql statement to run on pandas dataframes
 import os
 from pathlib import Path
 
-from lark import Lark, UnexpectedToken
 from sqlparse import split
 
 from dataframe_sql.exceptions.sql_exception import (
     InvalidQueryException,
     MultipleQueriesException,
 )
-from dataframe_sql.parsers import SQLTransformer
+from dataframe_sql.parsing.lark import Lark, UnexpectedToken
+from dataframe_sql.parsing.sql_parser import SQLTransformer
 
 SHOW_TREE = False
 SHOW_DF = False

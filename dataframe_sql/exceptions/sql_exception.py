@@ -9,9 +9,7 @@ class MultipleQueriesException(Exception):
     """
 
     def __init__(self):
-        super(MultipleQueriesException, self).__init__(
-            "Only one sql statement may be entered"
-        )
+        Exception.__init__(self, "Only one sql statement may be entered")
 
 
 class InvalidQueryException(Exception):
@@ -20,7 +18,7 @@ class InvalidQueryException(Exception):
     """
 
     def __init__(self, message):
-        super(InvalidQueryException, self).__init__(f"Invalid query!\n" + message)
+        Exception.__init__(self, f"Invalid query!\n" + message)
 
 
 class DataFrameDoesNotExist(Exception):
@@ -29,6 +27,4 @@ class DataFrameDoesNotExist(Exception):
     """
 
     def __init__(self, table_name):
-        super(DataFrameDoesNotExist, self).__init__(
-            f"DataFrame {table_name} has not been defined"
-        )
+        Exception.__init__(self, f"DataFrame {table_name} has not been defined")
