@@ -146,5 +146,3 @@ if __name__ == "__main__":
         code = list(filter(lambda x: x, code))
         code_string = "\n".join(code)
         test_performance(*split_into_pandas_and_dataframe_sql(code_string))
-
-        # exit()

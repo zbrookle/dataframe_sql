@@ -4,11 +4,9 @@ Convert dataframe_sql statement to run on pandas dataframes
 import os
 from pathlib import Path
 import re
-import sys
-import traceback
 from typing import Any, Dict
 
-from lark import Lark, Tree, UnexpectedToken
+from lark import Lark, UnexpectedToken
 from lark.exceptions import VisitError
 from pandas.core.frame import DataFrame
 
