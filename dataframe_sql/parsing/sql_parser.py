@@ -95,6 +95,7 @@ class TransformerBaseClass(Transformer):
         column_name_map=None,
         column_to_dataframe_name=None,
         _temp_dataframes_dict=None,
+        get_execution_plan=False
     ):
         Transformer.__init__(self, visit_tokens=False)
         self.dataframe_name_map = dataframe_name_map
@@ -102,6 +103,9 @@ class TransformerBaseClass(Transformer):
         self.column_name_map = column_name_map
         self.column_to_dataframe_name = column_to_dataframe_name
         self._temp_dataframes_dict = _temp_dataframes_dict
+        self._get_execution_plan = get_execution_plan
+        print(self._get_execution_plan)
+        self._execution_plan = ""
 
     def get_frame(self, frame_name) -> DataFrame:
         """
@@ -279,7 +283,7 @@ class InternalTransformer(TransformerBaseClass):
     def int_token_list(token_list):
         """
         Returns a list of integer from a list of tokens
-        :param self:
+        :param token_list:
         :return:
         """
         return [int(token.value) for token in token_list]
@@ -474,7 +478,7 @@ class InternalTransformer(TransformerBaseClass):
     def order_asc(self, column):
         """
         Return expression in asc order
-        :param expression:
+        :param column:
         :return:
         """
         column = column[0]
@@ -484,7 +488,7 @@ class InternalTransformer(TransformerBaseClass):
     def order_desc(self, column):
         """
         Return expression in asc order
-        :param expression:
+        :param column:
         :return:
         """
         column = column[0]
@@ -785,11 +789,20 @@ class SQLTransformer(TransformerBaseClass):
 
     def __init__(
         self,
-        dataframe_name_map={},
-        dataframe_map={},
-        column_name_map={},
-        column_to_dataframe_name={},
+        dataframe_name_map=None,
+        dataframe_map=None,
+        column_name_map=None,
+        column_to_dataframe_name=None,
+        get_execution_plan=False
     ):
+        if dataframe_name_map is None:
+            dataframe_name_map = {}
+        if dataframe_map is None:
+            dataframe_map = {}
+        if column_name_map is None:
+            column_name_map = {}
+        if column_to_dataframe_name is None:
+            column_to_dataframe_name = {}
         TransformerBaseClass.__init__(
             self,
             dataframe_name_map,
@@ -797,6 +810,7 @@ class SQLTransformer(TransformerBaseClass):
             column_name_map,
             column_to_dataframe_name,
             _temp_dataframes_dict={},
+            get_execution_plan=get_execution_plan,
         )
 
     def add_column_to_column_to_dataframe_name_map(self, column, table):
@@ -1201,6 +1215,7 @@ class SQLTransformer(TransformerBaseClass):
                 if aliases.get(true_column_name) is None:
                     aliases[true_column_name] = column.name
             new_frame = first_frame[column_names].rename(columns=aliases)
+            self._execution_plan += f".rename(columns={aliases}"
 
         return new_frame
 
@@ -1332,4 +1347,6 @@ class SQLTransformer(TransformerBaseClass):
         :param dataframe:
         :return:
         """
+        if self._get_execution_plan:
+            return self._execution_plan
         return dataframe
