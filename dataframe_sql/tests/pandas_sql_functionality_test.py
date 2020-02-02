@@ -3,12 +3,9 @@ Test cases for panda to sql
 """
 # pylint: disable=broad-except
 from datetime import date, datetime
-import os
-from pathlib import Path
-
 from freezegun import freeze_time
 import numpy as np
-from pandas import DataFrame, concat, merge, read_csv
+from pandas import concat, merge
 import pandas.util.testing as tm
 
 from dataframe_sql.exceptions.sql_exception import (
@@ -17,38 +14,20 @@ from dataframe_sql.exceptions.sql_exception import (
 )
 from dataframe_sql.sql_objects import AmbiguousColumn
 from dataframe_sql.sql_select_query import (
-    TableInfo,
-    query,
-    register_temp_table,
-    remove_temp_table,
+    TableInfo
 )
+from dataframe_sql import query, remove_temp_table, register_temp_table
 
-DATA_PATH = os.path.join(Path(__file__).parent.parent, "data")
+from dataframe_sql.tests.utils import register_env_tables, remove_env_tables, \
+    FOREST_FIRES, DIGIMON_MON_LIST, DIGIMON_MOVE_LIST
 
+import pytest
 
-# Import the data for testing
-FOREST_FIRES = read_csv(os.path.join(DATA_PATH, "forestfires.csv"))
-DIGIMON_MON_LIST = read_csv(os.path.join(DATA_PATH, "DigiDB_digimonlist.csv"))
-DIGIMON_MOVE_LIST = read_csv(os.path.join(DATA_PATH, "DigiDB_movelist.csv"))
-DIGIMON_SUPPORT_LIST = read_csv(os.path.join(DATA_PATH, "DigiDB_supportlist.csv"))
-
-# Name change is for name interference
-DIGIMON_MON_LIST["mon_attribute"] = DIGIMON_MON_LIST["Attribute"]
-DIGIMON_MOVE_LIST["move_attribute"] = DIGIMON_MOVE_LIST["Attribute"]
-
-
-def register_env_tables():
-    """
-    Returns all globals but in lower case
-    :return:
-    """
-    for variable_name in globals():
-        variable = globals()[variable_name]
-        if isinstance(variable, DataFrame):
-            register_temp_table(frame=variable, table_name=variable_name)
-
-
-register_env_tables()
+@pytest.fixture(autouse=True, scope='module')
+def module_setup_teardown():
+    register_env_tables()
+    yield
+    remove_env_tables()
 
 
 def test_add_remove_temp_table():
@@ -1166,7 +1145,6 @@ def test_timestamps():
         pandas_frame["today()"] = date.today()
         pandas_frame["_literal0"] = datetime(2019, 1, 31, 23, 20, 32)
         tm.assert_frame_equal(pandas_frame, my_frame)
-
 
 if __name__ == "__main__":
     test_for_non_existent_table()

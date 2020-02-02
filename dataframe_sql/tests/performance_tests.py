@@ -145,4 +145,9 @@ if __name__ == "__main__":
         remove_assertion(code)
         code = list(filter(lambda x: x, code))
         code_string = "\n".join(code)
+        # if "timestamp" in test.__name__:
+        #     print(code)
+        #     print(code_string)
+        #     exec(code_string)
+
         test_performance(*split_into_pandas_and_dataframe_sql(code_string))
