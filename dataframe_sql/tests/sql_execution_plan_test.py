@@ -12,112 +12,84 @@ def module_setup_teardown():
     yield
     remove_env_tables()
 
+
 def test_select_star():
     """
     Tests the simple select * case
     :return:
     """
-    plan = query("select * from forest_fires", show_execution_plan=True)
+    frame, plan = query("select * from forest_fires", show_execution_plan=True)
+    assert plan == "FOREST_FIRES"
+
+
+def test_case_insensitivity():
+    """
+    Tests to ensure that the sql is case insensitive for table names
+    :return:
+    """
+    frame, plan = query("select * from FOREST_fires", show_execution_plan=True)
+    assert plan == "FOREST_FIRES"
+
+
+def test_select_specific_fields():
+    """
+    Tests selecting specific fields
+    :return:
+    """
+    frame, plan = query("select temp, RH, wind, rain as water, area from forest_fires",
+                        show_execution_plan=True)
+    assert plan == "FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'rain': 'water'}"
+
+
+def test_type_conversion():
+    """
+    Tests sql as statements
+    :return:
+    """
+    my_frame, plan = query(
+        """select cast(temp as int64),
+        cast(RH as float64) my_rh, wind, rain, area,
+    cast(2.0 as int64) my_int,
+    cast(3 as float64) as my_float,
+    cast(7 as object) as my_object,
+    cast(0 as bool) as my_bool from forest_fires""",
+        show_execution_plan=True
+    )
+    assert plan == "FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'RH': 'my_rh'}.assign(my_int=2, my_float=3.0, my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
+
+
+def test_using_math():
+    """
+    Test the mathematical operations and order of operations
+    :return:
+    """
+    my_frame, plan = query("select temp, 1 + 2 * 3 as my_number from forest_fires",
+                           show_execution_plan=True)
+    assert plan == "FOREST_FIRES[['temp']].assign(my_number=7, )"
+
+
+def test_distinct():
+    """
+    Test use of the distinct keyword
+    :return:
+    """
+    my_frame, plan = query("select distinct area, rain from forest_fires",
+                           show_execution_plan=True)
+    assert plan == "FOREST_FIRES[['area', 'rain']].drop_duplicates(keep='first', inplace=True)"
+
+
+def test_subquery():
+    """
+    Test ability to perform subqueries
+    :return:
+    """
+    my_frame, plan = query("""select * from (select area, rain from forest_fires) 
+    rain_area""",
+                        show_execution_plan=True)
     print(plan)
 
-# def test_case_insensitivity():
-#     """
-#     Tests to ensure that the sql is case insensitive for table names
-#     :return:
-#     """
-#     my_frame = query("select * from FOREST_fires")
-#     pandas_frame = FOREST_FIRES
-#     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-# def test_select_specific_fields():
-#     """
-#     Tests selecting specific fields
-#     :return:
-#     """
-#     my_frame = query("select temp, RH, wind, rain as water, area from forest_fires")
-#     pandas_frame = FOREST_FIRES[["temp", "RH", "wind", "rain", "area"]].rename(
-#         columns={"rain": "water"}
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_type_conversion():
-#     """
-#     Tests sql as statements
-#     :return:
-#     """
-#     my_frame = query(
-#         """select cast(temp as int64),
-#         cast(RH as float64) my_rh, wind, rain, area,
-#     cast(2.0 as int64) my_int,
-#     cast(3 as float64) as my_float,
-#     cast(7 as object) as my_object,
-#     cast(0 as bool) as my_bool from forest_fires"""
-#     )
-#     fire_frame = FOREST_FIRES[["temp", "RH", "wind", "rain", "area"]].rename(
-#         columns={"RH": "my_rh"}
-#     )
-#     fire_frame["my_int"] = 2
-#     fire_frame["my_float"] = 3
-#     fire_frame["my_object"] = str(7)
-#     fire_frame["my_bool"] = 0
-#     pandas_frame = fire_frame.astype(
-#         {
-#             "temp": "int64",
-#             "my_rh": "float64",
-#             "my_int": "int64",
-#             "my_float": "float64",
-#             "my_bool": "bool",
-#         }
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_for_non_existent_table():
-#     """
-#     Check that exception is raised if table does not exist
-#     :return:
-#     """
-#     try:
-#         query("select * from a_table_that_is_not_here")
-#     except Exception as err:
-#         assert isinstance(err, DataFrameDoesNotExist)
-#
-#
-# def test_using_math():
-#     """
-#     Test the mathematical operations and order of operations
-#     :return:
-#     """
-#     my_frame = query("select temp, 1 + 2 * 3 as my_number from forest_fires")
-#     pandas_frame = FOREST_FIRES[["temp"]].copy()
-#     pandas_frame["my_number"] = 1 + 2 * 3
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_distinct():
-#     """
-#     Test use of the distinct keyword
-#     :return:
-#     """
-#     my_frame = query("select distinct area, rain from forest_fires")
-#     pandas_frame = FOREST_FIRES[["area", "rain"]].copy()
-#     pandas_frame.drop_duplicates(keep="first", inplace=True)
-#     pandas_frame.reset_index(inplace=True)
-#     pandas_frame.drop(columns="index", inplace=True)
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_subquery():
-#     """
-#     Test ability to perform subqueries
-#     :return:
-#     """
-#     my_frame = query("select * from (select area, rain from forest_fires) rain_area")
-#     pandas_frame = FOREST_FIRES[["area", "rain"]].copy()
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
 #
 # def test_join_no_inner():
 #     """
@@ -1066,6 +1038,6 @@ def test_select_star():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_select_star()
+    test_subquery()
 
     remove_env_tables()

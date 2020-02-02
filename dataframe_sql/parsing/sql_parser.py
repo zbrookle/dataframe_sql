@@ -104,7 +104,6 @@ class TransformerBaseClass(Transformer):
         self.column_to_dataframe_name = column_to_dataframe_name
         self._temp_dataframes_dict = _temp_dataframes_dict
         self._get_execution_plan = get_execution_plan
-        print(self._get_execution_plan)
         self._execution_plan = ""
 
     def get_frame(self, frame_name) -> DataFrame:
@@ -1194,7 +1193,7 @@ class SQLTransformer(TransformerBaseClass):
 
         return dataframe
 
-    def handle_naming(self, columns: list, aliases: dict, first_frame: DataFrame):
+    def handle_columns(self, columns: list, aliases: dict, first_frame: DataFrame):
         """
         Returns frame with appropriately selected and named columns
         :param columns:
@@ -1212,10 +1211,13 @@ class SQLTransformer(TransformerBaseClass):
                     column.name.lower()
                 ]
                 column_names.append(true_column_name)
-                if aliases.get(true_column_name) is None:
+                if aliases.get(true_column_name) is None and \
+                        true_column_name != column.name:
                     aliases[true_column_name] = column.name
             new_frame = first_frame[column_names].rename(columns=aliases)
-            self._execution_plan += f".rename(columns={aliases}"
+            self._execution_plan += f"[{column_names}]"
+            if aliases:
+                self._execution_plan += f".rename(columns={aliases}"
 
         return new_frame
 
@@ -1233,22 +1235,32 @@ class SQLTransformer(TransformerBaseClass):
             raise Exception("No table specified")
 
         first_frame = self.get_frame(frame_names[0])
+        self._execution_plan += f"{frame_names[0]}"
         for frame_name in frame_names[1:]:
             next_frame = self.get_frame(frame_name)
             first_frame = self.cross_join(first_frame, next_frame)
 
-        new_frame = self.handle_naming(
+        new_frame = self.handle_columns(
             query_info["columns"], query_info["aliases"], first_frame
         )
 
         for expression in query_info["expressions"]:
             new_frame[expression.alias] = expression.evaluate()
 
-        for literal in query_info["literals"]:
-            new_frame[literal.alias] = literal.value
+        literals = query_info["literals"]
+        if literals:
+            assign_literals = {}
+            self._execution_plan += ".assign("
+            for literal in literals:
+                assign_literals[literal.alias] = literal.value
+                self._execution_plan += f"{literal.alias}={literal.value}, "
+            self._execution_plan += ")"
+            new_frame = new_frame.assign(**assign_literals)
 
         if query_info["conversions"]:
-            return new_frame.astype(query_info["conversions"])
+            conversions = query_info['conversions']
+            self._execution_plan += f".astype({conversions})"
+            new_frame = new_frame.astype(conversions)
 
         if query_info["where_expr"] is not None:
             new_frame = new_frame[query_info["where_expr"]]
@@ -1261,7 +1273,8 @@ class SQLTransformer(TransformerBaseClass):
             new_frame = new_frame[having_expr]
 
         if query_info["distinct"]:
-            new_frame.drop_duplicates(keep="first", inplace=True)
+            self._execution_plan += ".drop_duplicates(keep='first', inplace=True)"
+            new_frame.drop_duplicates(keep='first', inplace=True)
 
         order_by = query_info["order_by"]
         if order_by:
@@ -1348,5 +1361,5 @@ class SQLTransformer(TransformerBaseClass):
         :return:
         """
         if self._get_execution_plan:
-            return self._execution_plan
+            return dataframe, self._execution_plan
         return dataframe

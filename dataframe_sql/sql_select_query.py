@@ -138,6 +138,7 @@ class SqlToDataFrame:
                 table_info.dataframe_map,
                 table_info.column_name_map,
                 table_info.column_to_dataframe_name,
+                self._show_execution_plan
             ).transform(tree)
         except UnexpectedToken as err:
             message = (

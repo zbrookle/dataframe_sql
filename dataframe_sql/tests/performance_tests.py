@@ -4,13 +4,13 @@ import time
 from types import FunctionType
 from typing import List
 
-from dataframe_sql.tests.pandas_sql_functionality_test import *
+from dataframe_sql.tests.pandas_sql_functionality_test import *  # noqa
 
 DONT_TEST = [
     test_add_remove_temp_table,
     test_for_valid_query,
     test_for_non_existent_table,
-]
+]  # noqa
 INDENT_REGEX = re.compile(r"(\t|\s{4})(?P<code>.*)")
 
 
