@@ -1142,9 +1142,13 @@ def test_timestamps():
         pandas_frame["_literal0"] = datetime(2019, 1, 31, 23, 20, 32)
         tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 if __name__ == "__main__":
     register_env_tables()
 
-    test_group_by()
+    test_avg()
+    test_case_statement_w_other_columns_as_reult()
+    test_case_statement_w_no_name()
+    test_case_statement_w_name()
 
     remove_env_tables()

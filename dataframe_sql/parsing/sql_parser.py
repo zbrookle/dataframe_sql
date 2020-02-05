@@ -1148,6 +1148,11 @@ class SQLTransformer(TransformerBaseClass):
                 .children[0]
             )
 
+        if not query_info["columns"]:
+            for expression in query_info["expressions"]:
+                if isinstance(expression.value, Column):
+                    query_info["columns"].append(expression.value)
+
         query_info["having_expr"] = having_expr
         return query_info
 
@@ -1223,8 +1228,6 @@ class SQLTransformer(TransformerBaseClass):
             if aliases:
                 execution_plan += f".rename(columns={aliases}"
 
-        print(new_frame)
-
         return new_frame, execution_plan
 
     def to_dataframe(self, query_info):
@@ -1236,6 +1239,8 @@ class SQLTransformer(TransformerBaseClass):
 
         if DEBUG:
             print("Query info:", query_info)
+
+        print(query_info)
         having_expr = query_info["having_expr"]
 
         frame_names = query_info["frame_names"]
