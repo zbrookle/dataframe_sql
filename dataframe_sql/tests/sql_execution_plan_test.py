@@ -78,15 +78,15 @@ def test_distinct():
     assert plan == "FOREST_FIRES[['area', 'rain']].drop_duplicates(keep='first', inplace=True)"
 
 
-def test_subquery():
-    """
-    Test ability to perform subqueries
-    :return:
-    """
-    my_frame, plan = query("""select * from (select area, rain from forest_fires) 
-    rain_area""",
-                        show_execution_plan=True)
-    print(plan)
+# def test_subquery():
+#     """
+#     Test ability to perform subqueries
+#     :return:
+#     """
+#     my_frame, plan = query("""select * from (select area, rain from forest_fires)
+#     rain_area""",
+#                         show_execution_plan=True)
+#     print(plan)
 
 
 
@@ -96,16 +96,14 @@ def test_subquery():
 #     Test join
 #     :return:
 #     """
-#     my_frame = query(
+#     frame, plan = query(
 #         """select * from digimon_mon_list join
 #             digimon_move_list
-#             on digimon_mon_list.attribute = digimon_move_list.attribute"""
+#             on digimon_mon_list.attribute = digimon_move_list.attribute""",
+#         show_execution_plan=True
 #     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
+#     print(plan)
+
 #
 # def test_join_wo_specifying_table():
 #     """
@@ -254,22 +252,16 @@ def test_subquery():
 #     pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
 #     tm.assert_frame_equal(pandas_frame, my_frame)
 #
-#
-# def test_group_by():
-#     """
-#     Test group by constraint
-#     :return:
-#     """
-#     my_frame = query("""select month, day from forest_fires group by month, day""")
-#     pandas_frame = (
-#         FOREST_FIRES.groupby(["month", "day"])
-#         .size()
-#         .to_frame("size")
-#         .reset_index()
-#         .drop(columns=["size"])
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
+
+def test_group_by():
+    """
+    Test group by constraint
+    :return:
+    """
+    my_frame, plan = query("""select month, day from forest_fires group by month, 
+    day""", show_execution_plan=True)
+    print(plan)
+
 #
 # def test_avg():
 #     """
@@ -1038,6 +1030,6 @@ def test_subquery():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_subquery()
+    test_group_by()
 
     remove_env_tables()
