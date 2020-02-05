@@ -260,24 +260,20 @@ def test_group_by():
     """
     my_frame, plan = query("""select month, day from forest_fires group by month, 
     day""", show_execution_plan=True)
+    assert plan == "FOREST_FIRES[['month', 'day']].drop_duplicates(keep='first')"
+
+
+def test_avg():
+    """
+    Test the avg
+    :return:
+    """
+    my_frame, plan = query("select avg(temp) from forest_fires",
+                           show_execution_plan=True)
+    print(my_frame)
     print(plan)
 
-#
-# def test_avg():
-#     """
-#     Test the avg
-#     :return:
-#     """
-#     my_frame = query("select avg(temp) from forest_fires")
-#     pandas_frame = (
-#         FOREST_FIRES.agg({"temp": np.mean})
-#         .to_frame("mean_temp")
-#         .reset_index()
-#         .drop(columns=["index"])
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
+
 # def test_sum():
 #     """
 #     Test the sum
@@ -1030,6 +1026,6 @@ def test_group_by():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_group_by()
+    test_avg()
 
     remove_env_tables()

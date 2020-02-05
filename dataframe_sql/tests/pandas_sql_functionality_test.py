@@ -373,11 +373,7 @@ def test_group_by():
     """
     my_frame = query("""select month, day from forest_fires group by month, day""")
     pandas_frame = (
-        FOREST_FIRES.groupby(["month", "day"])
-        .size()
-        .to_frame("size")
-        .reset_index()
-        .drop(columns=["size"])
+        FOREST_FIRES[["month", "day"]].drop_duplicates().reset_index(drop=True)
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
@@ -1147,4 +1143,8 @@ def test_timestamps():
         tm.assert_frame_equal(pandas_frame, my_frame)
 
 if __name__ == "__main__":
-    test_for_non_existent_table()
+    register_env_tables()
+
+    test_group_by()
+
+    remove_env_tables()

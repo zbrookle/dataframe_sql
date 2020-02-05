@@ -1168,22 +1168,24 @@ class SQLTransformer(TransformerBaseClass):
         return new_frame
 
     @staticmethod
-    def handle_aggregation(aggregates, group_columns, dataframe: DataFrame):
+    def handle_aggregation(aggregates, group_columns, dataframe: DataFrame,
+                           execution_plan: str):
         """
         Handles all aggregation operations when translating from dictionary info
         to dataframe
         :param aggregates:
         :param group_columns:
+        :param dataframe:
+        :param execution_plan:
         :return:
         """
         if group_columns and not aggregates:
-            dataframe = (
-                dataframe.groupby(group_columns)
-                .size()
-                .to_frame("size")
-                .reset_index()
-                .drop(columns=["size"])
-            )
+            for column in dataframe.columns:
+                if column not in group_columns:
+                    raise Exception(f"For column {column} you must either group or "
+                                    f"provide and aggregation")
+            dataframe.drop_duplicates(keep='first', inplace=True)
+            execution_plan += ".drop_duplicates(keep='first')"
         elif aggregates and not group_columns:
             dataframe = dataframe.aggregate(aggregates).to_frame().transpose()
         elif aggregates and group_columns:
@@ -1191,7 +1193,7 @@ class SQLTransformer(TransformerBaseClass):
                 dataframe.groupby(group_columns).aggregate(aggregates).reset_index()
             )
 
-        return dataframe
+        return dataframe, execution_plan
 
     def handle_columns(self, columns: list, aliases: dict, first_frame: DataFrame,
                        execution_plan: str):
@@ -1220,6 +1222,8 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += f"[{column_names}]"
             if aliases:
                 execution_plan += f".rename(columns={aliases}"
+
+        print(new_frame)
 
         return new_frame, execution_plan
 
@@ -1271,8 +1275,9 @@ class SQLTransformer(TransformerBaseClass):
         if query_info["where_expr"] is not None:
             new_frame = new_frame[query_info["where_expr"]]
 
-        new_frame = self.handle_aggregation(
-            query_info["aggregates"], query_info["group_columns"], new_frame
+        new_frame, execution_plan = self.handle_aggregation(
+            query_info["aggregates"], query_info["group_columns"], new_frame,
+            execution_plan
         )
 
         if having_expr is not None:
