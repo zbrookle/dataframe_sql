@@ -3,7 +3,7 @@ import re
 import time
 from types import FunctionType
 from typing import List
-
+from dataframe_sql.tests.utils import register_env_tables, remove_env_tables
 from dataframe_sql.tests.pandas_sql_functionality_test import *  # noqa
 
 DONT_TEST = [
@@ -137,6 +137,8 @@ def test_performance(dataframe_sql_code: str, pandas_code: str):
 
 
 if __name__ == "__main__":
+    register_env_tables()
+
     tests = get_pandas_tests()
     for test in tests[3:]:
         print(test.__name__)
@@ -151,3 +153,5 @@ if __name__ == "__main__":
         #     exec(code_string)
 
         test_performance(*split_into_pandas_and_dataframe_sql(code_string))
+
+    remove_env_tables()

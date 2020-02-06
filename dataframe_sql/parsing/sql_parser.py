@@ -21,6 +21,7 @@ from dataframe_sql.sql_objects import (
     Subquery,
     Value,
 )
+from logging import info, warning
 
 DEBUG = False
 PRINT = False
@@ -1047,11 +1048,10 @@ class SQLTransformer(TransformerBaseClass):
 
         if isinstance(token, Expression):
             query_info["expressions"].append(token)
-            if token.alias:
+            if token.alias and not token.function:
                 query_info["aliases"][str(token.value)] = token.alias
             if token.function:
                 query_info["aggregates"][token.alias] = token.function
-
         if isinstance(token, Literal):
             query_info["literals"].append(token)
 
@@ -1101,6 +1101,7 @@ class SQLTransformer(TransformerBaseClass):
             "distinct": False,
             "having_expr": None,
         }
+
         for select_expression in select_expressions:
             if isinstance(select_expression, Tree):
                 if select_expression.data == "from_expression":
@@ -1122,6 +1123,7 @@ class SQLTransformer(TransformerBaseClass):
             self.column_name_map,
             self.column_to_dataframe_name,
         )
+
         select_expressions = internal_transformer.transform(
             Tree("select", select_expressions_no_having)
         ).children
@@ -1148,10 +1150,10 @@ class SQLTransformer(TransformerBaseClass):
                 .children[0]
             )
 
-        if not query_info["columns"]:
-            for expression in query_info["expressions"]:
-                if isinstance(expression.value, Column):
-                    query_info["columns"].append(expression.value)
+        # if not query_info["columns"]:
+        #     for expression in query_info["expressions"]:
+        #         if isinstance(expression.value, Column):
+        #             query_info["columns"].append(expression.value)
 
         query_info["having_expr"] = having_expr
         return query_info
@@ -1193,6 +1195,7 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += ".drop_duplicates(keep='first')"
         elif aggregates and not group_columns:
             dataframe = dataframe.aggregate(aggregates).to_frame().transpose()
+            execution_plan += f".aggregate({aggregates}.to_frame().transpose()"
         elif aggregates and group_columns:
             dataframe = (
                 dataframe.groupby(group_columns).aggregate(aggregates).reset_index()
@@ -1223,11 +1226,12 @@ class SQLTransformer(TransformerBaseClass):
                 if aliases.get(true_column_name) is None and \
                         true_column_name != column.name:
                     aliases[true_column_name] = column.name
-            new_frame = first_frame[column_names].rename(columns=aliases)
-            execution_plan += f"[{column_names}]"
-            if aliases:
-                execution_plan += f".rename(columns={aliases}"
 
+            new_frame = first_frame.loc[:, column_names]
+            execution_plan += f".loc[:, {column_names}]"
+            if aliases:
+                new_frame = new_frame.rename(columns=aliases)
+                execution_plan += f".rename(columns={aliases}"
         return new_frame, execution_plan
 
     def to_dataframe(self, query_info):
@@ -1240,7 +1244,6 @@ class SQLTransformer(TransformerBaseClass):
         if DEBUG:
             print("Query info:", query_info)
 
-        print(query_info)
         having_expr = query_info["having_expr"]
 
         frame_names = query_info["frame_names"]
@@ -1259,8 +1262,18 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan
         )
 
-        for expression in query_info["expressions"]:
-            new_frame[expression.alias] = expression.evaluate()
+        expressions = query_info["expressions"]
+        if expressions:
+            assign_expressions = {}
+            execution_plan += ".assign("
+            for expression in expressions:
+                expression_value = expression.evaluate()
+                assign_expressions[expression.alias] = expression_value
+                execution_plan += f"{expression.alias}={expression_value}"
+            execution_plan += ")"
+            new_frame = new_frame.assign(**assign_expressions)
+        # for expression in query_info["expressions"]:
+        #     new_frame[expression.alias] = expression.evaluate()
 
         literals = query_info["literals"]
         if literals:

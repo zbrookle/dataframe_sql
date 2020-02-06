@@ -38,7 +38,9 @@ def test_select_specific_fields():
     """
     frame, plan = query("select temp, RH, wind, rain as water, area from forest_fires",
                         show_execution_plan=True)
-    assert plan == "FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'rain': 'water'}"
+    assert plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', " \
+                   "'area']].rename(" \
+                   "columns={'rain': 'water'}"
 
 
 def test_type_conversion():
@@ -55,7 +57,8 @@ def test_type_conversion():
     cast(0 as bool) as my_bool from forest_fires""",
         show_execution_plan=True
     )
-    assert plan == "FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'RH': 'my_rh'}.assign(my_int=2, my_float=3.0, my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
+    assert plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', " \
+                   "'area']].rename(columns={'RH': 'my_rh'}.assign(my_int=2, my_float=3.0, my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
 
 
 def test_using_math():
@@ -65,7 +68,7 @@ def test_using_math():
     """
     my_frame, plan = query("select temp, 1 + 2 * 3 as my_number from forest_fires",
                            show_execution_plan=True)
-    assert plan == "FOREST_FIRES[['temp']].assign(my_number=7, )"
+    assert plan == "FOREST_FIRES.loc[:, ['temp']].assign(my_number=7, )"
 
 
 def test_distinct():
@@ -75,7 +78,8 @@ def test_distinct():
     """
     my_frame, plan = query("select distinct area, rain from forest_fires",
                            show_execution_plan=True)
-    assert plan == "FOREST_FIRES[['area', 'rain']].drop_duplicates(keep='first', inplace=True)"
+    assert plan == "FOREST_FIRES.loc[:, ['area', 'rain']].drop_duplicates(" \
+                   "keep='first', inplace=True)"
 
 
 # def test_subquery():
@@ -260,7 +264,7 @@ def test_group_by():
     """
     my_frame, plan = query("""select month, day from forest_fires group by month, 
     day""", show_execution_plan=True)
-    assert plan == "FOREST_FIRES[['month', 'day']].drop_duplicates(keep='first')"
+    assert plan == "FOREST_FIRES.loc[:, ['month', 'day']].drop_duplicates(keep='first')"
 
 
 def test_avg():
@@ -270,7 +274,6 @@ def test_avg():
     """
     my_frame, plan = query("select avg(temp) from forest_fires",
                            show_execution_plan=True)
-    print(my_frame)
     print(plan)
 
 
