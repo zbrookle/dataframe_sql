@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 
 from pandas import DataFrame, read_csv
-import pytest
 
 from dataframe_sql import register_temp_table, remove_temp_table
 

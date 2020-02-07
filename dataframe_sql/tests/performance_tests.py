@@ -7,10 +7,10 @@ from typing import List
 from dataframe_sql.tests.pandas_sql_functionality_test import *  # noqa
 
 DONT_TEST = [
-    test_add_remove_temp_table,
-    test_for_valid_query,
-    test_for_non_existent_table,
-]  # noqa
+    test_add_remove_temp_table,  # noqa
+    test_for_valid_query,  # noqa
+    test_for_non_existent_table,  # noqa
+]
 INDENT_REGEX = re.compile(r"(\t|\s{4})(?P<code>.*)")
 
 
@@ -113,7 +113,7 @@ def timeit(function: FunctionType):
 
     def timed(*args, **kw):
         ts = time.time()
-        result = function(*args, **kw)
+        result = function(*args, **kw)  # noqa
         te = time.time()
 
         total_time = te - ts
@@ -137,7 +137,7 @@ def test_performance(dataframe_sql_code: str, pandas_code: str):
 
 
 if __name__ == "__main__":
-    register_env_tables()
+    register_env_tables()  # noqa
 
     tests = get_pandas_tests()
     for test in tests[3:]:
@@ -154,4 +154,4 @@ if __name__ == "__main__":
 
         test_performance(*split_into_pandas_and_dataframe_sql(code_string))
 
-    remove_env_tables()
+    remove_env_tables()  # noqa

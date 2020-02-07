@@ -276,8 +276,7 @@ def test_group_by():
     :return:
     """
     my_frame, plan = query(
-        """select month, day from forest_fires group by month, 
-    day""",
+        """select month, day from forest_fires group by month, day""",
         show_execution_plan=True,
     )
     assert plan == "FOREST_FIRES.loc[:, ['month', 'day']].drop_duplicates(keep='first')"
