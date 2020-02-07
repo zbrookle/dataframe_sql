@@ -3,28 +3,27 @@ Test cases for panda to sql
 """
 # pylint: disable=broad-except
 from datetime import date, datetime
+
 from freezegun import freeze_time
 import numpy as np
 from pandas import concat, merge
 import pandas.testing as tm
+import pytest
 
+from dataframe_sql import query, register_temp_table, remove_temp_table
 from dataframe_sql.exceptions.sql_exception import (
     DataFrameDoesNotExist,
     InvalidQueryException,
 )
-from dataframe_sql.sql_objects import AmbiguousColumn, Expression, Aggregate
+from dataframe_sql.sql_objects import Aggregate, AmbiguousColumn, Expression
 from dataframe_sql.sql_select_query import TableInfo
-from dataframe_sql import query, remove_temp_table, register_temp_table
-
 from dataframe_sql.tests.utils import (
-    register_env_tables,
-    remove_env_tables,
-    FOREST_FIRES,
     DIGIMON_MON_LIST,
     DIGIMON_MOVE_LIST,
+    FOREST_FIRES,
+    register_env_tables,
+    remove_env_tables,
 )
-
-import pytest
 
 
 @pytest.fixture(autouse=True, scope="module")

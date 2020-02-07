@@ -10,8 +10,8 @@ from pandas import DataFrame, concat, merge
 
 from dataframe_sql.exceptions.sql_exception import DataFrameDoesNotExist
 from dataframe_sql.sql_objects import (
-    AmbiguousColumn,
     Aggregate,
+    AmbiguousColumn,
     Bool,
     Column,
     Date,

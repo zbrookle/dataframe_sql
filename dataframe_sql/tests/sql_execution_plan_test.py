@@ -1,10 +1,10 @@
 """
 Tests for dataframe method execution plan
 """
+import pytest
+
 from dataframe_sql import query
 from dataframe_sql.tests.utils import register_env_tables, remove_env_tables
-
-import pytest
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -64,7 +64,8 @@ def test_type_conversion():
     )
     assert (
         plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', "
-        "'area']].rename(columns={'RH': 'my_rh'}.assign(my_int=2, my_float=3.0, my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
+        "'area']].rename(columns={'RH': 'my_rh'}.assign(my_int=2, my_float=3.0, "
+        "my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
     )
 
 

@@ -3,7 +3,7 @@ import re
 import time
 from types import FunctionType
 from typing import List
-from dataframe_sql.tests.utils import register_env_tables, remove_env_tables
+
 from dataframe_sql.tests.pandas_sql_functionality_test import *  # noqa
 
 DONT_TEST = [
@@ -126,11 +126,11 @@ def timeit(function: FunctionType):
 def test_performance(dataframe_sql_code: str, pandas_code: str):
     @timeit
     def dataframe_sql_time():
-        exec(dataframe_sql_code)
+        exec(dataframe_sql_code)  # noqa
 
     @timeit
     def pandas_code_time():
-        exec(pandas_code)
+        exec(pandas_code)  # noqa
 
     time_diff = dataframe_sql_time() - pandas_code_time()
     print(f"Time difference was {time_diff}\n")

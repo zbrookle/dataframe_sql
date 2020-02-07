@@ -3,10 +3,11 @@ Shared functions among the tests like setting up test environment
 """
 import os
 from pathlib import Path
-from pandas import read_csv, DataFrame
-from dataframe_sql import register_temp_table, remove_temp_table
+
+from pandas import DataFrame, read_csv
 import pytest
 
+from dataframe_sql import register_temp_table, remove_temp_table
 
 DATA_PATH = os.path.join(Path(__file__).parent.parent, "data")
 
