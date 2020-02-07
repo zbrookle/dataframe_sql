@@ -364,12 +364,14 @@ def test_agg_w_groupby():
     """
     my_frame, plan = query(
         "select day, month, min(temp), max(temp) from forest_fires group by day, month",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
-    assert plan == "FOREST_FIRES.loc[:, ['day', 'month', 'temp']]" \
-                   ".groupby(['day', 'month'])" \
-                   ".aggregate({'_col0': ('temp', 'min'), '_col1': ('temp', 'max')})" \
-                   ".reset_index()"
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['day', 'month', 'temp']]"
+        ".groupby(['day', 'month'])"
+        ".aggregate({'_col0': ('temp', 'min'), '_col1': ('temp', 'max')})"
+        ".reset_index()"
+    )
 
 
 # def test_where_clause():
@@ -381,7 +383,6 @@ def test_agg_w_groupby():
 #                            show_execution_plan=True)
 #     print(plan)
 #     assert False
-
 
 
 # def test_order_by():
