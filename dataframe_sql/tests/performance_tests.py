@@ -7,10 +7,10 @@ from typing import List
 from dataframe_sql.tests.pandas_sql_functionality_test import *  # noqa
 
 DONT_TEST = [
-    test_add_remove_temp_table,
-    test_for_valid_query,
-    test_for_non_existent_table,
-]  # noqa
+    test_add_remove_temp_table,  # noqa
+    test_for_valid_query,  # noqa
+    test_for_non_existent_table,  # noqa
+]
 INDENT_REGEX = re.compile(r"(\t|\s{4})(?P<code>.*)")
 
 
@@ -113,7 +113,7 @@ def timeit(function: FunctionType):
 
     def timed(*args, **kw):
         ts = time.time()
-        result = function(*args, **kw)
+        result = function(*args, **kw)  # noqa
         te = time.time()
 
         total_time = te - ts
@@ -126,17 +126,19 @@ def timeit(function: FunctionType):
 def test_performance(dataframe_sql_code: str, pandas_code: str):
     @timeit
     def dataframe_sql_time():
-        exec(dataframe_sql_code)
+        exec(dataframe_sql_code)  # noqa
 
     @timeit
     def pandas_code_time():
-        exec(pandas_code)
+        exec(pandas_code)  # noqa
 
     time_diff = dataframe_sql_time() - pandas_code_time()
     print(f"Time difference was {time_diff}\n")
 
 
 if __name__ == "__main__":
+    register_env_tables()  # noqa
+
     tests = get_pandas_tests()
     for test in tests[3:]:
         print(test.__name__)
@@ -151,3 +153,5 @@ if __name__ == "__main__":
         #     exec(code_string)
 
         test_performance(*split_into_pandas_and_dataframe_sql(code_string))
+
+    remove_env_tables()  # noqa

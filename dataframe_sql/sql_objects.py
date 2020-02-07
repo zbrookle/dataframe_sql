@@ -19,7 +19,7 @@ class AmbiguousColumn:
 
 class Value:
     """
-    Parent class for expressions and columns
+    Parent class for expression_count and columns
     """
 
     def __init__(self, value, alias="", typename=""):
@@ -180,12 +180,12 @@ class Bool(Literal):
         Literal.__init__(self, value)
 
 
-class Expression(Value):
+class DerivedColumn(Value):
     """
-    Store information about an expression
+    Base class for expressions and aggregates
     """
 
-    expressions = 0
+    expression_count = 0
 
     def __init__(self, value, alias="", typename="", function=""):
         Value.__init__(self, value, alias, typename)
@@ -193,19 +193,12 @@ class Expression(Value):
         if self.alias:
             self.final_name = self.alias
         else:
-            if isinstance(self.value, Series):
-                self.final_name = f"_expression{self.expressions}"
+            if isinstance(self.value, (Series, Column)):
+                self.final_name = f"_col{self.expression_count}"
                 self.alias = self.final_name
-                self.expressions += 1
+                DerivedColumn.increment_expression_count()
             else:
                 self.final_name = str(self.value)
-            if self.function:
-                if isinstance(self.value, Column):
-                    expression_name = self.value.name
-                else:
-                    expression_name = str(self.value)
-                self.alias = self.function + "_" + expression_name
-                self.final_name = self.alias
         self.has_columns = True
 
     def __repr__(self):
@@ -213,6 +206,23 @@ class Expression(Value):
         if self.function:
             display += f", function={self.function}"
         return display + ")"
+
+    @classmethod
+    def increment_expression_count(cls):
+        cls.expression_count += 1
+
+    @classmethod
+    def reset_expression_count(cls):
+        cls.expression_count = 0
+
+
+class Expression(DerivedColumn):
+    """
+    Store information about an expression
+    """
+
+    def __init__(self, value, alias="", typename="", function=""):
+        DerivedColumn.__init__(self, value, alias, typename, function)
 
     def evaluate(self):
         """
@@ -222,6 +232,28 @@ class Expression(Value):
         if isinstance(self.value, Column):
             return self.value.value
         return self.value
+
+
+class Aggregate(DerivedColumn):
+    """
+    Store information about aggregations
+    """
+
+    _function_map = {
+        "average": "mean",
+        "avg": "mean",
+        "mean": "mean",
+        "maximum": "max",
+        "max": "max",
+        "minimum": "min",
+        "min": "min",
+        "sum": "sum",
+    }
+
+    def __init__(self, value, function, alias="", typename=""):
+        DerivedColumn.__init__(
+            self, value, alias, typename, self._function_map[function.lower()]
+        )
 
 
 class Column(Value):

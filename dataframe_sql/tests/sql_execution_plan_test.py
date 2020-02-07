@@ -1,12 +1,13 @@
 """
 Tests for dataframe method execution plan
 """
+import pytest
+
 from dataframe_sql import query
 from dataframe_sql.tests.utils import register_env_tables, remove_env_tables
 
-import pytest
 
-@pytest.fixture(autouse=True, scope='module')
+@pytest.fixture(autouse=True, scope="module")
 def module_setup_teardown():
     register_env_tables()
     yield
@@ -36,9 +37,15 @@ def test_select_specific_fields():
     Tests selecting specific fields
     :return:
     """
-    frame, plan = query("select temp, RH, wind, rain as water, area from forest_fires",
-                        show_execution_plan=True)
-    assert plan == "FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'rain': 'water'}"
+    frame, plan = query(
+        "select temp, RH, wind, rain as water, area from forest_fires",
+        show_execution_plan=True,
+    )
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', "
+        "'area']].rename("
+        "columns={'rain': 'water'}"
+    )
 
 
 def test_type_conversion():
@@ -53,9 +60,13 @@ def test_type_conversion():
     cast(3 as float64) as my_float,
     cast(7 as object) as my_object,
     cast(0 as bool) as my_bool from forest_fires""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
-    assert plan == "FOREST_FIRES[['temp', 'RH', 'wind', 'rain', 'area']].rename(columns={'RH': 'my_rh'}.assign(my_int=2, my_float=3.0, my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', "
+        "'area']].rename(columns={'RH': 'my_rh'}.assign(my_int=2, my_float=3.0, "
+        "my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
+    )
 
 
 def test_using_math():
@@ -63,9 +74,11 @@ def test_using_math():
     Test the mathematical operations and order of operations
     :return:
     """
-    my_frame, plan = query("select temp, 1 + 2 * 3 as my_number from forest_fires",
-                           show_execution_plan=True)
-    assert plan == "FOREST_FIRES[['temp']].assign(my_number=7, )"
+    my_frame, plan = query(
+        "select temp, 1 + 2 * 3 as my_number from forest_fires",
+        show_execution_plan=True,
+    )
+    assert plan == "FOREST_FIRES.loc[:, ['temp']].assign(my_number=7, )"
 
 
 def test_distinct():
@@ -73,21 +86,24 @@ def test_distinct():
     Test use of the distinct keyword
     :return:
     """
-    my_frame, plan = query("select distinct area, rain from forest_fires",
-                           show_execution_plan=True)
-    assert plan == "FOREST_FIRES[['area', 'rain']].drop_duplicates(keep='first', inplace=True)"
+    my_frame, plan = query(
+        "select distinct area, rain from forest_fires", show_execution_plan=True
+    )
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['area', 'rain']].drop_duplicates("
+        "keep='first', inplace=True)"
+    )
 
 
-def test_subquery():
-    """
-    Test ability to perform subqueries
-    :return:
-    """
-    my_frame, plan = query("""select * from (select area, rain from forest_fires) 
-    rain_area""",
-                        show_execution_plan=True)
-    print(plan)
-
+# def test_subquery():
+#     """
+#     Test ability to perform subqueries
+#     :return:
+#     """
+#     my_frame, plan = query("""select * from (select area, rain from forest_fires)
+#     rain_area""",
+#                         show_execution_plan=True)
+#     print(plan)
 
 
 #
@@ -96,16 +112,14 @@ def test_subquery():
 #     Test join
 #     :return:
 #     """
-#     my_frame = query(
+#     frame, plan = query(
 #         """select * from digimon_mon_list join
 #             digimon_move_list
-#             on digimon_mon_list.attribute = digimon_move_list.attribute"""
+#             on digimon_mon_list.attribute = digimon_move_list.attribute""",
+#         show_execution_plan=True
 #     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
+#     print(plan)
+
 #
 # def test_join_wo_specifying_table():
 #     """
@@ -254,133 +268,123 @@ def test_subquery():
 #     pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
 #     tm.assert_frame_equal(pandas_frame, my_frame)
 #
-#
-# def test_group_by():
-#     """
-#     Test group by constraint
-#     :return:
-#     """
-#     my_frame = query("""select month, day from forest_fires group by month, day""")
-#     pandas_frame = (
-#         FOREST_FIRES.groupby(["month", "day"])
-#         .size()
-#         .to_frame("size")
-#         .reset_index()
-#         .drop(columns=["size"])
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_avg():
-#     """
-#     Test the avg
-#     :return:
-#     """
-#     my_frame = query("select avg(temp) from forest_fires")
-#     pandas_frame = (
-#         FOREST_FIRES.agg({"temp": np.mean})
-#         .to_frame("mean_temp")
-#         .reset_index()
-#         .drop(columns=["index"])
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_sum():
-#     """
-#     Test the sum
-#     :return:
-#     """
-#     my_frame = query("select sum(temp) from forest_fires")
-#     pandas_frame = (
-#         FOREST_FIRES.agg({"temp": np.sum})
-#         .to_frame("sum_temp")
-#         .reset_index()
-#         .drop(columns=["index"])
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_max():
-#     """
-#     Test the max
-#     :return:
-#     """
-#     my_frame = query("select max(temp) from forest_fires")
-#     pandas_frame = (
-#         FOREST_FIRES.agg({"temp": np.max})
-#         .to_frame("max_temp")
-#         .reset_index()
-#         .drop(columns=["index"])
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_min():
-#     """
-#     Test the min
-#     :return:
-#     """
-#     my_frame = query("select min(temp) from forest_fires")
-#     pandas_frame = (
-#         FOREST_FIRES.agg({"temp": np.min})
-#         .to_frame("min_temp")
-#         .reset_index()
-#         .drop(columns=["index"])
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_multiple_aggs():
-#     """
-#     Test multiple aggregations
-#     :return:
-#     """
-#     my_frame = query(
-#         "select min(temp), max(temp), avg(temp), max(wind) from forest_fires"
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame["min_temp"] = FOREST_FIRES.temp.copy()
-#     pandas_frame["max_temp"] = FOREST_FIRES.temp.copy()
-#     pandas_frame["mean_temp"] = FOREST_FIRES.temp.copy()
-#     pandas_frame = pandas_frame.agg(
-#         {"min_temp": np.min, "max_temp": np.max, "mean_temp": np.mean, "wind": np.max}
-#     )
-#     pandas_frame.rename({"wind": "max_wind"}, inplace=True)
-#     pandas_frame = pandas_frame.to_frame().transpose()
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_agg_w_groupby():
-#     """
-#     Test using aggregates and group by together
-#     :return:
-#     """
-#     my_frame = query(
-#         "select day, month, min(temp), max(temp) from forest_fires group by day, month"
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame["min_temp"] = pandas_frame.temp
-#     pandas_frame["max_temp"] = pandas_frame.temp
-#     pandas_frame = (
-#         pandas_frame.groupby(["day", "month"])
-#         .aggregate({"min_temp": np.min, "max_temp": np.max})
-#         .reset_index()
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
+
+
+def test_group_by():
+    """
+    Test group by constraint
+    :return:
+    """
+    my_frame, plan = query(
+        """select month, day from forest_fires group by month, day""",
+        show_execution_plan=True,
+    )
+    assert plan == "FOREST_FIRES.loc[:, ['month', 'day']].drop_duplicates(keep='first')"
+
+
+def test_avg():
+    """
+    Test the avg
+    :return:
+    """
+    my_frame, plan = query(
+        "select avg(temp) from forest_fires", show_execution_plan=True
+    )
+    # THIS SHOULD translate to FOREST_FIRES.loc[:, ['temp']].rename('temp',
+    # _col1).aggregate({'_col1', 'mean'}).to_frame().transpose()
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['temp']].assign(__=1).groupby(['__']).agg("
+        "**{'_col0': ('temp', 'mean')}).reset_index(drop=True)"
+    )
+
+
+def test_sum():
+    """
+    Test the sum
+    :return:
+    """
+    my_frame, plan = query(
+        "select sum(temp) from forest_fires", show_execution_plan=True
+    )
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['temp']].assign(__=1).groupby(['__']).agg("
+        "**{'_col0': ('temp', 'sum')}).reset_index(drop=True)"
+    )
+
+
+def test_max():
+    """
+    Test the max
+    :return:
+    """
+    my_frame, plan = query(
+        "select max(temp) from forest_fires", show_execution_plan=True
+    )
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['temp']].assign(__=1).groupby(['__']).agg("
+        "**{'_col0': ('temp', 'max')}).reset_index(drop=True)"
+    )
+
+
+def test_min():
+    """
+    Test the min
+    :return:
+    """
+    my_frame, plan = query(
+        "select min(temp) from forest_fires", show_execution_plan=True
+    )
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['temp']].assign(__=1).groupby(['__']).agg("
+        "**{'_col0': ('temp', 'min')}).reset_index(drop=True)"
+    )
+
+
+def test_multiple_aggs():
+    """
+    Test multiple aggregations
+    :return:
+    """
+    my_frame, plan = query(
+        "select min(temp), max(temp), avg(temp), max(wind) from forest_fires",
+        show_execution_plan=True,
+    )
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['temp', 'wind']].assign(__=1)"
+        ".groupby(['__']).agg(**{'_col0': ('temp', 'min'), "
+        "'_col1': ('temp', 'max'), '_col2': ('temp', 'mean'), "
+        "'_col3': ('wind', 'max')}).reset_index(drop=True)"
+    )
+
+
+def test_agg_w_groupby():
+    """
+    Test using aggregates and group by together
+    :return:
+    """
+    my_frame, plan = query(
+        "select day, month, min(temp), max(temp) from forest_fires group by day, month",
+        show_execution_plan=True,
+    )
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['day', 'month', 'temp']]"
+        ".groupby(['day', 'month'])"
+        ".aggregate({'_col0': ('temp', 'min'), '_col1': ('temp', 'max')})"
+        ".reset_index()"
+    )
+
+
 # def test_where_clause():
 #     """
 #     Test where clause
 #     :return:
 #     """
-#     my_frame = query("""select * from forest_fires where month = 'mar'""")
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame = pandas_frame[pandas_frame.month == "mar"].reset_index(drop=True)
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
+#     my_frame, plan = query("""select * from forest_fires where month = 'mar'""",
+#                            show_execution_plan=True)
+#     print(plan)
+#     assert False
+
+
 # def test_order_by():
 #     """
 #     Test order by clause
@@ -1038,6 +1042,6 @@ def test_subquery():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_subquery()
+    test_agg_w_groupby()
 
     remove_env_tables()

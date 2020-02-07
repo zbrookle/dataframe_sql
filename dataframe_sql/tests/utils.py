@@ -3,10 +3,10 @@ Shared functions among the tests like setting up test environment
 """
 import os
 from pathlib import Path
-from pandas import read_csv, DataFrame
-from dataframe_sql import register_temp_table, remove_temp_table
-import pytest
 
+from pandas import DataFrame, read_csv
+
+from dataframe_sql import register_temp_table, remove_temp_table
 
 DATA_PATH = os.path.join(Path(__file__).parent.parent, "data")
 
@@ -31,6 +31,7 @@ def register_env_tables():
         variable = globals()[variable_name]
         if isinstance(variable, DataFrame):
             register_temp_table(frame=variable, table_name=variable_name)
+
 
 def remove_env_tables():
     """

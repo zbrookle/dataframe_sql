@@ -10,10 +10,12 @@ from pandas import DataFrame, concat, merge
 
 from dataframe_sql.exceptions.sql_exception import DataFrameDoesNotExist
 from dataframe_sql.sql_objects import (
+    Aggregate,
     AmbiguousColumn,
     Bool,
     Column,
     Date,
+    DerivedColumn,
     Expression,
     Literal,
     Number,
@@ -35,15 +37,6 @@ ORDER_TYPES_MAPPING = {
 GET_TABLE_REGEX = re.compile(
     r"^(?P<table>[a-z_]\w*)\.(?P<column>[a-z_]\w*)$", re.IGNORECASE
 )
-FUNCTION_MAPPING = {
-    "average": "mean",
-    "avg": "mean",
-    "mean": "mean",
-    "maximum": "max",
-    "max": "max",
-    "minimum": "min",
-    "min": "min",
-}
 PANDAS_TYPE_PYTHON_TYPE_FUNCTION = {
     "object": str,
     "int64": int,
@@ -95,7 +88,7 @@ class TransformerBaseClass(Transformer):
         column_name_map=None,
         column_to_dataframe_name=None,
         _temp_dataframes_dict=None,
-        get_execution_plan=False
+        get_execution_plan=False,
     ):
         Transformer.__init__(self, visit_tokens=False)
         self.dataframe_name_map = dataframe_name_map
@@ -407,17 +400,13 @@ class InternalTransformer(TransformerBaseClass):
         """
         return Token("where_expr", truth_value_dataframe[0])
 
-    def function_name(self, function_name):
+    def aggregation_name(self, aggregation_name):
         """
         Returns the function name tree
-        :param function_name:
+        :param aggregation_name:
         :return:
         """
-        function_name = function_name[0].lower()
-        true_function_name = FUNCTION_MAPPING.get(function_name)
-        if true_function_name:
-            return Tree("aggregate", true_function_name)
-        return Tree("function", function_name)
+        return aggregation_name[0].value
 
     def alias_string(self, name: List[str]):
         """
@@ -655,10 +644,10 @@ class InternalTransformer(TransformerBaseClass):
             alias = expression_and_alias[1]
         if isinstance(expression, Tree):
             value = expression.children
-            if expression.data == "sql_function":
-                function = value[0].children
+            if expression.data == "sql_aggregation":
+                function = value[0]
                 value = value[1]
-                expression = Expression(value=value, function=function)
+                expression = Aggregate(value=value, function=function)
 
         if alias:
             expression.set_alias(alias.children)
@@ -737,22 +726,22 @@ class HavingTransformer(TransformerBaseClass):
         """
         return "".join(function_name_list_form)
 
-    def function_name(self, tokens):
+    def aggregation_name(self, tokens):
         """
         Extracts function name from token
-        :param fucntion_name:
+        :param tokens:
         :return:
         """
         return tokens[0].value
 
-    def sql_function(self, function_expr):
+    def sql_aggregation(self, aggregation_expr):
         """
         Handles presence of functions in an expression
-        :param function_expr: Function expression
+        :param aggregation_expr: Function expression
         :return:
         """
-        aggregate_name = function_expr[0]
-        column = function_expr[1]
+        aggregate_name = aggregation_expr[0]
+        column = aggregation_expr[1]
         table = self.dataframe_map[column.table]
         aggregates = {column.name: aggregate_name}
         if self.group_by:
@@ -792,7 +781,7 @@ class SQLTransformer(TransformerBaseClass):
         dataframe_map=None,
         column_name_map=None,
         column_to_dataframe_name=None,
-        get_execution_plan=False
+        get_execution_plan=False,
     ):
         if dataframe_name_map is None:
             dataframe_name_map = {}
@@ -1042,15 +1031,24 @@ class SQLTransformer(TransformerBaseClass):
 
         if isinstance(token, Column):
             query_info["columns"].append(token)
+            query_info["column_selected"][token.name] = True
             if token.alias:
                 query_info["aliases"][token.name] = token.alias
 
         if isinstance(token, Expression):
             query_info["expressions"].append(token)
-            if token.alias:
-                query_info["aliases"][str(token.value)] = token.alias
-            if token.function:
-                query_info["aggregates"][token.alias] = token.function
+
+        if isinstance(token, Aggregate):
+            query_info["aggregates"][token.final_name] = (
+                token.value.final_name,
+                token.function,
+            )
+            if isinstance(token.value, Column) and not query_info[
+                "column_selected"
+            ].get(token.value.name):
+                query_info["columns"].append(token.value)
+                query_info["column_selected"][token.value.name] = True
+                # TODO
 
         if isinstance(token, Literal):
             query_info["literals"].append(token)
@@ -1087,6 +1085,7 @@ class SQLTransformer(TransformerBaseClass):
 
         tables = []
         query_info: Dict[str, Any] = {
+            "column_selected": {},
             "columns": [],
             "expressions": [],
             "literals": [],
@@ -1101,6 +1100,7 @@ class SQLTransformer(TransformerBaseClass):
             "distinct": False,
             "having_expr": None,
         }
+
         for select_expression in select_expressions:
             if isinstance(select_expression, Tree):
                 if select_expression.data == "from_expression":
@@ -1122,6 +1122,7 @@ class SQLTransformer(TransformerBaseClass):
             self.column_name_map,
             self.column_to_dataframe_name,
         )
+
         select_expressions = internal_transformer.transform(
             Tree("select", select_expressions_no_having)
         ).children
@@ -1135,6 +1136,8 @@ class SQLTransformer(TransformerBaseClass):
             self.handle_token(query_info, token, token_pos)
 
         having_expr = query_info["having_expr"]
+        # TODO Fix having expressions
+
         if having_expr is not None:
             having_expr = (
                 HavingTransformer(
@@ -1168,37 +1171,57 @@ class SQLTransformer(TransformerBaseClass):
         return new_frame
 
     @staticmethod
-    def handle_aggregation(aggregates, group_columns, dataframe: DataFrame):
+    def handle_aggregation(
+        aggregates, group_columns, dataframe: DataFrame, execution_plan: str
+    ):
         """
         Handles all aggregation operations when translating from dictionary info
         to dataframe
         :param aggregates:
         :param group_columns:
+        :param dataframe:
+        :param execution_plan:
         :return:
         """
         if group_columns and not aggregates:
-            dataframe = (
-                dataframe.groupby(group_columns)
-                .size()
-                .to_frame("size")
-                .reset_index()
-                .drop(columns=["size"])
-            )
+            for column in dataframe.columns:
+                if column not in group_columns:
+                    raise Exception(
+                        f"For column {column} you must either group or "
+                        f"provide and aggregation"
+                    )
+            dataframe.drop_duplicates(keep="first", inplace=True)
+            execution_plan += ".drop_duplicates(keep='first')"
         elif aggregates and not group_columns:
-            dataframe = dataframe.aggregate(aggregates).to_frame().transpose()
+            dataframe = (
+                dataframe.assign(__=1)
+                .groupby(["__"])
+                .agg(**aggregates)
+                .reset_index(drop=True)
+            )
+            execution_plan += (
+                f".assign(__=1).groupby(['__']).agg(**"
+                f"{aggregates}).reset_index("
+                f"drop=True)"
+            )
         elif aggregates and group_columns:
             dataframe = (
-                dataframe.groupby(group_columns).aggregate(aggregates).reset_index()
+                dataframe.groupby(group_columns).aggregate(**aggregates).reset_index()
             )
+            execution_plan += (
+                f".groupby({group_columns}).aggregate({aggregates})" f".reset_index()"
+            )
+        return dataframe, execution_plan
 
-        return dataframe
-
-    def handle_columns(self, columns: list, aliases: dict, first_frame: DataFrame):
+    def handle_columns(
+        self, columns: list, aliases: dict, first_frame: DataFrame, execution_plan: str
+    ):
         """
         Returns frame with appropriately selected and named columns
         :param columns:
         :param aliases:
         :param first_frame:
+        :param execution_plan: Currently evaluated dataframe execution plan
         :return:
         """
         column_names = [column.name for column in columns]
@@ -1211,23 +1234,29 @@ class SQLTransformer(TransformerBaseClass):
                     column.name.lower()
                 ]
                 column_names.append(true_column_name)
-                if aliases.get(true_column_name) is None and \
-                        true_column_name != column.name:
+                if (
+                    aliases.get(true_column_name) is None
+                    and true_column_name != column.name
+                ):
                     aliases[true_column_name] = column.name
-            new_frame = first_frame[column_names].rename(columns=aliases)
-            self._execution_plan += f"[{column_names}]"
-            if aliases:
-                self._execution_plan += f".rename(columns={aliases}"
 
-        return new_frame
+            new_frame = first_frame.loc[:, column_names]
+            execution_plan += f".loc[:, {column_names}]"
+            if aliases:
+                new_frame = new_frame.rename(columns=aliases)
+                execution_plan += f".rename(columns={aliases}"
+        return new_frame, execution_plan
 
     def to_dataframe(self, query_info):
         """
         Returns the dataframe resulting from the SQL query
         :return:
         """
+        execution_plan = ""
+
         if DEBUG:
             print("Query info:", query_info)
+
         having_expr = query_info["having_expr"]
 
         frame_names = query_info["frame_names"]
@@ -1235,46 +1264,58 @@ class SQLTransformer(TransformerBaseClass):
             raise Exception("No table specified")
 
         first_frame = self.get_frame(frame_names[0])
-        self._execution_plan += f"{frame_names[0]}"
+        if not isinstance(frame_names[0], Subquery):
+            execution_plan += f"{frame_names[0]}"
         for frame_name in frame_names[1:]:
             next_frame = self.get_frame(frame_name)
             first_frame = self.cross_join(first_frame, next_frame)
 
-        new_frame = self.handle_columns(
-            query_info["columns"], query_info["aliases"], first_frame
+        new_frame, execution_plan = self.handle_columns(
+            query_info["columns"], query_info["aliases"], first_frame, execution_plan
         )
 
-        for expression in query_info["expressions"]:
-            new_frame[expression.alias] = expression.evaluate()
+        expressions = query_info["expressions"]
+        if expressions:
+            assign_expressions = {}
+            execution_plan += ".assign("
+            for expression in expressions:
+                expression_value = expression.evaluate()
+                assign_expressions[expression.alias] = expression_value
+                execution_plan += f"{expression.alias}={expression_value}"
+            execution_plan += ")"
+            new_frame = new_frame.assign(**assign_expressions)
 
         literals = query_info["literals"]
         if literals:
             assign_literals = {}
-            self._execution_plan += ".assign("
+            execution_plan += ".assign("
             for literal in literals:
                 assign_literals[literal.alias] = literal.value
-                self._execution_plan += f"{literal.alias}={literal.value}, "
-            self._execution_plan += ")"
+                execution_plan += f"{literal.alias}={literal.value}, "
+            execution_plan += ")"
             new_frame = new_frame.assign(**assign_literals)
 
         if query_info["conversions"]:
-            conversions = query_info['conversions']
-            self._execution_plan += f".astype({conversions})"
+            conversions = query_info["conversions"]
+            execution_plan += f".astype({conversions})"
             new_frame = new_frame.astype(conversions)
 
         if query_info["where_expr"] is not None:
             new_frame = new_frame[query_info["where_expr"]]
 
-        new_frame = self.handle_aggregation(
-            query_info["aggregates"], query_info["group_columns"], new_frame
+        new_frame, execution_plan = self.handle_aggregation(
+            query_info["aggregates"],
+            query_info["group_columns"],
+            new_frame,
+            execution_plan,
         )
 
         if having_expr is not None:
             new_frame = new_frame[having_expr]
 
         if query_info["distinct"]:
-            self._execution_plan += ".drop_duplicates(keep='first', inplace=True)"
-            new_frame.drop_duplicates(keep='first', inplace=True)
+            execution_plan += ".drop_duplicates(keep='first', inplace=True)"
+            new_frame.drop_duplicates(keep="first", inplace=True)
 
         order_by = query_info["order_by"]
         if order_by:
@@ -1286,6 +1327,8 @@ class SQLTransformer(TransformerBaseClass):
 
         if query_info["limit"] is not None:
             new_frame = new_frame.head(query_info["limit"])
+
+        self._execution_plan += execution_plan
 
         return new_frame
 
@@ -1360,6 +1403,8 @@ class SQLTransformer(TransformerBaseClass):
         :param dataframe:
         :return:
         """
+        DerivedColumn.reset_expression_count()
+
         if self._get_execution_plan:
             return dataframe, self._execution_plan
         return dataframe
