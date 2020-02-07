@@ -1154,6 +1154,7 @@ if __name__ == "__main__":
     # test_avg()
     # test_max()
     # test_multiple_aggs()
-    test_agg_w_groupby()
+    test_having()
+    test_having_with_group_by()
 
     remove_env_tables()

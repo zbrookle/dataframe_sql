@@ -700,78 +700,74 @@ class InternalTransformer(TransformerBaseClass):
         return new_value
 
 
-# # pylint: disable=no-self-use
-# class HavingTransformer(TransformerBaseClass):
-#     """
-#     Transformer for having clauses since group by needs to be applied first
-#     """
-#
-#     # pylint: disable=too-many-arguments
-#     def __init__(
-#         self, tables, group_by, dataframe_map, column_name_map, column_to_dataframe_name
-#     ):
-#         self.tables = tables
-#         self.group_by = group_by
-#         TransformerBaseClass.__init__(
-#             self,
-#             dataframe_map=dataframe_map,
-#             column_name_map=column_name_map,
-#             column_to_dataframe_name=column_to_dataframe_name,
-#         )
-#
-#     def aggregate(self, function_name_list_form):
-#         """
-#         Return the string representation fo aggregate function name instead of list
-#         :param function_name_list_form:
-#         :return:
-#         """
-#         return "".join(function_name_list_form)
-#
-#     def function_name(self, tokens):
-#         """
-#         Extracts function name from token
-#         :param fucntion_name:
-#         :return:
-#         """
-#         return tokens[0].value
-#
-#     def sql_function(self, function_expr):
-#         """
-#         Handles presence of functions in an expression
-#         :param function_expr: Function expression
-#         :return:
-#         """
-#         aggregate_name = function_expr[0]
-#         column = function_expr[1]
-#         table = self.dataframe_map[column.table]
-#         aggregates = {column.name: aggregate_name}
-#         if self.group_by:
-#             new_series = (
-#                 table.groupby(self.group_by).aggregate(aggregates).reset_index()
-#             )
-#         else:
-#             new_series = table.aggregate(aggregates).to_frame().transpose()
-#         return new_series[column.name]
-#
-#     def having_expr(self, having_expr):
-#         """
-#         Handles having expressions
-#         :param having_expr:
-#         :return:
-#         """
-#         internal_transformer = InternalTransformer(
-#             self.tables,
-#             self.dataframe_map,
-#             self.column_name_map,
-#             self.column_to_dataframe_name,
-#         )
-#         # having_expr = Tree("having_expr", having_expr)
-#         boolean_expression: Tree = having_expr[0].children[0]
-#         expression_sides = boolean_expression.children
-#         print(internal_transformer.transform(expression_sides[0]))
-#         exit()
-#         # return internal_transformer.transform(having_expr)
-#         # re
+# pylint: disable=no-self-use
+class HavingTransformer(TransformerBaseClass):
+    """
+    Transformer for having clauses since group by needs to be applied first
+    """
+
+    # pylint: disable=too-many-arguments
+    def __init__(
+        self, tables, group_by, dataframe_map, column_name_map, column_to_dataframe_name
+    ):
+        self.tables = tables
+        self.group_by = group_by
+        TransformerBaseClass.__init__(
+            self,
+            dataframe_map=dataframe_map,
+            column_name_map=column_name_map,
+            column_to_dataframe_name=column_to_dataframe_name,
+        )
+
+    def aggregate(self, function_name_list_form):
+        """
+        Return the string representation fo aggregate function name instead of list
+        :param function_name_list_form:
+        :return:
+        """
+        return "".join(function_name_list_form)
+
+    def aggregation_name(self, tokens):
+        """
+        Extracts function name from token
+        :param tokens:
+        :return:
+        """
+        return tokens[0].value
+
+    def sql_aggregation(self, aggregation_expr):
+        """
+        Handles presence of functions in an expression
+        :param aggregation_expr: Function expression
+        :return:
+        """
+        print(aggregation_expr)
+        aggregate_name = aggregation_expr[0]
+        column = aggregation_expr[1]
+        table = self.dataframe_map[column.table]
+        aggregates = {column.name: aggregate_name}
+        if self.group_by:
+            new_series = (
+                table.groupby(self.group_by).aggregate(aggregates).reset_index()
+            )
+        else:
+            new_series = table.aggregate(aggregates).to_frame().transpose()
+        return new_series[column.name]
+
+    def having_expr(self, having_expr):
+        """
+        Handles having expressions
+        :param having_expr:
+        :return:
+        """
+        internal_transformer = InternalTransformer(
+            self.tables,
+            self.dataframe_map,
+            self.column_name_map,
+            self.column_to_dataframe_name,
+        )
+        having_expr = Tree("having_expr", having_expr)
+        return internal_transformer.transform(having_expr)
 
 
 # pylint: disable=no-self-use, super-init-not-called
@@ -1144,18 +1140,18 @@ class SQLTransformer(TransformerBaseClass):
         having_expr = query_info["having_expr"]
         # TODO Fix having expressions
 
-        # if having_expr is not None:
-        #     having_expr = (
-        #         HavingTransformer(
-        #             tables,
-        #             query_info["group_columns"],
-        #             self.dataframe_map,
-        #             self.column_name_map,
-        #             self.column_to_dataframe_name,
-        #         )
-        #         .transform(having_expr)
-        #         .children[0]
-        #     )
+        if having_expr is not None:
+            having_expr = (
+                HavingTransformer(
+                    tables,
+                    query_info["group_columns"],
+                    self.dataframe_map,
+                    self.column_name_map,
+                    self.column_to_dataframe_name,
+                )
+                .transform(having_expr)
+                .children[0]
+            )
 
         query_info["having_expr"] = having_expr
         return query_info
@@ -1211,11 +1207,9 @@ class SQLTransformer(TransformerBaseClass):
                 f"drop=True)"
             )
         elif aggregates and group_columns:
-            print("pre")
             dataframe = (
-                dataframe.groupby(group_columns).aggregate(aggregates).reset_index()
+                dataframe.groupby(group_columns).aggregate(**aggregates).reset_index()
             )
-            print("post")
             execution_plan += (
                 f".groupby({group_columns}).aggregate({aggregates})" f".reset_index()"
             )
@@ -1278,12 +1272,10 @@ class SQLTransformer(TransformerBaseClass):
         for frame_name in frame_names[1:]:
             next_frame = self.get_frame(frame_name)
             first_frame = self.cross_join(first_frame, next_frame)
-        print(execution_plan)
 
         new_frame, execution_plan = self.handle_columns(
             query_info["columns"], query_info["aliases"], first_frame, execution_plan
         )
-        print(execution_plan)
 
         expressions = query_info["expressions"]
         if expressions:
@@ -1295,8 +1287,6 @@ class SQLTransformer(TransformerBaseClass):
                 execution_plan += f"{expression.alias}={expression_value}"
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_expressions)
-        # for expression in query_info["expressions"]:
-        #     new_frame[expression.alias] = expression.evaluate()
 
         literals = query_info["literals"]
         if literals:
@@ -1316,7 +1306,6 @@ class SQLTransformer(TransformerBaseClass):
         if query_info["where_expr"] is not None:
             new_frame = new_frame[query_info["where_expr"]]
 
-        # TODO Fix the handle aggregation
         new_frame, execution_plan = self.handle_aggregation(
             query_info["aggregates"],
             query_info["group_columns"],
