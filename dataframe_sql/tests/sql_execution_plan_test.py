@@ -6,7 +6,8 @@ from dataframe_sql.tests.utils import register_env_tables, remove_env_tables
 
 import pytest
 
-@pytest.fixture(autouse=True, scope='module')
+
+@pytest.fixture(autouse=True, scope="module")
 def module_setup_teardown():
     register_env_tables()
     yield
@@ -36,11 +37,15 @@ def test_select_specific_fields():
     Tests selecting specific fields
     :return:
     """
-    frame, plan = query("select temp, RH, wind, rain as water, area from forest_fires",
-                        show_execution_plan=True)
-    assert plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', " \
-                   "'area']].rename(" \
-                   "columns={'rain': 'water'}"
+    frame, plan = query(
+        "select temp, RH, wind, rain as water, area from forest_fires",
+        show_execution_plan=True,
+    )
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', "
+        "'area']].rename("
+        "columns={'rain': 'water'}"
+    )
 
 
 def test_type_conversion():
@@ -55,10 +60,12 @@ def test_type_conversion():
     cast(3 as float64) as my_float,
     cast(7 as object) as my_object,
     cast(0 as bool) as my_bool from forest_fires""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
-    assert plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', " \
-                   "'area']].rename(columns={'RH': 'my_rh'}.assign(my_int=2, my_float=3.0, my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', "
+        "'area']].rename(columns={'RH': 'my_rh'}.assign(my_int=2, my_float=3.0, my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
+    )
 
 
 def test_using_math():
@@ -66,8 +73,10 @@ def test_using_math():
     Test the mathematical operations and order of operations
     :return:
     """
-    my_frame, plan = query("select temp, 1 + 2 * 3 as my_number from forest_fires",
-                           show_execution_plan=True)
+    my_frame, plan = query(
+        "select temp, 1 + 2 * 3 as my_number from forest_fires",
+        show_execution_plan=True,
+    )
     assert plan == "FOREST_FIRES.loc[:, ['temp']].assign(my_number=7, )"
 
 
@@ -76,10 +85,13 @@ def test_distinct():
     Test use of the distinct keyword
     :return:
     """
-    my_frame, plan = query("select distinct area, rain from forest_fires",
-                           show_execution_plan=True)
-    assert plan == "FOREST_FIRES.loc[:, ['area', 'rain']].drop_duplicates(" \
-                   "keep='first', inplace=True)"
+    my_frame, plan = query(
+        "select distinct area, rain from forest_fires", show_execution_plan=True
+    )
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['area', 'rain']].drop_duplicates("
+        "keep='first', inplace=True)"
+    )
 
 
 # def test_subquery():
@@ -91,7 +103,6 @@ def test_distinct():
 #     rain_area""",
 #                         show_execution_plan=True)
 #     print(plan)
-
 
 
 #
@@ -257,13 +268,17 @@ def test_distinct():
 #     tm.assert_frame_equal(pandas_frame, my_frame)
 #
 
+
 def test_group_by():
     """
     Test group by constraint
     :return:
     """
-    my_frame, plan = query("""select month, day from forest_fires group by month, 
-    day""", show_execution_plan=True)
+    my_frame, plan = query(
+        """select month, day from forest_fires group by month, 
+    day""",
+        show_execution_plan=True,
+    )
     assert plan == "FOREST_FIRES.loc[:, ['month', 'day']].drop_duplicates(keep='first')"
 
 
@@ -272,8 +287,11 @@ def test_avg():
     Test the avg
     :return:
     """
-    my_frame, plan = query("select avg(temp) from forest_fires",
-                           show_execution_plan=True)
+    my_frame, plan = query(
+        "select avg(temp) from forest_fires", show_execution_plan=True
+    )
+    # THIS SHOULD translate to FOREST_FIRES.loc[:, ['temp']].rename('temp',
+    # _col1).aggregate({'_col1', 'mean'}).to_frame().transpose()
     print(plan)
 
 

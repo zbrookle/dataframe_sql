@@ -32,6 +32,7 @@ def register_env_tables():
         if isinstance(variable, DataFrame):
             register_temp_table(frame=variable, table_name=variable_name)
 
+
 def remove_env_tables():
     """
     Remove all env tables

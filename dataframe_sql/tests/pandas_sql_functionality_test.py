@@ -6,24 +6,28 @@ from datetime import date, datetime
 from freezegun import freeze_time
 import numpy as np
 from pandas import concat, merge
-import pandas.util.testing as tm
+import pandas.testing as tm
 
 from dataframe_sql.exceptions.sql_exception import (
     DataFrameDoesNotExist,
     InvalidQueryException,
 )
-from dataframe_sql.sql_objects import AmbiguousColumn
-from dataframe_sql.sql_select_query import (
-    TableInfo
-)
+from dataframe_sql.sql_objects import AmbiguousColumn, Expression, Aggregate
+from dataframe_sql.sql_select_query import TableInfo
 from dataframe_sql import query, remove_temp_table, register_temp_table
 
-from dataframe_sql.tests.utils import register_env_tables, remove_env_tables, \
-    FOREST_FIRES, DIGIMON_MON_LIST, DIGIMON_MOVE_LIST
+from dataframe_sql.tests.utils import (
+    register_env_tables,
+    remove_env_tables,
+    FOREST_FIRES,
+    DIGIMON_MON_LIST,
+    DIGIMON_MOVE_LIST,
+)
 
 import pytest
 
-@pytest.fixture(autouse=True, scope='module')
+
+@pytest.fixture(autouse=True, scope="module")
 def module_setup_teardown():
     register_env_tables()
     yield
@@ -384,9 +388,10 @@ def test_avg():
     :return:
     """
     my_frame = query("select avg(temp) from forest_fires")
+
     pandas_frame = (
         FOREST_FIRES.agg({"temp": np.mean})
-        .to_frame("mean_temp")
+        .to_frame("_col0")
         .reset_index()
         .drop(columns=["index"])
     )
@@ -401,7 +406,7 @@ def test_sum():
     my_frame = query("select sum(temp) from forest_fires")
     pandas_frame = (
         FOREST_FIRES.agg({"temp": np.sum})
-        .to_frame("sum_temp")
+        .to_frame("_col0")
         .reset_index()
         .drop(columns=["index"])
     )
@@ -416,7 +421,7 @@ def test_max():
     my_frame = query("select max(temp) from forest_fires")
     pandas_frame = (
         FOREST_FIRES.agg({"temp": np.max})
-        .to_frame("max_temp")
+        .to_frame("_col0")
         .reset_index()
         .drop(columns=["index"])
     )
@@ -431,7 +436,7 @@ def test_min():
     my_frame = query("select min(temp) from forest_fires")
     pandas_frame = (
         FOREST_FIRES.agg({"temp": np.min})
-        .to_frame("min_temp")
+        .to_frame("_col0")
         .reset_index()
         .drop(columns=["index"])
     )
@@ -447,13 +452,13 @@ def test_multiple_aggs():
         "select min(temp), max(temp), avg(temp), max(wind) from forest_fires"
     )
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame["min_temp"] = FOREST_FIRES.temp.copy()
-    pandas_frame["max_temp"] = FOREST_FIRES.temp.copy()
-    pandas_frame["mean_temp"] = FOREST_FIRES.temp.copy()
+    pandas_frame["_col0"] = FOREST_FIRES.temp.copy()
+    pandas_frame["_col1"] = FOREST_FIRES.temp.copy()
+    pandas_frame["_col2"] = FOREST_FIRES.temp.copy()
     pandas_frame = pandas_frame.agg(
-        {"min_temp": np.min, "max_temp": np.max, "mean_temp": np.mean, "wind": np.max}
+        {"_col0": np.min, "_col1": np.max, "_col2": np.mean, "wind": np.max}
     )
-    pandas_frame.rename({"wind": "max_wind"}, inplace=True)
+    pandas_frame.rename({"wind": "_col3"}, inplace=True)
     pandas_frame = pandas_frame.to_frame().transpose()
     tm.assert_frame_equal(pandas_frame, my_frame)
 
@@ -467,11 +472,11 @@ def test_agg_w_groupby():
         "select day, month, min(temp), max(temp) from forest_fires group by day, month"
     )
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame["min_temp"] = pandas_frame.temp
-    pandas_frame["max_temp"] = pandas_frame.temp
+    pandas_frame["_col0"] = pandas_frame.temp
+    pandas_frame["_col1"] = pandas_frame.temp
     pandas_frame = (
         pandas_frame.groupby(["day", "month"])
-        .aggregate({"min_temp": np.min, "max_temp": np.max})
+        .aggregate({"_col0": np.min, "_col1": np.max})
         .reset_index()
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
@@ -521,9 +526,9 @@ def test_having():
     """
     my_frame = query("select min(temp) from forest_fires having min(temp) > 2")
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame["min_temp"] = FOREST_FIRES["temp"]
-    aggregated_df = pandas_frame.aggregate({"min_temp": "min"}).to_frame().transpose()
-    pandas_frame = aggregated_df[aggregated_df["min_temp"] > 2]
+    pandas_frame["_col0"] = FOREST_FIRES["temp"]
+    aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
+    pandas_frame = aggregated_df[aggregated_df["_col0"] > 2]
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -536,11 +541,11 @@ def test_having_with_group_by():
         "select day, min(temp) from forest_fires group by day having min(temp) > 5"
     )
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame["min_temp"] = FOREST_FIRES["temp"]
+    pandas_frame["_col0"] = FOREST_FIRES["temp"]
     pandas_frame = (
-        pandas_frame[["day", "min_temp"]].groupby("day").aggregate({"min_temp": np.min})
+        pandas_frame[["day", "_col0"]].groupby("day").aggregate({"_col0": np.min})
     )
-    pandas_frame = pandas_frame[pandas_frame["min_temp"] > 5].reset_index()
+    pandas_frame = pandas_frame[pandas_frame["_col0"] > 5].reset_index()
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -872,10 +877,10 @@ def test_case_statement_w_no_name():
         """
     )
     pandas_frame = FOREST_FIRES.copy()[["wind"]]
-    pandas_frame.loc[pandas_frame.wind > 5, "_expression0"] = "strong"
-    pandas_frame.loc[pandas_frame.wind == 5, "_expression0"] = "mid"
+    pandas_frame.loc[pandas_frame.wind > 5, "_col0"] = "strong"
+    pandas_frame.loc[pandas_frame.wind == 5, "_col0"] = "mid"
     pandas_frame.loc[
-        ~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), "_expression0"
+        ~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), "_col0"
     ] = "weak"
     pandas_frame.drop(columns=["wind"], inplace=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
@@ -893,10 +898,10 @@ def test_case_statement_w_other_columns_as_reult():
         """
     )
     pandas_frame = FOREST_FIRES.copy()[["wind"]]
-    pandas_frame.loc[pandas_frame.wind > 5, "_expression0"] = FOREST_FIRES["month"]
-    pandas_frame.loc[pandas_frame.wind == 5, "_expression0"] = "mid"
+    pandas_frame.loc[pandas_frame.wind > 5, "_col0"] = FOREST_FIRES["month"]
+    pandas_frame.loc[pandas_frame.wind == 5, "_col0"] = "mid"
     pandas_frame.loc[
-        ~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), "_expression0"
+        ~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), "_col0"
     ] = FOREST_FIRES["day"]
     pandas_frame.drop(columns=["wind"], inplace=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
@@ -1146,9 +1151,9 @@ def test_timestamps():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_avg()
-    test_case_statement_w_other_columns_as_reult()
-    test_case_statement_w_no_name()
-    test_case_statement_w_name()
+    # test_avg()
+    # test_max()
+    # test_multiple_aggs()
+    test_agg_w_groupby()
 
     remove_env_tables()
