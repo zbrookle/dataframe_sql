@@ -1151,10 +1151,6 @@ def test_timestamps():
 if __name__ == "__main__":
     register_env_tables()
 
-    # test_avg()
-    # test_max()
-    # test_multiple_aggs()
-    test_having()
-    test_having_with_group_by()
+    test_agg_w_groupby()
 
     remove_env_tables()

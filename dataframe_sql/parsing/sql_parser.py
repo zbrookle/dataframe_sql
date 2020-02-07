@@ -23,7 +23,6 @@ from dataframe_sql.sql_objects import (
     Subquery,
     Value,
 )
-from logging import info, warning
 
 DEBUG = False
 PRINT = False
@@ -741,7 +740,6 @@ class HavingTransformer(TransformerBaseClass):
         :param aggregation_expr: Function expression
         :return:
         """
-        print(aggregation_expr)
         aggregate_name = aggregation_expr[0]
         column = aggregation_expr[1]
         table = self.dataframe_map[column.table]
@@ -1213,7 +1211,6 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += (
                 f".groupby({group_columns}).aggregate({aggregates})" f".reset_index()"
             )
-
         return dataframe, execution_plan
 
     def handle_columns(
