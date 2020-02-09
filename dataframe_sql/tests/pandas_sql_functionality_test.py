@@ -1150,6 +1150,6 @@ def test_timestamps():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_agg_w_groupby()
+    test_order_by()
 
     remove_env_tables()
