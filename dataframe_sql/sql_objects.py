@@ -218,7 +218,7 @@ class DerivedColumn(Value):
 
 class Expression(DerivedColumn):
     """
-    Store information about an expression
+    Store information about an sql_object
     """
 
     def __init__(self, value, alias="", typename="", function=""):
@@ -226,7 +226,7 @@ class Expression(DerivedColumn):
 
     def evaluate(self):
         """
-        Returns the value from the expression
+        Returns the value from the sql_object
         :return:
         """
         if isinstance(self.value, Column):
