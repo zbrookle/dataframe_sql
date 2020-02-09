@@ -379,8 +379,9 @@ def test_where_clause():
     Test where clause
     :return:
     """
-    my_frame, plan = query("""select * from forest_fires where month = 'mar'""",
-                           show_execution_plan=True)
+    my_frame, plan = query(
+        """select * from forest_fires where month = 'mar'""", show_execution_plan=True
+    )
     print(plan)
 
 

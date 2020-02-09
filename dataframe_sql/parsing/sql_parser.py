@@ -3,7 +3,7 @@ Module containing all lark transformer classes
 """
 from datetime import date, datetime
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 from lark import Token, Transformer, Tree, v_args
 from pandas import DataFrame, concat, merge
@@ -895,17 +895,13 @@ class SQLTransformer(TransformerBaseClass):
         :param args: Additional arguments aside from query info
         :return: Query info
         """
-        order_by = []
-        limit = None
         for token in args:
             if isinstance(token, Token):
                 if token.type == "order_by":
-                    order_by.append(token.value)
+                    query_info.order_by.append(token.value)
                 elif token.type == "limit":
-                    limit = token.value
-        query_info.order_by = order_by
-        query_info.limit = limit
-        print(type(limit))
+                    query_info.limit = token.value
+
         return query_info
 
     def subquery(self, query_info, alias):
@@ -1073,8 +1069,9 @@ class SQLTransformer(TransformerBaseClass):
                 token.value.final_name,
                 token.function,
             )
-            if isinstance(token.value, Column) and not query_info.column_selected\
-                    .get(token.value.name):
+            if isinstance(token.value, Column) and not query_info.column_selected.get(
+                token.value.name
+            ):
                 query_info.columns.append(token.value)
                 query_info.column_selected[token.value.name] = True
 
@@ -1324,10 +1321,7 @@ class SQLTransformer(TransformerBaseClass):
             new_frame = new_frame[where_value_token.value]
 
         new_frame, execution_plan = self.handle_aggregation(
-            query_info.aggregates,
-            query_info.group_columns,
-            new_frame,
-            execution_plan,
+            query_info.aggregates, query_info.group_columns, new_frame, execution_plan,
         )
 
         if having_expr is not None:

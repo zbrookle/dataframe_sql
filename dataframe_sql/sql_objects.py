@@ -339,7 +339,7 @@ class QueryInfo:
         self.distinct = False
         self.having_expr = None
         self.transformer = None
-        self.order_by = None
+        self.order_by = []
         self.limit: Union[int, None] = None
 
     @staticmethod
