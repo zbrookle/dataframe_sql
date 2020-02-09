@@ -21,6 +21,7 @@ from dataframe_sql.sql_objects import (
     Number,
     String,
     Subquery,
+    QueryInfo,
     Value,
 )
 
@@ -887,7 +888,7 @@ class SQLTransformer(TransformerBaseClass):
         """
         return Token("limit", limit_count_value)
 
-    def query_expr(self, query_info, *args):
+    def query_expr(self, query_info: QueryInfo, *args):
         """
         Handles the full query, including order and set operations such as union
         :param query_info: Map of all query information
@@ -902,8 +903,9 @@ class SQLTransformer(TransformerBaseClass):
                     order_by.append(token.value)
                 elif token.type == "limit":
                     limit = token.value
-        query_info["order_by"] = order_by
-        query_info["limit"] = limit
+        query_info.order_by = order_by
+        query_info.limit = limit
+        print(type(limit))
         return query_info
 
     def subquery(self, query_info, alias):
@@ -1042,7 +1044,7 @@ class SQLTransformer(TransformerBaseClass):
         return False
 
     @staticmethod
-    def handle_non_token_non_tree(query_info: dict, token, token_pos):
+    def handle_non_token_non_tree(query_info: QueryInfo, token, token_pos):
         """
         Handles non token non tree items and extracts necessary query information
         from it
@@ -1051,37 +1053,35 @@ class SQLTransformer(TransformerBaseClass):
         :param token_pos: Ordinal position of the item
         :return:
         """
-        query_info["all_names"].append(token.final_name)
-        query_info["name_order"][token.final_name] = token_pos
+        query_info.all_names.append(token.final_name)
+        query_info.name_order[token.final_name] = token_pos
 
         if token.typename:
-            query_info["conversions"][token.final_name] = token.typename
+            query_info.conversions[token.final_name] = token.typename
 
         if isinstance(token, Column):
-            query_info["columns"].append(token)
-            query_info["column_selected"][token.name] = True
+            query_info.columns.append(token)
+            query_info.column_selected[token.name] = True
             if token.alias:
-                query_info["aliases"][token.name] = token.alias
+                query_info.aliases[token.name] = token.alias
 
         if isinstance(token, Expression):
-            query_info["expressions"].append(token)
+            query_info.expressions.append(token)
 
         if isinstance(token, Aggregate):
-            query_info["aggregates"][token.final_name] = (
+            query_info.aggregates[token.final_name] = (
                 token.value.final_name,
                 token.function,
             )
-            if isinstance(token.value, Column) and not query_info[
-                "column_selected"
-            ].get(token.value.name):
-                query_info["columns"].append(token.value)
-                query_info["column_selected"][token.value.name] = True
-                # TODO
+            if isinstance(token.value, Column) and not query_info.column_selected\
+                    .get(token.value.name):
+                query_info.columns.append(token.value)
+                query_info.column_selected[token.value.name] = True
 
         if isinstance(token, Literal):
-            query_info["literals"].append(token)
+            query_info.literals.append(token)
 
-    def handle_token(self, query_info: dict, token, token_pos):
+    def handle_token(self, query_info: QueryInfo, token, token_pos):
         """
         Handles token and extracts necessary query information from it
         :param query_info: Dictionary of all info about the query
@@ -1091,18 +1091,18 @@ class SQLTransformer(TransformerBaseClass):
         """
         if isinstance(token, Token):
             if token.type == "from_expression":
-                query_info["frame_names"].append(token.value)
+                query_info.frame_names.append(token.value)
             elif token.type == "group":
-                query_info["group_columns"].append(token.value)
+                query_info.group_columns.append(token.value)
             elif token.type == "where_expr":
-                query_info["where_expr"] = token.value
+                query_info.where_expr = token.value
         elif isinstance(token, Tree):
             if token.data == "having_expr":
-                query_info["having_expr"] = token
+                query_info.having_expr = token
         else:
             self.handle_non_token_non_tree(query_info, token, token_pos)
 
-    def select(self, *select_expressions: Tuple[Tree]):
+    def select(self, *select_expressions: Tuple[Tree]) -> QueryInfo:
         """
         Forms the final sequence of methods that will be executed
         :param select_expressions:
@@ -1112,33 +1112,16 @@ class SQLTransformer(TransformerBaseClass):
             print("Select Expressions:", select_expressions)
 
         tables = []
-        query_info: Dict[str, Any] = {
-            "column_selected": {},
-            "columns": [],
-            "expressions": [],
-            "literals": [],
-            "frame_names": [],
-            "aliases": {},
-            "all_names": [],
-            "name_order": {},
-            "conversions": {},
-            "aggregates": {},
-            "group_columns": [],
-            "where_expr": None,
-            "distinct": False,
-            "having_expr": None,
-            "transformer": None
-        }
+        query_info = QueryInfo()
 
         for select_expression in select_expressions:
             if isinstance(select_expression, Tree):
                 if select_expression.data == "from_expression":
                     tables.append(select_expression.children[0])
                 elif select_expression.data == "having_expr":
-                    query_info["having_expr"] = select_expression
+                    query_info.having_expr = select_expression
                 elif select_expression.data == "where_expr":
-                    print(select_expression)
-                    query_info["where_expr"] = select_expression
+                    query_info.where_expr = select_expression
 
         select_expressions_no_boolean_clauses = tuple(
             select_expression
@@ -1159,24 +1142,24 @@ class SQLTransformer(TransformerBaseClass):
             Tree("select", select_expressions_no_boolean_clauses)
         ).children
 
-        query_info["transformer"] = internal_transformer
+        query_info.transformer = internal_transformer
 
         if isinstance(select_expressions[0], Token):
             if str(select_expressions[0]) == "distinct":
-                query_info["distinct"] = True
+                query_info.distinct = True
             select_expressions = select_expressions[1:]
 
         for token_pos, token in enumerate(select_expressions):
             self.handle_token(query_info, token, token_pos)
 
-        having_expr = query_info["having_expr"]
+        having_expr = query_info.having_expr
         # TODO Fix having expressions
 
         if having_expr is not None:
             having_expr = (
                 HavingTransformer(
                     tables,
-                    query_info["group_columns"],
+                    query_info.group_columns,
                     self.dataframe_map,
                     self.column_name_map,
                     self.column_to_dataframe_name,
@@ -1185,7 +1168,7 @@ class SQLTransformer(TransformerBaseClass):
                 .children[0]
             )
 
-        query_info["having_expr"] = having_expr
+        query_info.having_expr = having_expr
         return query_info
 
     def cross_join(self, df1, df2):
@@ -1281,7 +1264,7 @@ class SQLTransformer(TransformerBaseClass):
                 execution_plan += f".rename(columns={aliases}"
         return new_frame, execution_plan
 
-    def to_dataframe(self, query_info):
+    def to_dataframe(self, query_info: QueryInfo):
         """
         Returns the dataframe resulting from the SQL query
         :return:
@@ -1291,10 +1274,10 @@ class SQLTransformer(TransformerBaseClass):
         if DEBUG:
             print("Query info:", query_info)
 
-        having_expr = query_info["having_expr"]
+        having_expr = query_info.having_expr
 
-        frame_names = query_info["frame_names"]
-        if not frame_names:
+        frame_names = query_info.frame_names
+        if not query_info.frame_names:
             raise Exception("No table specified")
 
         first_frame = self.get_frame(frame_names[0])
@@ -1305,10 +1288,10 @@ class SQLTransformer(TransformerBaseClass):
             first_frame = self.cross_join(first_frame, next_frame)
 
         new_frame, execution_plan = self.handle_columns(
-            query_info["columns"], query_info["aliases"], first_frame, execution_plan
+            query_info.columns, query_info.aliases, first_frame, execution_plan
         )
 
-        expressions = query_info["expressions"]
+        expressions = query_info.expressions
         if expressions:
             assign_expressions = {}
             execution_plan += ".assign("
@@ -1319,7 +1302,7 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_expressions)
 
-        literals = query_info["literals"]
+        literals = query_info.literals
         if literals:
             assign_literals = {}
             execution_plan += ".assign("
@@ -1329,19 +1312,20 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_literals)
 
-        if query_info["conversions"]:
-            conversions = query_info["conversions"]
+        conversions = query_info.conversions
+        if conversions:
             execution_plan += f".astype({conversions})"
             new_frame = new_frame.astype(conversions)
 
-        if query_info["where_expr"] is not None:
-            internal_transformer = query_info["transformer"]
-            where_value_token = internal_transformer.transform(query_info["where_expr"])
+        where_expr = query_info.where_expr
+        if where_expr is not None:
+            internal_transformer = query_info.transformer
+            where_value_token = internal_transformer.transform(where_expr)
             new_frame = new_frame[where_value_token.value]
 
         new_frame, execution_plan = self.handle_aggregation(
-            query_info["aggregates"],
-            query_info["group_columns"],
+            query_info.aggregates,
+            query_info.group_columns,
             new_frame,
             execution_plan,
         )
@@ -1349,11 +1333,11 @@ class SQLTransformer(TransformerBaseClass):
         if having_expr is not None:
             new_frame = new_frame[having_expr]
 
-        if query_info["distinct"]:
+        if query_info.distinct:
             execution_plan += ".drop_duplicates(keep='first', inplace=True)"
             new_frame.drop_duplicates(keep="first", inplace=True)
 
-        order_by = query_info["order_by"]
+        order_by = query_info.order_by
         if order_by:
             new_frame.sort_values(
                 by=[pair[0] for pair in order_by],
@@ -1361,8 +1345,8 @@ class SQLTransformer(TransformerBaseClass):
                 inplace=True,
             )
 
-        if query_info["limit"] is not None:
-            new_frame = new_frame.head(query_info["limit"])
+        if query_info.limit is not None:
+            new_frame = new_frame.head(query_info.limit)
 
         self._execution_plan += execution_plan
 

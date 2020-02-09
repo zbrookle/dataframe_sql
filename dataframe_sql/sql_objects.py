@@ -2,7 +2,7 @@
 Module containing all sql objects
 """
 from pandas import Series
-
+from typing import Union
 
 # pylint: disable=too-few-public-methods
 class AmbiguousColumn:
@@ -316,3 +316,32 @@ class Subquery:
 
     def __repr__(self):
         return f"Subquery(name={self.name}, query_info={self.query_info})"
+
+
+class QueryInfo:
+    """
+    Class that holds metadata extracted / derived from a sql query
+    """
+
+    def __init__(self):
+        self.column_selected = {}
+        self.columns = []
+        self.expressions = []
+        self.literals = []
+        self.frame_names = []
+        self.aliases = {}
+        self.all_names = []
+        self.name_order = {}
+        self.conversions = {}
+        self.aggregates = {}
+        self.group_columns = []
+        self.where_expr = None
+        self.distinct = False
+        self.having_expr = None
+        self.transformer = None
+        self.order_by = None
+        self.limit: Union[int, None] = None
+
+    @staticmethod
+    def set_none_var(value, default):
+        return default if not value else value
