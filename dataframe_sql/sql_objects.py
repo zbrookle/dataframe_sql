@@ -1,8 +1,12 @@
 """
 Module containing all sql objects
 """
+from typing import List, Tuple, Union
+
 from pandas import Series
-from typing import Union
+
+from dataframe_sql.parsing.sql_parser import Transformer
+
 
 # pylint: disable=too-few-public-methods
 class AmbiguousColumn:
@@ -338,8 +342,8 @@ class QueryInfo:
         self.where_expr = None
         self.distinct = False
         self.having_expr = None
-        self.transformer = None
-        self.order_by = []
+        self.transformer: Transformer = None
+        self.order_by: List[Tuple[str, bool]] = []
         self.limit: Union[int, None] = None
 
     @staticmethod

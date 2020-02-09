@@ -19,9 +19,9 @@ from dataframe_sql.sql_objects import (
     Expression,
     Literal,
     Number,
+    QueryInfo,
     String,
     Subquery,
-    QueryInfo,
     Value,
 )
 
@@ -901,7 +901,7 @@ class SQLTransformer(TransformerBaseClass):
                     query_info.order_by.append(token.value)
                 elif token.type == "limit":
                     query_info.limit = token.value
-
+        print(query_info.order_by)
         return query_info
 
     def subquery(self, query_info, alias):
@@ -920,7 +920,6 @@ class SQLTransformer(TransformerBaseClass):
             self.column_name_map[alias_name][column.lower()] = column
         return subquery
 
-    # pylint: disable=arguments-differ
     def column_name(self, *names):
         full_name = ".".join([str(name) for name in names])
         return Tree("column_name", full_name)
