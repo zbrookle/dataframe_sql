@@ -374,15 +374,14 @@ def test_agg_w_groupby():
     )
 
 
-# def test_where_clause():
-#     """
-#     Test where clause
-#     :return:
-#     """
-#     my_frame, plan = query("""select * from forest_fires where month = 'mar'""",
-#                            show_execution_plan=True)
-#     print(plan)
-#     assert False
+def test_where_clause():
+    """
+    Test where clause
+    :return:
+    """
+    my_frame, plan = query("""select * from forest_fires where month = 'mar'""",
+                           show_execution_plan=True)
+    print(plan)
 
 
 # def test_order_by():
@@ -1042,6 +1041,6 @@ def test_agg_w_groupby():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_agg_w_groupby()
+    test_where_clause()
 
     remove_env_tables()

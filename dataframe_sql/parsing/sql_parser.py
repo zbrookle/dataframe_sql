@@ -324,17 +324,45 @@ class InternalTransformer(TransformerBaseClass):
         date_value.set_alias("today()")
         return date_value
 
+    # def create_execution_plan(self, sql_object: Value):
+    #     """
+    #     Creates the execution plan. To be used in boolean expressions
+    #     :param sql_object:
+    #     :return:
+    #     """
+    #     if isinstance(sql_object, Column):
+    #         execution_plan = f"{sql_object.table}['{sql_object.name}']"
+    #     elif isinstance(sql_object, String):
+    #         execution_plan = f"'{sql_object.value}'"
+    #     else:
+    #         execution_plan = f"{sql_object.value}"
+    #
+    #     return execution_plan
+    #
+    # def create_execution_plan_expression(self, expression1, expression2, relationship):
+    #     """
+    #     Returns the execution plan for both expressions taking relationship into account
+    #
+    #     :param expression1:
+    #     :param expression2:
+    #     :param relationship:
+    #     :return:
+    #     """
+    #     return f"{self.create_execution_plan(expression1)}{relationship}" \
+    #            f"{self.create_execution_plan(expression2)}"
+
     def equals(self, expressions):
         """
         Compares two expressions for equality
         :param expressions:
         :return:
         """
+        # print(self.create_execution_plan_expression(*expressions, "=="))
         return expressions[0] == expressions[1]
 
     def greater_than(self, expressions):
         """
-        Performs a greater than expression
+        Performs a greater than sql_object
         :param expressions:
         :return:
         """
@@ -342,7 +370,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def less_than(self, expressions):
         """
-        Performs a less than expression
+        Performs a less than sql_object
         :param expressions:
         :return:
         """
@@ -358,7 +386,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def in_expr(self, expressions):
         """
-        Evaluate in expression
+        Evaluate in sql_object
         :param expressions:
         :return:
         """
@@ -376,17 +404,17 @@ class InternalTransformer(TransformerBaseClass):
         """
         return ~self.in_expr(expressions)
 
-    def bool_expression(self, bool_expression):
+    def bool_expression(self, expression):
         """
-        Return the bool expression
-        :param bool_expression:
-        :return: boolean expression
+        Return the bool sql_object
+        :param expression:
+        :return: boolean sql_object
         """
-        return bool_expression[0]
+        return expression[0]
 
     def negated_bool_expression(self, bool_expression):
         """
-        Returns a negated boolean expression
+        Returns a negated boolean sql_object
         :param bool_expression:
         :return:
         """
@@ -418,9 +446,9 @@ class InternalTransformer(TransformerBaseClass):
 
     def from_expression(self, expression):
         """
-        Return a from expression token
+        Return a from sql_object token
         :param expression:
-        :return: Token from expression
+        :return: Token from sql_object
         """
         expression = expression[0]
         if isinstance(expression, Subquery):
@@ -431,7 +459,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def when_then(self, when_then):
         """
-        When / then expression
+        When / then sql_object
         :param when_then:
         :return:
         """
@@ -465,7 +493,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def order_asc(self, column):
         """
-        Return expression in asc order
+        Return sql_object in asc order
         :param column:
         :return:
         """
@@ -475,7 +503,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def order_desc(self, column):
         """
-        Return expression in asc order
+        Return sql_object in asc order
         :param column:
         :return:
         """
@@ -579,7 +607,7 @@ class InternalTransformer(TransformerBaseClass):
     def rank(self, tokens, rank_function):
         """
         Returns the evaluated rank expressions
-        :param tokens: Tokens making up the rank expression
+        :param tokens: Tokens making up the rank sql_object
         :param rank_function: Function to be used in rank evaluation
         :return:
         """
@@ -633,8 +661,8 @@ class InternalTransformer(TransformerBaseClass):
 
     def select_expression(self, expression_and_alias):
         """
-        Returns the appropriate object for the given expression
-        :param expression_and_alias: An expression token and A token containing the
+        Returns the appropriate object for the given sql_object
+        :param expression_and_alias: An sql_object token and A token containing the
         name to be assigned
         :return:
         """
@@ -655,9 +683,9 @@ class InternalTransformer(TransformerBaseClass):
 
     def join(self, *args):
         """
-        Extracts the join expression
+        Extracts the join sql_object
         :param args: Arguments that are passed to the join
-        :return: join expression
+        :return: join sql_object
         """
         return args[0]
 
@@ -672,8 +700,8 @@ class InternalTransformer(TransformerBaseClass):
 
     def as_type(self, column_and_type):
         """
-        Extracts token type and returns tree object with expression and type
-        :param expression: Expression to be evaluated / the name of a column
+        Extracts token type and returns tree object with sql_object and type
+        :param sql_object: Expression to be evaluated / the name of a column
         :param typename: Data type
         :return:
         """
@@ -736,8 +764,8 @@ class HavingTransformer(TransformerBaseClass):
 
     def sql_aggregation(self, aggregation_expr):
         """
-        Handles presence of functions in an expression
-        :param aggregation_expr: Function expression
+        Handles presence of functions in an sql_object
+        :param aggregation_expr: Function sql_object
         :return:
         """
         aggregate_name = aggregation_expr[0]
@@ -834,7 +862,7 @@ class SQLTransformer(TransformerBaseClass):
 
     def order_by_expression(self, rank_tree):
         """
-        Returns the column name for the order expression
+        Returns the column name for the order sql_object
         :param rank_tree: Tree containing order info
         :return:
         """
@@ -1099,6 +1127,7 @@ class SQLTransformer(TransformerBaseClass):
             "where_expr": None,
             "distinct": False,
             "having_expr": None,
+            "transformer": None
         }
 
         for select_expression in select_expressions:
@@ -1107,12 +1136,15 @@ class SQLTransformer(TransformerBaseClass):
                     tables.append(select_expression.children[0])
                 elif select_expression.data == "having_expr":
                     query_info["having_expr"] = select_expression
+                elif select_expression.data == "where_expr":
+                    print(select_expression)
+                    query_info["where_expr"] = select_expression
 
-        select_expressions_no_having = tuple(
+        select_expressions_no_boolean_clauses = tuple(
             select_expression
             for select_expression in select_expressions
             if isinstance(select_expression, Tree)
-            and select_expression.data != "having_expr"
+            and select_expression.data not in ("having_expr", "where_expr")
             or not isinstance(select_expression, Tree)
         )
 
@@ -1124,8 +1156,10 @@ class SQLTransformer(TransformerBaseClass):
         )
 
         select_expressions = internal_transformer.transform(
-            Tree("select", select_expressions_no_having)
+            Tree("select", select_expressions_no_boolean_clauses)
         ).children
+
+        query_info["transformer"] = internal_transformer
 
         if isinstance(select_expressions[0], Token):
             if str(select_expressions[0]) == "distinct":
@@ -1301,7 +1335,9 @@ class SQLTransformer(TransformerBaseClass):
             new_frame = new_frame.astype(conversions)
 
         if query_info["where_expr"] is not None:
-            new_frame = new_frame[query_info["where_expr"]]
+            internal_transformer = query_info["transformer"]
+            where_value_token = internal_transformer.transform(query_info["where_expr"])
+            new_frame = new_frame[where_value_token.value]
 
         new_frame, execution_plan = self.handle_aggregation(
             query_info["aggregates"],
@@ -1334,7 +1370,7 @@ class SQLTransformer(TransformerBaseClass):
 
     def set_expr(self, query_info):
         """
-        Return different expression with set relational operations performed
+        Return different sql_object with set relational operations performed
         :param query_info:
         :return:
         """
