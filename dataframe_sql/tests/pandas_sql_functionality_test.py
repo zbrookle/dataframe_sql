@@ -517,13 +517,15 @@ def test_limit():
     pandas_frame = FOREST_FIRES.copy().head(10)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
-
+# TODO Add in parentheses support for Order of ops
 def test_having():
     """
     Test having clause
     :return:
     """
-    my_frame = query("select min(temp) from forest_fires having min(temp) > 2")
+    my_frame = query("select min(temp) from forest_fires having min(temp) > 2 and "
+                     "max(dc) < 200 or month = 'oct'")
+    print(my_frame)
     pandas_frame = FOREST_FIRES.copy()
     pandas_frame["_col0"] = FOREST_FIRES["temp"]
     aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
@@ -1146,10 +1148,22 @@ def test_timestamps():
         pandas_frame["_literal0"] = datetime(2019, 1, 31, 23, 20, 32)
         tm.assert_frame_equal(pandas_frame, my_frame)
 
+# TODO Add in more having and boolean tests
+# TODO Add in <= and >=
+# def test_booleans():
+#     """
+#     Test for all boolean operations
+#     :return:
+#     """
+#     my_frame = query("""
+#     select * from forest_fires where wind <= 2 or wind >= 3 and wind != 3
+#     """)
+#     print(my_frame)
+
 
 if __name__ == "__main__":
     register_env_tables()
 
-    test_order_by()
+    test_having()
 
     remove_env_tables()
