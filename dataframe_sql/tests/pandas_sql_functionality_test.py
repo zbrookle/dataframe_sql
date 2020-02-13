@@ -525,7 +525,6 @@ def test_having():
     """
     my_frame = query("select min(temp) from forest_fires having min(temp) > 2 and "
                      "max(dc) < 200 or month = 'oct'")
-    print(my_frame)
     pandas_frame = FOREST_FIRES.copy()
     pandas_frame["_col0"] = FOREST_FIRES["temp"]
     aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
@@ -1150,6 +1149,7 @@ def test_timestamps():
 
 # TODO Add in more having and boolean tests
 # TODO Add in <= and >=
+# TODO Add in parentheses for order of operations
 # def test_booleans():
 #     """
 #     Test for all boolean operations
@@ -1164,6 +1164,6 @@ def test_timestamps():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_having()
+    test_timestamps()
 
     remove_env_tables()

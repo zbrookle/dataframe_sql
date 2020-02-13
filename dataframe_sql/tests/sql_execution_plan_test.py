@@ -20,7 +20,7 @@ def test_select_star():
     :return:
     """
     frame, plan = query("select * from forest_fires", show_execution_plan=True)
-    assert plan == "FOREST_FIRES"
+    assert plan == "FOREST_FIRES.loc[:, :]"
 
 
 def test_case_insensitivity():
@@ -29,7 +29,7 @@ def test_case_insensitivity():
     :return:
     """
     frame, plan = query("select * from FOREST_fires", show_execution_plan=True)
-    assert plan == "FOREST_FIRES"
+    assert plan == "FOREST_FIRES.loc[:, :]"
 
 
 def test_select_specific_fields():
@@ -382,35 +382,32 @@ def test_where_clause():
     my_frame, plan = query(
         """select * from forest_fires where month = 'mar'""", show_execution_plan=True
     )
-    print(plan)
+    assert plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar', :]"
 
 
-# def test_order_by():
-#     """
-#     Test order by clause
-#     :return:
-#     """
-#     my_frame = query(
-#         """select * from forest_fires order by temp desc, wind asc, area"""
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame.sort_values(
-#         by=["temp", "wind", "area"], ascending=[0, 1, 1], inplace=True
-#     )
-#     pandas_frame.reset_index(drop=True, inplace=True)
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_limit():
-#     """
-#     Test limit clause
-#     :return:
-#     """
-#     my_frame = query("""select * from forest_fires limit 10""")
-#     pandas_frame = FOREST_FIRES.copy().head(10)
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
+def test_order_by():
+    """
+    Test order by clause
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from forest_fires order by temp desc, wind asc, area""",
+        show_execution_plan=True
+    )
+    assert plan == "FOREST_FIRES.loc[:, :].sort_values(by=['temp', 'wind', 'area'], " \
+                   "ascending=[False, True, True])"
+
+
+def test_limit():
+    """
+    Test limit clause
+    :return:
+    """
+    my_frame, plan = query("""select * from forest_fires limit 10""",
+                           show_execution_plan=True)
+    assert plan == "FOREST_FIRES.loc[:, :].head(10)"
+
+
 # def test_having():
 #     """
 #     Test having clause
@@ -1042,6 +1039,6 @@ def test_where_clause():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_where_clause()
+    test_limit()
 
     remove_env_tables()

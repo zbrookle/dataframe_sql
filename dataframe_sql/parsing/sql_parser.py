@@ -915,7 +915,6 @@ class SQLTransformer(TransformerBaseClass):
                     query_info.order_by.append(token.value)
                 elif token.type == "limit":
                     query_info.limit = token.value
-        print(query_info.order_by)
         return query_info
 
     def subquery(self, query_info, alias):
@@ -1241,7 +1240,8 @@ class SQLTransformer(TransformerBaseClass):
         return dataframe, execution_plan
 
     def handle_columns(
-        self, columns: list, aliases: dict, first_frame: DataFrame, execution_plan: str
+        self, columns: list, aliases: dict, first_frame: DataFrame, execution_plan: str,
+            where_expr: Tree, internal_transformer: Transformer
     ):
         """
         Returns frame with appropriately selected and named columns
@@ -1249,11 +1249,26 @@ class SQLTransformer(TransformerBaseClass):
         :param aliases:
         :param first_frame:
         :param execution_plan: Currently evaluated dataframe execution plan
+        :param where_expr: Syntax tree containing where clause
+        :param internal_transformer: Transformer to transform the where clauses
         :return:
         """
+        where_value = None
+        where_plan = ":"
+        if where_expr is not None:
+            where_value_token, where_plan = internal_transformer.transform(
+                where_expr, get_execution_plan=True
+            )
+            where_value = where_value_token.value
+
         column_names = [column.name for column in columns]
         if self.has_star(column_names):
-            new_frame: DataFrame = first_frame.copy()
+            if where_value is not None:
+                new_frame: DataFrame = first_frame.loc[where_value, :].copy()
+                execution_plan += f".loc[{where_plan}, :]"
+            else:
+                new_frame: DataFrame = first_frame.loc[:, :].copy()
+                execution_plan += ".loc[:, :]"
         else:
             column_names = []
             for column in columns:
@@ -1267,8 +1282,11 @@ class SQLTransformer(TransformerBaseClass):
                 ):
                     aliases[true_column_name] = column.name
 
-            new_frame = first_frame.loc[:, column_names]
-            execution_plan += f".loc[:, {column_names}]"
+            if where_value is not None:
+                new_frame = first_frame.loc[where_value, column_names]
+            else:
+                new_frame = first_frame.loc[:, column_names]
+            execution_plan += f".loc[{where_plan}, {column_names}]"
             if aliases:
                 new_frame = new_frame.rename(columns=aliases)
                 execution_plan += f".rename(columns={aliases}"
@@ -1298,8 +1316,17 @@ class SQLTransformer(TransformerBaseClass):
             first_frame = self.cross_join(first_frame, next_frame)
 
         new_frame, execution_plan = self.handle_columns(
-            query_info.columns, query_info.aliases, first_frame, execution_plan
+            query_info.columns, query_info.aliases, first_frame, execution_plan,
+            query_info.where_expr, query_info.transformer
         )
+
+        # where_expr = query_info.where_expr
+        # if where_expr is not None:
+        #     internal_transformer: InternalTransformer = query_info.transformer
+        #     where_value_token, plan = internal_transformer.transform(
+        #         where_expr, get_execution_plan=True
+        #     )
+        #     new_frame = new_frame[where_value_token.value]
 
         expressions = query_info.expressions
         if expressions:
@@ -1311,6 +1338,7 @@ class SQLTransformer(TransformerBaseClass):
                 execution_plan += f"{expression.alias}={expression_value}"
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_expressions)
+
 
         literals = query_info.literals
         if literals:
@@ -1327,15 +1355,6 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += f".astype({conversions})"
             new_frame = new_frame.astype(conversions)
 
-        where_expr = query_info.where_expr
-        if where_expr is not None:
-            internal_transformer: InternalTransformer = query_info.transformer
-            where_value_token, plan = internal_transformer.transform(
-                where_expr, get_execution_plan=True
-            )
-            new_frame = new_frame[where_value_token.value]
-            print(plan)
-
         new_frame, execution_plan = self.handle_aggregation(
             query_info.aggregates, query_info.group_columns, new_frame, execution_plan,
         )
@@ -1349,14 +1368,17 @@ class SQLTransformer(TransformerBaseClass):
 
         order_by = query_info.order_by
         if order_by:
-            new_frame.sort_values(
-                by=[pair[0] for pair in order_by],
-                ascending=[pair[1] for pair in order_by],
-                inplace=True,
+            by_pairs = [pair[0] for pair in order_by]
+            ascending_info = [pair[1] for pair in order_by]
+            new_frame = new_frame.sort_values(
+                by=by_pairs,
+                ascending=ascending_info
             )
+            execution_plan += f".sort_values(by={by_pairs}, ascending={ascending_info})"
 
         if query_info.limit is not None:
             new_frame = new_frame.head(query_info.limit)
+            execution_plan += f".head({query_info.limit})"
 
         self._execution_plan += execution_plan
 
