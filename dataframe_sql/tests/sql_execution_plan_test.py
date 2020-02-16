@@ -408,19 +408,16 @@ def test_limit():
     assert plan == "FOREST_FIRES.loc[:, :].head(10)"
 
 
-# def test_having():
-#     """
-#     Test having clause
-#     :return:
-#     """
-#     my_frame = query("select min(temp) from forest_fires having min(temp) > 2")
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame["min_temp"] = FOREST_FIRES["temp"]
-#     aggregated_df = pandas_frame.aggregate({"min_temp": "min"}).to_frame().transpose()
-#     pandas_frame = aggregated_df[aggregated_df["min_temp"] > 2]
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
+def test_having():
+    """
+    Test having clause
+    :return:
+    """
+    my_frame = query("select min(temp) from forest_fires having min(temp) > 2",
+                           )
+    # print(plan)
+
+
 # def test_having_with_group_by():
 #     """
 #     Test having clause
@@ -1039,6 +1036,6 @@ def test_limit():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_limit()
+    test_having()
 
     remove_env_tables()

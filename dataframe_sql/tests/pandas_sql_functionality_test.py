@@ -33,6 +33,16 @@ def module_setup_teardown():
     remove_env_tables()
 
 
+@pytest.fixture(autouse=True, scope="function", name="state_change")
+def assert_state_not_change():
+    table_state = {}
+    for key in TableInfo.dataframe_map:
+        table_state[key] = TableInfo.dataframe_map[key].copy()
+    yield
+    for key in TableInfo.dataframe_map:
+        tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
+
+
 def test_add_remove_temp_table():
     """
     Tests registering and removing temp tables
@@ -518,13 +528,26 @@ def test_limit():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 # TODO Add in parentheses support for Order of ops
-def test_having():
+def test_having_multiple_conditions():
     """
     Test having clause
     :return:
     """
     my_frame = query("select min(temp) from forest_fires having min(temp) > 2 and "
                      "max(dc) < 200 or month = 'oct'")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame["_col0"] = FOREST_FIRES["temp"]
+    aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
+    pandas_frame = aggregated_df[aggregated_df["_col0"] > 2]
+    tm.assert_frame_equal(pandas_frame, my_frame)
+
+
+def test_having_one_condition():
+    """
+    Test having clause
+    :return:
+    """
+    my_frame = query("select min(temp) from forest_fires having min(temp) > 2")
     pandas_frame = FOREST_FIRES.copy()
     pandas_frame["_col0"] = FOREST_FIRES["temp"]
     aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
@@ -1164,6 +1187,13 @@ def test_timestamps():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_timestamps()
+    # table_state = {}
+    # for key in TableInfo.dataframe_map:
+    #     table_state[key] = TableInfo.dataframe_map[key].copy()
+
+    test_having_one_condition()
+
+    # for key in TableInfo.dataframe_map:
+    #     tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
 
     remove_env_tables()

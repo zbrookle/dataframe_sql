@@ -134,6 +134,7 @@ class TransformerBaseClass(Transformer):
         :param name_list_format: List formatted name
         :return: Tree with column token
         """
+        print("yes")
         name = "".join(name_list_format)
         column = Column(name="".join(name))
         self.set_column_value(column)
@@ -1107,6 +1108,7 @@ class SQLTransformer(TransformerBaseClass):
                 query_info.where_expr = token.value
         elif isinstance(token, Tree):
             if token.data == "having_expr":
+                print(token.data)
                 query_info.having_expr = token
         else:
             self.handle_non_token_non_tree(query_info, token, token_pos)
@@ -1320,14 +1322,6 @@ class SQLTransformer(TransformerBaseClass):
             query_info.where_expr, query_info.transformer
         )
 
-        # where_expr = query_info.where_expr
-        # if where_expr is not None:
-        #     internal_transformer: InternalTransformer = query_info.transformer
-        #     where_value_token, plan = internal_transformer.transform(
-        #         where_expr, get_execution_plan=True
-        #     )
-        #     new_frame = new_frame[where_value_token.value]
-
         expressions = query_info.expressions
         if expressions:
             assign_expressions = {}
@@ -1361,6 +1355,7 @@ class SQLTransformer(TransformerBaseClass):
 
         if having_expr is not None:
             new_frame = new_frame[having_expr]
+            print(having_expr)
 
         if query_info.distinct:
             execution_plan += ".drop_duplicates(keep='first', inplace=True)"
