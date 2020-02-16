@@ -134,10 +134,10 @@ class SqlToDataFrame:
             table_info = TableInfo()
 
             return SQLTransformer(
-                table_info.dataframe_name_map,
+                table_info.dataframe_name_map.copy(),
                 table_info.dataframe_map.copy(),
-                table_info.column_name_map,
-                table_info.column_to_dataframe_name,
+                table_info.column_name_map.copy(),
+                table_info.column_to_dataframe_name.copy(),
                 self._show_execution_plan,
             ).transform(tree)
         except UnexpectedToken as err:

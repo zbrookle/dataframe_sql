@@ -35,8 +35,8 @@ def module_setup_teardown():
     remove_env_tables()
 
 
-def display_dict_difference(before_dict: dict, after_dict: dict):
-    dict_diff_report = "Dictionary Difference Report:\n"
+def display_dict_difference(before_dict: dict, after_dict: dict, name: str):
+    dict_diff_report = f"Dictionary Difference Report for {name}:\n"
     for key in before_dict:
         after_value = after_dict.get(key)
         before_value = before_dict[key]
@@ -65,11 +65,17 @@ def assert_state_not_change(func: FunctionType):
         for key in TableInfo.dataframe_map:
             tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
         if column_to_dataframe_name != TableInfo.column_to_dataframe_name:
-            print(type(column_to_dataframe_name))
             display_dict_difference(column_to_dataframe_name,
-                                    TableInfo.column_to_dataframe_name)
-        assert column_name_map == TableInfo.column_name_map
-        assert dataframe_name_map == TableInfo.dataframe_name_map
+                                    TableInfo.column_to_dataframe_name,
+                                    "column_to_dataframe_name")
+        if column_name_map != TableInfo.column_name_map:
+            display_dict_difference(column_name_map,
+                                    TableInfo.column_name_map,
+                                    "column_name_map")
+        if dataframe_name_map != TableInfo.dataframe_name_map:
+            display_dict_difference(dataframe_name_map,
+                                    TableInfo.dataframe_name_map,
+                                    "dataframe_name_map")
 
     return new_func
 
@@ -1254,7 +1260,7 @@ if __name__ == "__main__":
     # table_state = {}
     # for key in TableInfo.dataframe_map:
     #     table_state[key] = TableInfo.dataframe_map[key].copy()
-    test_select_star()
+    test_subquery()
     # for key in TableInfo.dataframe_map:
     #     tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
 
