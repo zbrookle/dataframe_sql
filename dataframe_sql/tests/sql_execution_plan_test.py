@@ -392,10 +392,12 @@ def test_order_by():
     """
     my_frame, plan = query(
         """select * from forest_fires order by temp desc, wind asc, area""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
-    assert plan == "FOREST_FIRES.loc[:, :].sort_values(by=['temp', 'wind', 'area'], " \
-                   "ascending=[False, True, True])"
+    assert (
+        plan == "FOREST_FIRES.loc[:, :].sort_values(by=['temp', 'wind', 'area'], "
+        "ascending=[False, True, True])"
+    )
 
 
 def test_limit():
@@ -403,8 +405,9 @@ def test_limit():
     Test limit clause
     :return:
     """
-    my_frame, plan = query("""select * from forest_fires limit 10""",
-                           show_execution_plan=True)
+    my_frame, plan = query(
+        """select * from forest_fires limit 10""", show_execution_plan=True
+    )
     assert plan == "FOREST_FIRES.loc[:, :].head(10)"
 
 
@@ -413,9 +416,11 @@ def test_having():
     Test having clause
     :return:
     """
-    my_frame = query("select min(temp) from forest_fires having min(temp) > 2",
-                           )
-    # print(plan)
+    my_frame, plan = query(
+        "select min(temp) from forest_fires having min(temp) > 2",
+        show_execution_plan=True,
+    )
+    print(plan)
 
 
 # def test_having_with_group_by():

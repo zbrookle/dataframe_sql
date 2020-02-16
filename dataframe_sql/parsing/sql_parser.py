@@ -356,8 +356,10 @@ class InternalTransformer(TransformerBaseClass):
         :param relationship:
         :return:
         """
-        return f"{self.create_execution_plan(expression1)}{relationship}" \
-               f"{self.create_execution_plan(expression2)}"
+        return (
+            f"{self.create_execution_plan(expression1)}{relationship}"
+            f"{self.create_execution_plan(expression2)}"
+        )
 
     def equals(self, expressions):
         """
@@ -365,8 +367,9 @@ class InternalTransformer(TransformerBaseClass):
         :param expressions:
         :return:
         """
-        self._execution_plan += self.create_execution_plan_expression(*expressions,
-                                                                      "==")
+        self._execution_plan += self.create_execution_plan_expression(
+            *expressions, "=="
+        )
         return expressions[0] == expressions[1]
 
     def greater_than(self, expressions):
@@ -1240,8 +1243,13 @@ class SQLTransformer(TransformerBaseClass):
         return dataframe, execution_plan
 
     def handle_columns(
-        self, columns: list, aliases: dict, first_frame: DataFrame, execution_plan: str,
-            where_expr: Tree, internal_transformer: Transformer
+        self,
+        columns: list,
+        aliases: dict,
+        first_frame: DataFrame,
+        execution_plan: str,
+        where_expr: Tree,
+        internal_transformer: Transformer,
     ):
         """
         Returns frame with appropriately selected and named columns
@@ -1316,8 +1324,12 @@ class SQLTransformer(TransformerBaseClass):
             first_frame = self.cross_join(first_frame, next_frame)
 
         new_frame, execution_plan = self.handle_columns(
-            query_info.columns, query_info.aliases, first_frame, execution_plan,
-            query_info.where_expr, query_info.transformer
+            query_info.columns,
+            query_info.aliases,
+            first_frame,
+            execution_plan,
+            query_info.where_expr,
+            query_info.transformer,
         )
 
         expressions = query_info.expressions
@@ -1362,10 +1374,7 @@ class SQLTransformer(TransformerBaseClass):
         if order_by:
             by_pairs = [pair[0] for pair in order_by]
             ascending_info = [pair[1] for pair in order_by]
-            new_frame = new_frame.sort_values(
-                by=by_pairs,
-                ascending=ascending_info
-            )
+            new_frame = new_frame.sort_values(by=by_pairs, ascending=ascending_info)
             execution_plan += f".sort_values(by={by_pairs}, ascending={ascending_info})"
 
         if query_info.limit is not None:

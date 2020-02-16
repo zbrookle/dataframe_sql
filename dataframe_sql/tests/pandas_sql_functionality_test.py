@@ -41,12 +41,16 @@ def display_dict_difference(before_dict: dict, after_dict: dict, name: str):
         after_value = after_dict.get(key)
         before_value = before_dict[key]
         if after_value != before_value:
-            dict_diff_report += f"Value at key '{key}' was {before_value} and now is " \
-                                f"{after_value}\n"
+            dict_diff_report += (
+                f"Value at key '{key}' was {before_value} and now is "
+                f"{after_value}\n"
+            )
     for key in after_dict:
         if before_dict.get(key) is None:
-            dict_diff_report += f"There is now a value {after_dict[key]} at '{key}', " \
-                                f"but there was nothing there before\n"
+            dict_diff_report += (
+                f"There is now a value {after_dict[key]} at '{key}', "
+                f"but there was nothing there before\n"
+            )
 
     raise Exception(dict_diff_report)
 
@@ -65,17 +69,19 @@ def assert_state_not_change(func: FunctionType):
         for key in TableInfo.dataframe_map:
             tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
         if column_to_dataframe_name != TableInfo.column_to_dataframe_name:
-            display_dict_difference(column_to_dataframe_name,
-                                    TableInfo.column_to_dataframe_name,
-                                    "column_to_dataframe_name")
+            display_dict_difference(
+                column_to_dataframe_name,
+                TableInfo.column_to_dataframe_name,
+                "column_to_dataframe_name",
+            )
         if column_name_map != TableInfo.column_name_map:
-            display_dict_difference(column_name_map,
-                                    TableInfo.column_name_map,
-                                    "column_name_map")
+            display_dict_difference(
+                column_name_map, TableInfo.column_name_map, "column_name_map"
+            )
         if dataframe_name_map != TableInfo.dataframe_name_map:
-            display_dict_difference(dataframe_name_map,
-                                    TableInfo.dataframe_name_map,
-                                    "dataframe_name_map")
+            display_dict_difference(
+                dataframe_name_map, TableInfo.dataframe_name_map, "dataframe_name_map"
+            )
 
     return new_func
 
@@ -165,6 +171,7 @@ def test_case_insensitivity():
     pandas_frame = FOREST_FIRES
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_select_specific_fields():
     """
@@ -176,6 +183,7 @@ def test_select_specific_fields():
         columns={"rain": "water"}
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_type_conversion():
@@ -209,6 +217,7 @@ def test_type_conversion():
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_for_non_existent_table():
     """
@@ -220,6 +229,7 @@ def test_for_non_existent_table():
     except Exception as err:
         assert isinstance(err, DataFrameDoesNotExist)
 
+
 @assert_state_not_change
 def test_using_math():
     """
@@ -230,6 +240,7 @@ def test_using_math():
     pandas_frame = FOREST_FIRES[["temp"]].copy()
     pandas_frame["my_number"] = 1 + 2 * 3
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_distinct():
@@ -244,6 +255,7 @@ def test_distinct():
     pandas_frame.drop(columns="index", inplace=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_subquery():
     """
@@ -253,6 +265,7 @@ def test_subquery():
     my_frame = query("select * from (select area, rain from forest_fires) rain_area")
     pandas_frame = FOREST_FIRES[["area", "rain"]].copy()
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_join_no_inner():
@@ -269,6 +282,7 @@ def test_join_no_inner():
     pandas_frame2 = DIGIMON_MOVE_LIST
     pandas_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_join_wo_specifying_table():
@@ -290,6 +304,7 @@ def test_join_wo_specifying_table():
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_join_w_inner():
     """
@@ -305,6 +320,7 @@ def test_join_w_inner():
     pandas_frame2 = DIGIMON_MOVE_LIST
     pandas_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_outer_join_no_outer():
@@ -322,6 +338,7 @@ def test_outer_join_no_outer():
     pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_outer_join_w_outer():
     """
@@ -337,6 +354,7 @@ def test_outer_join_w_outer():
     pandas_frame2 = DIGIMON_MOVE_LIST
     pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_left_joins():
@@ -354,6 +372,7 @@ def test_left_joins():
     pandas_frame = pandas_frame1.merge(pandas_frame2, how="left", on="Type")
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_left_outer_joins():
     """
@@ -369,6 +388,7 @@ def test_left_outer_joins():
     pandas_frame2 = DIGIMON_MOVE_LIST
     pandas_frame = pandas_frame1.merge(pandas_frame2, how="left", on="Type")
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_right_joins():
@@ -386,6 +406,7 @@ def test_right_joins():
     pandas_frame = pandas_frame1.merge(pandas_frame2, how="right", on="Type")
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_right_outer_joins():
     """
@@ -401,6 +422,7 @@ def test_right_outer_joins():
     pandas_frame2 = DIGIMON_MOVE_LIST
     pandas_frame = pandas_frame1.merge(pandas_frame2, how="right", on="Type")
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_cross_joins():
@@ -418,6 +440,7 @@ def test_cross_joins():
     pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_group_by():
     """
@@ -429,6 +452,7 @@ def test_group_by():
         FOREST_FIRES[["month", "day"]].drop_duplicates().reset_index(drop=True)
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_avg():
@@ -446,6 +470,7 @@ def test_avg():
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_sum():
     """
@@ -460,6 +485,7 @@ def test_sum():
         .drop(columns=["index"])
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_max():
@@ -476,6 +502,7 @@ def test_max():
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_min():
     """
@@ -490,6 +517,7 @@ def test_min():
         .drop(columns=["index"])
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_multiple_aggs():
@@ -511,6 +539,7 @@ def test_multiple_aggs():
     pandas_frame = pandas_frame.to_frame().transpose()
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_agg_w_groupby():
     """
@@ -530,6 +559,7 @@ def test_agg_w_groupby():
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @assert_state_not_change
 def test_where_clause():
     """
@@ -540,6 +570,7 @@ def test_where_clause():
     pandas_frame = FOREST_FIRES.copy()
     pandas_frame = pandas_frame[pandas_frame.month == "mar"].reset_index(drop=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_order_by():
@@ -556,6 +587,7 @@ def test_order_by():
     )
     pandas_frame.reset_index(drop=True, inplace=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @assert_state_not_change
 def test_limit():
@@ -575,8 +607,10 @@ def test_having_multiple_conditions():
     Test having clause
     :return:
     """
-    my_frame = query("select min(temp) from forest_fires having min(temp) > 2 and "
-                     "max(dc) < 200 or month = 'oct'")
+    my_frame = query(
+        "select min(temp) from forest_fires having min(temp) > 2 and "
+        "max(dc) < 200 or month = 'oct'"
+    )
     pandas_frame = FOREST_FIRES.copy()
     pandas_frame["_col0"] = FOREST_FIRES["temp"]
     aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
@@ -1239,6 +1273,7 @@ def test_timestamps():
         pandas_frame["today()"] = date.today()
         pandas_frame["_literal0"] = datetime(2019, 1, 31, 23, 20, 32)
         tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 # TODO Add in more having and boolean tests
 # TODO Add in <= and >=
