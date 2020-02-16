@@ -20,6 +20,9 @@ class AmbiguousColumn:
     def __repr__(self):
         return f"AmbiguousColumn({','.join(self.tables)})"
 
+    def __eq__(self, other):
+        return isinstance(other, AmbiguousColumn) and self.tables == other.tables
+
 
 class Value:
     """

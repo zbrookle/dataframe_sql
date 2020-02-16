@@ -135,7 +135,7 @@ class SqlToDataFrame:
 
             return SQLTransformer(
                 table_info.dataframe_name_map,
-                table_info.dataframe_map,
+                table_info.dataframe_map.copy(),
                 table_info.column_name_map,
                 table_info.column_to_dataframe_name,
                 self._show_execution_plan,

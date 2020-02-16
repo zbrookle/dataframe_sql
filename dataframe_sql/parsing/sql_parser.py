@@ -4,7 +4,6 @@ Module containing all lark transformer classes
 from datetime import date, datetime
 import re
 from typing import Dict, List, Tuple
-from types import FunctionType
 
 from lark import Token, Transformer, Tree, v_args
 from pandas import DataFrame, concat, merge
@@ -134,7 +133,6 @@ class TransformerBaseClass(Transformer):
         :param name_list_format: List formatted name
         :return: Tree with column token
         """
-        print("yes")
         name = "".join(name_list_format)
         column = Column(name="".join(name))
         self.set_column_value(column)
@@ -1332,7 +1330,6 @@ class SQLTransformer(TransformerBaseClass):
                 execution_plan += f"{expression.alias}={expression_value}"
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_expressions)
-
 
         literals = query_info.literals
         if literals:
