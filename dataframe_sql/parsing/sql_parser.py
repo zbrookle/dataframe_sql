@@ -385,6 +385,16 @@ class InternalTransformer(TransformerBaseClass):
                                                                       ">")
         return expressions[0] > expressions[1]
 
+    def greater_than_or_equal(self, expressions):
+        """
+        Performs a greater than or equal sql_object
+        :param expressions:
+        :return:
+        """
+        self._execution_plan += self.create_execution_plan_expression(*expressions,
+                                                                      ">=")
+        return expressions[0] >= expressions[1]
+
     def less_than(self, expressions):
         """
         Performs a less than sql_object
@@ -394,6 +404,16 @@ class InternalTransformer(TransformerBaseClass):
         self._execution_plan += self.create_execution_plan_expression(*expressions,
                                                                       "<")
         return expressions[0] < expressions[1]
+
+    def less_than_or_equal(self, expressions):
+        """
+        Performs a less than or equal sql_object
+        :param expressions:
+        :return:
+        """
+        self._execution_plan += self.create_execution_plan_expression(*expressions,
+                                                                      "<=")
+        return expressions[0] <= expressions[1]
 
     def between(self, expressions):
         """
@@ -430,6 +450,15 @@ class InternalTransformer(TransformerBaseClass):
         :return: boolean sql_object
         """
         return expression[0]
+
+    def comparison_type(self, comparison):
+        """
+        Return the comparison
+
+        :param comparison:
+        :return:
+        """
+        return comparison[0]
 
     def negated_bool_expression(self, bool_expression):
         """
@@ -998,6 +1027,14 @@ class SQLTransformer(TransformerBaseClass):
             return "right", column
         raise Exception("Column does not exist in either table")
 
+    def comparison_type(self, comparison):
+        """
+        Return the comparison expression
+        :param comparison:
+        :return:
+        """
+        return comparison
+
     def join_expression(self, *args):
         """
         Evaluate a join into one dataframe using a merge method
@@ -1005,6 +1042,7 @@ class SQLTransformer(TransformerBaseClass):
         """
         # There will only ever be four args if a join is specified and three if a
         # join isn't specified
+        print(args)
         if len(args) == 3:
             join_type = "inner"
             table1 = args[0]
@@ -1260,6 +1298,7 @@ class SQLTransformer(TransformerBaseClass):
         :param internal_transformer: Transformer to transform the where clauses
         :return:
         """
+        print(where_expr)
         where_value = None
         where_plan = ":"
         if where_expr is not None:

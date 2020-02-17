@@ -573,6 +573,22 @@ def test_where_clause():
 
 
 @assert_state_not_change
+def test_all_boolean_ops_clause():
+    """
+    Test where clause
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from forest_fires where month = 'mar' and temp > 8 and rain >= 0 
+        and area != 0 and dc < 100 and ffmc <= 90
+        """, show_execution_plan=True
+    )
+    print(plan)
+    print(my_frame)
+    # assert plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar', :]"
+
+
+@assert_state_not_change
 def test_order_by():
     """
     Test order by clause
@@ -1295,7 +1311,7 @@ if __name__ == "__main__":
     # table_state = {}
     # for key in TableInfo.dataframe_map:
     #     table_state[key] = TableInfo.dataframe_map[key].copy()
-    test_subquery()
+    test_all_boolean_ops_clause()
     # for key in TableInfo.dataframe_map:
     #     tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
 
