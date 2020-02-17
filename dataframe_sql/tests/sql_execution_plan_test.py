@@ -385,6 +385,21 @@ def test_where_clause():
     assert plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar', :]"
 
 
+# TODO Redo this
+def test_all_boolean_ops_clause():
+    """
+    Test where clause
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from forest_fires where month = 'mar' and temp > 30""",
+        show_execution_plan=True
+    )
+    print(my_frame)
+    print(plan)
+    # assert plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar', :]"
+
+
 def test_order_by():
     """
     Test order by clause
@@ -420,26 +435,26 @@ def test_having():
         "select min(temp) from forest_fires having min(temp) > 2",
         show_execution_plan=True,
     )
-    print(plan)
+    assert plan == "FOREST_FIRES.loc[:, ['temp']].assign(__=1).groupby(['__'])" \
+                   ".agg(**{'_col0': ('temp', 'min')}).reset_index(drop=True)" \
+                   ".loc[FOREST_FIRES.aggregate({'temp': 'min'}).to_frame()" \
+                   ".transpose()[temp]>2, :]"
 
 
-# def test_having_with_group_by():
-#     """
-#     Test having clause
-#     :return:
-#     """
-#     my_frame = query(
-#         "select day, min(temp) from forest_fires group by day having min(temp) > 5"
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame["min_temp"] = FOREST_FIRES["temp"]
-#     pandas_frame = (
-#         pandas_frame[["day", "min_temp"]].groupby("day").aggregate({"min_temp": np.min})
-#     )
-#     pandas_frame = pandas_frame[pandas_frame["min_temp"] > 5].reset_index()
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
+def test_having_with_group_by():
+    """
+    Test having clause
+    :return:
+    """
+    my_frame, plan = query(
+        "select day, min(temp) from forest_fires group by day having min(temp) > 5",
+        show_execution_plan=True
+    )
+    assert plan == "FOREST_FIRES.loc[:, ['day', 'temp']].groupby(['day'])" \
+                   ".aggregate({'_col0': ('temp', 'min')}).reset_index()" \
+                   ".loc[FOREST_FIRES.groupby(['day']).aggregate({'temp': 'min'})" \
+                   ".reset_index()[temp]>5, :]"
+
 # def test_operations_between_columns_and_numbers():
 #     """
 #     Tests operations between columns
@@ -1041,6 +1056,6 @@ def test_having():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_having()
+    test_all_boolean_ops_clause()
 
     remove_env_tables()

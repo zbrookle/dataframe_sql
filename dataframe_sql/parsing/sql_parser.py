@@ -1,5 +1,5 @@
 """
-Module containing all lark transformer classes
+Module containing all lark internal_transformer classes
 """
 from datetime import date, datetime
 import re
@@ -23,6 +23,7 @@ from dataframe_sql.sql_objects import (
     String,
     Subquery,
     Value,
+    ValueWithPlan,
 )
 
 DEBUG = False
@@ -129,9 +130,9 @@ class TransformerBaseClass(Transformer):
 
     def column_name(self, name_list_format: List[str]):
         """
-        Returns a column token with the name extracted
+        Returns a column token_or_tree with the name extracted
         :param name_list_format: List formatted name
-        :return: Tree with column token
+        :return: Tree with column token_or_tree
         """
         name = "".join(name_list_format)
         column = Column(name="".join(name))
@@ -257,7 +258,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def number(self, numerical_value):
         """
-        Return a number token with a numeric value as a child
+        Return a number token_or_tree with a numeric value as a child
         :param numerical_value:
         :return:
         """
@@ -265,7 +266,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def string(self, string_token):
         """
-        Return value of the token associated with the string
+        Return value of the token_or_tree associated with the string
         :param string_token:
         :return:
         """
@@ -342,6 +343,8 @@ class InternalTransformer(TransformerBaseClass):
             execution_plan = f"{sql_object.table}['{sql_object.name}']"
         elif isinstance(sql_object, String):
             execution_plan = f"'{sql_object.value}'"
+        elif isinstance(sql_object, ValueWithPlan):
+            execution_plan = sql_object.execution_plan
         else:
             execution_plan = f"{sql_object.value}"
 
@@ -378,8 +381,8 @@ class InternalTransformer(TransformerBaseClass):
         :param expressions:
         :return:
         """
-        # self._execution_plan += self.create_execution_plan_expression(*expressions,
-        #                                                               ">")
+        self._execution_plan += self.create_execution_plan_expression(*expressions,
+                                                                      ">")
         return expressions[0] > expressions[1]
 
     def less_than(self, expressions):
@@ -388,8 +391,8 @@ class InternalTransformer(TransformerBaseClass):
         :param expressions:
         :return:
         """
-        # self._execution_plan += self.create_execution_plan_expression(*expressions,
-        #                                                               "<")
+        self._execution_plan += self.create_execution_plan_expression(*expressions,
+                                                                      "<")
         return expressions[0] < expressions[1]
 
     def between(self, expressions):
@@ -438,7 +441,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def where_expr(self, truth_value_dataframe):
         """
-        Return a where token
+        Return a where token_or_tree
         :param truth_value_dataframe:
         :return: Token
         """
@@ -454,7 +457,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def alias_string(self, name: List[str]):
         """
-        Returns an alias token with the name extracted
+        Returns an alias token_or_tree with the name extracted
         :param name:
         :return:
         """
@@ -462,7 +465,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def from_expression(self, expression):
         """
-        Return a from sql_object token
+        Return a from sql_object token_or_tree
         :param expression:
         :return: Token from sql_object
         """
@@ -613,7 +616,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def partition_by(self, column_list):
         """
-        Returns a partition token containing the corresponding column
+        Returns a partition token_or_tree containing the corresponding column
         :param column_list: List containing only one column
         :return:
         """
@@ -678,7 +681,7 @@ class InternalTransformer(TransformerBaseClass):
     def select_expression(self, expression_and_alias):
         """
         Returns the appropriate object for the given sql_object
-        :param expression_and_alias: An sql_object token and A token containing the
+        :param expression_and_alias: An sql_object token_or_tree and A token_or_tree containing the
         name to be assigned
         :return:
         """
@@ -707,16 +710,16 @@ class InternalTransformer(TransformerBaseClass):
 
     def group_by(self, column):
         """
-        Returns a group token
+        Returns a group token_or_tree
         :param column: Column to group by
-        :return: group token
+        :return: group token_or_tree
         """
         column = column[0]
         return Token("group", str(column.name))
 
     def as_type(self, column_and_type):
         """
-        Extracts token type and returns tree object with sql_object and type
+        Extracts token_or_tree type and returns tree object with sql_object and type
         :param sql_object: Expression to be evaluated / the name of a column
         :param typename: Data type
         :return:
@@ -772,7 +775,7 @@ class HavingTransformer(TransformerBaseClass):
 
     def aggregation_name(self, tokens):
         """
-        Extracts function name from token
+        Extracts function name from token_or_tree
         :param tokens:
         :return:
         """
@@ -780,7 +783,7 @@ class HavingTransformer(TransformerBaseClass):
 
     def sql_aggregation(self, aggregation_expr):
         """
-        Handles presence of functions in an sql_object
+        Handles presence of aggregation in an sql_object
         :param aggregation_expr: Function sql_object
         :return:
         """
@@ -793,9 +796,14 @@ class HavingTransformer(TransformerBaseClass):
             new_series = (
                 table.groupby(self.group_by).aggregate(aggregates).reset_index()
             )
+            aggregation_plan = f"{column.table}.groupby({self.group_by}).aggregate(" \
+                               f"{aggregates}).reset_index()"
         else:
             new_series = table.aggregate(aggregates).to_frame().transpose()
-        return new_series[column_true_name]
+            aggregation_plan = f"{column.table}.aggregate({aggregates}).to_frame()" \
+                               f".transpose()"
+        aggregation_plan += f"[{column_true_name}]"
+        return ValueWithPlan(new_series[column_true_name], aggregation_plan)
 
     def having_expr(self, having_expr):
         """
@@ -810,7 +818,7 @@ class HavingTransformer(TransformerBaseClass):
             self.column_to_dataframe_name,
         )
         having_expr = Tree("having_expr", having_expr)
-        return internal_transformer.transform(having_expr)
+        return internal_transformer.transform(having_expr, get_execution_plan=True)
 
 
 # pylint: disable=no-self-use, super-init-not-called
@@ -898,7 +906,7 @@ class SQLTransformer(TransformerBaseClass):
 
     def limit_count(self, limit_count_value):
         """
-        Returns a limit token
+        Returns a limit token_or_tree
         :param limit_count_value:
         :return:
         """
@@ -1056,7 +1064,7 @@ class SQLTransformer(TransformerBaseClass):
     @staticmethod
     def handle_non_token_non_tree(query_info: QueryInfo, token, token_pos):
         """
-        Handles non token non tree items and extracts necessary query information
+        Handles non token_or_tree non tree items and extracts necessary query information
         from it
         :param query_info: Dictionary of all info about the query
         :param token: Item being handled
@@ -1092,27 +1100,26 @@ class SQLTransformer(TransformerBaseClass):
         if isinstance(token, Literal):
             query_info.literals.append(token)
 
-    def handle_token(self, query_info: QueryInfo, token, token_pos):
+    def handle_token_or_tree(self, query_info: QueryInfo, token_or_tree, item_pos):
         """
         Handles token and extracts necessary query information from it
         :param query_info: Dictionary of all info about the query
-        :param token: Item being handled
-        :param token_pos: Ordinal position of the token
+        :param token_or_tree: Item being handled
+        :param item_pos: Ordinal position of the token
         :return:
         """
-        if isinstance(token, Token):
-            if token.type == "from_expression":
-                query_info.frame_names.append(token.value)
-            elif token.type == "group":
-                query_info.group_columns.append(token.value)
-            elif token.type == "where_expr":
-                query_info.where_expr = token.value
-        elif isinstance(token, Tree):
-            if token.data == "having_expr":
-                print(token.data)
-                query_info.having_expr = token
+        if isinstance(token_or_tree, Token):
+            if token_or_tree.type == "from_expression":
+                query_info.frame_names.append(token_or_tree.value)
+            elif token_or_tree.type == "group":
+                query_info.group_columns.append(token_or_tree.value)
+            elif token_or_tree.type == "where_expr":
+                query_info.where_expr = token_or_tree.value
+        elif isinstance(token_or_tree, Tree):
+            if token_or_tree.data == "having_expr":
+                query_info.having_expr = token_or_tree
         else:
-            self.handle_non_token_non_tree(query_info, token, token_pos)
+            self.handle_non_token_non_tree(query_info, token_or_tree, item_pos)
 
     def select(self, *select_expressions: Tuple[Tree]) -> QueryInfo:
         """
@@ -1154,7 +1161,7 @@ class SQLTransformer(TransformerBaseClass):
             Tree("select", select_expressions_no_boolean_clauses)
         ).children
 
-        query_info.transformer = internal_transformer
+        query_info.internal_transformer = internal_transformer
 
         if isinstance(select_expressions[0], Token):
             if str(select_expressions[0]) == "distinct":
@@ -1162,25 +1169,17 @@ class SQLTransformer(TransformerBaseClass):
             select_expressions = select_expressions[1:]
 
         for token_pos, token in enumerate(select_expressions):
-            self.handle_token(query_info, token, token_pos)
+            self.handle_token_or_tree(query_info, token, token_pos)
 
-        having_expr = query_info.having_expr
-        # TODO Fix having expressions
-
-        if having_expr is not None:
-            having_expr = (
-                HavingTransformer(
-                    tables,
-                    query_info.group_columns,
-                    self.dataframe_map,
-                    self.column_name_map,
-                    self.column_to_dataframe_name,
-                )
-                .transform(having_expr)
-                .children[0]
+        if query_info.having_expr is not None:
+            query_info.having_transformer = HavingTransformer(
+                tables,
+                query_info.group_columns,
+                self.dataframe_map,
+                self.column_name_map,
+                self.column_to_dataframe_name,
             )
 
-        query_info.having_expr = having_expr
         return query_info
 
     def cross_join(self, df1, df2):
@@ -1310,8 +1309,6 @@ class SQLTransformer(TransformerBaseClass):
         if DEBUG:
             print("Query info:", query_info)
 
-        having_expr = query_info.having_expr
-
         frame_names = query_info.frame_names
         if not query_info.frame_names:
             raise Exception("No table specified")
@@ -1329,7 +1326,7 @@ class SQLTransformer(TransformerBaseClass):
             first_frame,
             execution_plan,
             query_info.where_expr,
-            query_info.transformer,
+            query_info.internal_transformer,
         )
 
         expressions = query_info.expressions
@@ -1362,9 +1359,12 @@ class SQLTransformer(TransformerBaseClass):
             query_info.aggregates, query_info.group_columns, new_frame, execution_plan,
         )
 
-        if having_expr is not None:
-            new_frame = new_frame[having_expr]
-            print(having_expr)
+        if query_info.having_expr is not None:
+            having_eval, having_plan = query_info.having_transformer.transform(
+                query_info.having_expr
+            )
+            new_frame = new_frame.loc[having_eval.children[0], :]
+            execution_plan += f".loc[{having_plan}, :]"
 
         if query_info.distinct:
             execution_plan += ".drop_duplicates(keep='first', inplace=True)"

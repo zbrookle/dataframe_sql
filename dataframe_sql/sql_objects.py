@@ -1,11 +1,11 @@
 """
 Module containing all sql objects
 """
-from typing import List, Tuple, Union
+from typing import List, Tuple, Optional
 
 from pandas import Series
 
-from dataframe_sql.parsing.sql_parser import Transformer
+from lark import Transformer
 
 
 # pylint: disable=too-few-public-methods
@@ -113,6 +113,26 @@ class Value:
         self.alias = alias
         self.final_name = alias
 
+    def __gt__(self, other):
+        if isinstance(other, Value):
+            return self.value > other.value
+        return self.value > other
+
+    def __lt__(self, other):
+        if isinstance(other, Value):
+            return self.value < other.value
+        return self.value < other
+
+    def __ge__(self, other):
+        if isinstance(other, Value):
+            return self.value >= other.value
+        return self.value >= other
+
+    def __le__(self, other):
+        if isinstance(other, Value):
+            return self.value <= other.value
+        return self.value <= other
+
 
 class Literal(Value):
     """
@@ -126,26 +146,6 @@ class Literal(Value):
         if not alias:
             self.alias = f"_literal{self.literal_count}"
             self.literal_count += 1
-
-    def __gt__(self, other):
-        if isinstance(other, Literal):
-            return self.value > other.value
-        return self.value > other
-
-    def __lt__(self, other):
-        if isinstance(other, Literal):
-            return self.value < other.value
-        return self.value < other
-
-    def __ge__(self, other):
-        if isinstance(other, Literal):
-            return self.value >= other.value
-        return self.value >= other
-
-    def __le__(self, other):
-        if isinstance(other, Literal):
-            return self.value <= other.value
-        return self.value <= other
 
     def __repr__(self):
         return Value.__repr__(self) + ")"
@@ -185,6 +185,17 @@ class Bool(Literal):
 
     def __init__(self, value):
         Literal.__init__(self, value)
+
+
+class ValueWithPlan(Value):
+
+    def __init__(self, value, execution_plan):
+        Value.__init__(self, value)
+        self.execution_plan = execution_plan
+
+
+    def __repr__(self):
+        return Value.__repr__(self) + ")"
 
 
 class DerivedColumn(Value):
@@ -345,9 +356,10 @@ class QueryInfo:
         self.where_expr = None
         self.distinct = False
         self.having_expr = None
-        self.transformer: Transformer = None
+        self.internal_transformer: Optional[Transformer] = None
         self.order_by: List[Tuple[str, bool]] = []
-        self.limit: Union[int, None] = None
+        self.limit: Optional[int] = None
+        self.having_transformer: Optional[Transformer] = None
 
     @staticmethod
     def set_none_var(value, default):
