@@ -375,6 +375,16 @@ class InternalTransformer(TransformerBaseClass):
         )
         return expressions[0] == expressions[1]
 
+    def not_equals(self, expressions):
+        """
+        Compares two expressions for inequality
+        :param expressions:
+        :return:
+        """
+        plan_expr = self.create_execution_plan_expression(*expressions, '==')
+        self._execution_plan += f"~({plan_expr})"
+        return ~(expressions[0] == expressions[1])
+
     def greater_than(self, expressions):
         """
         Performs a greater than sql_object
@@ -450,6 +460,11 @@ class InternalTransformer(TransformerBaseClass):
         :return: boolean sql_object
         """
         return expression[0]
+
+    def bool_and(self, truth_series_pair):
+        print("AND", truth_series_pair)
+        return truth_series_pair[0] & truth_series_pair[1]
+
 
     def comparison_type(self, comparison):
         """

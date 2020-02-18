@@ -579,12 +579,19 @@ def test_all_boolean_ops_clause():
     :return:
     """
     my_frame, plan = query(
-        """select * from forest_fires where month = 'mar' and temp > 8 and rain >= 0 
-        and area != 0 and dc < 100 and ffmc <= 90
+        """select * from forest_fires where month = 'mar' and temp > 8 and rain >= 0
+        and area != 0 and dc < 100 and ffmc <= 90.1
         """, show_execution_plan=True
     )
-    print(plan)
-    print(my_frame)
+
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame = pandas_frame[(pandas_frame.month == 'mar')
+                                & (pandas_frame.temp > 8.0)
+                                & (pandas_frame.rain >= 0)
+                                & (pandas_frame.area != 0)
+                                & (pandas_frame.DC < 100)
+                                & (pandas_frame.FFMC <= 90.1)].reset_index(drop=True)
+    tm.assert_frame_equal(my_frame, pandas_frame)
     # assert plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar', :]"
 
 
