@@ -3,10 +3,11 @@ Module containing all lark internal_transformer classes
 """
 from datetime import date, datetime
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union, Any
+from types import FunctionType
 
 from lark import Token, Transformer, Tree, v_args
-from pandas import DataFrame, concat, merge
+from pandas import DataFrame, concat, merge, Series
 
 from dataframe_sql.exceptions.sql_exception import DataFrameDoesNotExist
 from dataframe_sql.sql_objects import (
@@ -140,6 +141,24 @@ class TransformerBaseClass(Transformer):
         return column
 
 
+def boolean_decorator(boolean_operator: str):
+    """
+    Returns a function that wraps around the given boolean function
+    :param boolean_operator:
+    :return:
+    """
+
+    def boolean_function(function: FunctionType):
+        def wrapper(self, expressions: list):
+            plan = self.create_execution_plan_expression(*expressions, boolean_operator)
+            result = function(self, expressions)
+            return ValueWithPlan(result, plan)
+
+        return wrapper
+
+    return boolean_function
+
+
 # pylint: disable=no-self-use, too-many-public-methods, too-many-instance-attributes
 class InternalTransformer(TransformerBaseClass):
     """
@@ -180,6 +199,14 @@ class InternalTransformer(TransformerBaseClass):
     def transform(self, tree, get_execution_plan=False):
         self._execution_plan = ""
         new_tree = TransformerBaseClass.transform(self, tree)
+        if isinstance(new_tree, Token) and isinstance(new_tree.value, ValueWithPlan):
+            self._execution_plan = new_tree.value.execution_plan
+            new_tree.value = new_tree.value.value
+        elif isinstance(new_tree, Tree) and isinstance(new_tree.children, list) and \
+                isinstance(new_tree.children[0], ValueWithPlan):
+            #  Check if new tree has a plan so that this can be used as the execution
+            #  plan to be returned in the transformation
+            self._execution_plan = new_tree.children[0].execution_plan
         if get_execution_plan:
             return new_tree, self._execution_plan
         return new_tree
@@ -364,15 +391,13 @@ class InternalTransformer(TransformerBaseClass):
             f"{self.create_execution_plan(expression2)}"
         )
 
+    @boolean_decorator("==")
     def equals(self, expressions):
         """
         Compares two expressions for equality
         :param expressions:
         :return:
         """
-        self._execution_plan += self.create_execution_plan_expression(
-            *expressions, "=="
-        )
         return expressions[0] == expressions[1]
 
     def not_equals(self, expressions):
@@ -381,48 +406,47 @@ class InternalTransformer(TransformerBaseClass):
         :param expressions:
         :return:
         """
-        plan_expr = self.create_execution_plan_expression(*expressions, '==')
+        plan_expr = self.create_execution_plan_expression(*expressions, "==")
         self._execution_plan += f"~({plan_expr})"
         return ~(expressions[0] == expressions[1])
 
+    @boolean_decorator(">")
     def greater_than(self, expressions):
         """
         Performs a greater than sql_object
         :param expressions:
         :return:
         """
-        self._execution_plan += self.create_execution_plan_expression(*expressions,
-                                                                      ">")
         return expressions[0] > expressions[1]
 
+    @boolean_decorator(">=")
     def greater_than_or_equal(self, expressions):
         """
         Performs a greater than or equal sql_object
         :param expressions:
         :return:
         """
-        self._execution_plan += self.create_execution_plan_expression(*expressions,
-                                                                      ">=")
         return expressions[0] >= expressions[1]
 
+    @boolean_decorator("<")
     def less_than(self, expressions):
         """
         Performs a less than sql_object
         :param expressions:
         :return:
         """
-        self._execution_plan += self.create_execution_plan_expression(*expressions,
-                                                                      "<")
         return expressions[0] < expressions[1]
 
+    @boolean_decorator("<=")
     def less_than_or_equal(self, expressions):
         """
         Performs a less than or equal sql_object
         :param expressions:
         :return:
         """
-        self._execution_plan += self.create_execution_plan_expression(*expressions,
-                                                                      "<=")
+        self._execution_plan += self.create_execution_plan_expression(
+            *expressions, "<="
+        )
         return expressions[0] <= expressions[1]
 
     def between(self, expressions):
@@ -453,7 +477,7 @@ class InternalTransformer(TransformerBaseClass):
         """
         return ~self.in_expr(expressions)
 
-    def bool_expression(self, expression):
+    def bool_expression(self, expression: List[ValueWithPlan]) -> ValueWithPlan:
         """
         Return the bool sql_object
         :param expression:
@@ -461,10 +485,33 @@ class InternalTransformer(TransformerBaseClass):
         """
         return expression[0]
 
-    def bool_and(self, truth_series_pair):
-        print("AND", truth_series_pair)
-        return truth_series_pair[0] & truth_series_pair[1]
+    def bool_and(
+        self, truth_series_pair: List[Union[ValueWithPlan, Series]]
+    ) -> ValueWithPlan:
+        """
+        Return the truth value of the series pair
+        :param truth_series_pair:
+        :return:
+        """
+        plan = [None, None]
+        for i, value in enumerate(truth_series_pair):
+            if isinstance(value, ValueWithPlan):
+                truth_series_pair[i] = value.value
+                plan[i] = value.execution_plan
 
+        print(plan)
+
+        return ValueWithPlan(
+            truth_series_pair[0] & truth_series_pair[1], f"{plan[0]} & {plan[1]}"
+        )
+
+    def bool_or(self, truth_series_pair):
+        """
+        Return the truth value of the series pair
+        :param truth_series_pair:
+        :return:
+        """
+        return truth_series_pair[0] | truth_series_pair[1]
 
     def comparison_type(self, comparison):
         """
@@ -529,17 +576,17 @@ class InternalTransformer(TransformerBaseClass):
         then_value = get_wrapper_value(when_then[1])
         return when_then[0], then_value
 
-    def case_expression(self, when_expressions):
+    def case_expression(self, when_expressions: List[Tuple[ValueWithPlan, Any]]):
         """
         Handles dataframe_sql case expressions
         :param when_expressions:
         :return:
         """
         # TODO Possibly a problem when dealing with booleans
-        new_column = when_expressions[0][0]
+        new_column = when_expressions[0][0].value
         for when_expression in when_expressions:
             if isinstance(when_expression, Tuple):  # type: ignore
-                new_column[when_expression[0]] = when_expression[1]
+                new_column[when_expression[0].value] = when_expression[1]
             else:
                 new_column[new_column == False] = get_wrapper_value(
                     when_expression
@@ -809,6 +856,14 @@ class HavingTransformer(TransformerBaseClass):
             column_to_dataframe_name=column_to_dataframe_name,
         )
 
+    def transform(self, tree: Tree):
+        new_tree, plan = TransformerBaseClass.transform(self, tree)
+        print(plan)
+        new_tree.children[0] = new_tree.children[0].value
+        #     new_tree.value = new_tree.value.value
+        # print(new_tree)
+        return new_tree, plan
+
     def aggregate(self, function_name_list_form):
         """
         Return the string representation fo aggregate function name instead of list
@@ -840,12 +895,15 @@ class HavingTransformer(TransformerBaseClass):
             new_series = (
                 table.groupby(self.group_by).aggregate(aggregates).reset_index()
             )
-            aggregation_plan = f"{column.table}.groupby({self.group_by}).aggregate(" \
-                               f"{aggregates}).reset_index()"
+            aggregation_plan = (
+                f"{column.table}.groupby({self.group_by}).aggregate("
+                f"{aggregates}).reset_index()"
+            )
         else:
             new_series = table.aggregate(aggregates).to_frame().transpose()
-            aggregation_plan = f"{column.table}.aggregate({aggregates}).to_frame()" \
-                               f".transpose()"
+            aggregation_plan = (
+                f"{column.table}.aggregate({aggregates}).to_frame()" f".transpose()"
+            )
         aggregation_plan += f"[{column_true_name}]"
         return ValueWithPlan(new_series[column_true_name], aggregation_plan)
 
@@ -862,6 +920,8 @@ class HavingTransformer(TransformerBaseClass):
             self.column_to_dataframe_name,
         )
         having_expr = Tree("having_expr", having_expr)
+        print("Plan:",
+              internal_transformer.transform(having_expr, get_execution_plan=True)[1])
         return internal_transformer.transform(having_expr, get_execution_plan=True)
 
 
@@ -1417,6 +1477,7 @@ class SQLTransformer(TransformerBaseClass):
             having_eval, having_plan = query_info.having_transformer.transform(
                 query_info.having_expr
             )
+            print(having_plan)
             new_frame = new_frame.loc[having_eval.children[0], :]
             execution_plan += f".loc[{having_plan}, :]"
 

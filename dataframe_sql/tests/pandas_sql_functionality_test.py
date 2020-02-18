@@ -578,21 +578,22 @@ def test_all_boolean_ops_clause():
     Test where clause
     :return:
     """
-    my_frame, plan = query(
+    my_frame = query(
         """select * from forest_fires where month = 'mar' and temp > 8 and rain >= 0
         and area != 0 and dc < 100 and ffmc <= 90.1
-        """, show_execution_plan=True
+        """
     )
 
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame = pandas_frame[(pandas_frame.month == 'mar')
-                                & (pandas_frame.temp > 8.0)
-                                & (pandas_frame.rain >= 0)
-                                & (pandas_frame.area != 0)
-                                & (pandas_frame.DC < 100)
-                                & (pandas_frame.FFMC <= 90.1)].reset_index(drop=True)
+    pandas_frame = pandas_frame[
+        (pandas_frame.month == "mar")
+        & (pandas_frame.temp > 8.0)
+        & (pandas_frame.rain >= 0)
+        & (pandas_frame.area != 0)
+        & (pandas_frame.DC < 100)
+        & (pandas_frame.FFMC <= 90.1)
+    ].reset_index(drop=True)
     tm.assert_frame_equal(my_frame, pandas_frame)
-    # assert plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar', :]"
 
 
 @assert_state_not_change
@@ -623,22 +624,22 @@ def test_limit():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-# TODO Add in parentheses support for Order of ops
-@assert_state_not_change
-def test_having_multiple_conditions():
-    """
-    Test having clause
-    :return:
-    """
-    my_frame = query(
-        "select min(temp) from forest_fires having min(temp) > 2 and "
-        "max(dc) < 200 or month = 'oct'"
-    )
-    pandas_frame = FOREST_FIRES.copy()
-    pandas_frame["_col0"] = FOREST_FIRES["temp"]
-    aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
-    pandas_frame = aggregated_df[aggregated_df["_col0"] > 2]
-    tm.assert_frame_equal(pandas_frame, my_frame)
+# # TODO Add in parentheses support for Order of ops
+# @assert_state_not_change
+# def test_having_multiple_conditions():
+#     """
+#     Test having clause
+#     :return:
+#     """
+#     my_frame = query(
+#         "select min(temp) from forest_fires having min(temp) > 2 and "
+#         "max(dc) < 200 or month = 'oct'"
+#     )
+#     pandas_frame = FOREST_FIRES.copy()
+#     pandas_frame["_col0"] = FOREST_FIRES["temp"]
+#     aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
+#     pandas_frame = aggregated_df[aggregated_df["_col0"] > 2]
+#     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 @assert_state_not_change
@@ -1299,17 +1300,7 @@ def test_timestamps():
 
 
 # TODO Add in more having and boolean tests
-# TODO Add in <= and >=
 # TODO Add in parentheses for order of operations
-# def test_booleans():
-#     """
-#     Test for all boolean operations
-#     :return:
-#     """
-#     my_frame = query("""
-#     select * from forest_fires where wind <= 2 or wind >= 3 and wind != 3
-#     """)
-#     print(my_frame)
 
 
 if __name__ == "__main__":
@@ -1318,7 +1309,7 @@ if __name__ == "__main__":
     # table_state = {}
     # for key in TableInfo.dataframe_map:
     #     table_state[key] = TableInfo.dataframe_map[key].copy()
-    test_all_boolean_ops_clause()
+    test_having_one_condition()
     # for key in TableInfo.dataframe_map:
     #     tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
 

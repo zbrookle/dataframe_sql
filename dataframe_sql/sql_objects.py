@@ -188,11 +188,9 @@ class Bool(Literal):
 
 
 class ValueWithPlan(Value):
-
     def __init__(self, value, execution_plan):
         Value.__init__(self, value)
         self.execution_plan = execution_plan
-
 
     def __repr__(self):
         return Value.__repr__(self) + ")"
