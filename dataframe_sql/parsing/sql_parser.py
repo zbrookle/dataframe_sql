@@ -407,8 +407,7 @@ class InternalTransformer(TransformerBaseClass):
         :return:
         """
         plan_expr = self.create_execution_plan_expression(*expressions, "==")
-        self._execution_plan += f"~({plan_expr})"
-        return ~(expressions[0] == expressions[1])
+        return ValueWithPlan(~(expressions[0] == expressions[1]), f"~({plan_expr})")
 
     @boolean_decorator(">")
     def greater_than(self, expressions):
@@ -498,8 +497,6 @@ class InternalTransformer(TransformerBaseClass):
             if isinstance(value, ValueWithPlan):
                 truth_series_pair[i] = value.value
                 plan[i] = value.execution_plan
-
-        print(plan)
 
         return ValueWithPlan(
             truth_series_pair[0] & truth_series_pair[1], f"{plan[0]} & {plan[1]}"
@@ -1373,7 +1370,6 @@ class SQLTransformer(TransformerBaseClass):
         :param internal_transformer: Transformer to transform the where clauses
         :return:
         """
-        print(where_expr)
         where_value = None
         where_plan = ":"
         if where_expr is not None:

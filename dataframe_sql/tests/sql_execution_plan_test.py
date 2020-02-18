@@ -382,7 +382,6 @@ def test_where_clause():
     my_frame, plan = query(
         """select * from forest_fires where month = 'mar'""", show_execution_plan=True
     )
-    print(plan)
     assert plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar', :]"
 
 
@@ -397,8 +396,10 @@ def test_all_boolean_ops_clause():
         """,
         show_execution_plan=True,
     )
-    print(plan)
-    # assert plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar', :]"
+    assert plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar' " \
+                   "& FOREST_FIRES['temp']>8 " \
+                   "& FOREST_FIRES['rain']>=0 & ~(FOREST_FIRES['area']==0) " \
+                   "& FOREST_FIRES['dc']<100 & FOREST_FIRES['ffmc']<=90.1, :]"
 
 
 def test_order_by():
@@ -436,13 +437,12 @@ def test_having_one_condition():
         "select min(temp) from forest_fires having min(temp) > 2",
         show_execution_plan=True,
     )
-    print(plan)
-    # assert (
-    #     plan == "FOREST_FIRES.loc[:, ['temp']].assign(__=1).groupby(['__'])"
-    #     ".agg(**{'_col0': ('temp', 'min')}).reset_index(drop=True)"
-    #     ".loc[FOREST_FIRES.aggregate({'temp': 'min'}).to_frame()"
-    #     ".transpose()[temp]>2, :]"
-    # )
+    assert (
+        plan == "FOREST_FIRES.loc[:, ['temp']].assign(__=1).groupby(['__'])"
+        ".agg(**{'_col0': ('temp', 'min')}).reset_index(drop=True)"
+        ".loc[FOREST_FIRES.aggregate({'temp': 'min'}).to_frame()"
+        ".transpose()[temp]>2, :]"
+    )
 
 
 def test_having_with_group_by():
@@ -1063,6 +1063,6 @@ def test_having_with_group_by():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_having_one_condition()
+    test_all_boolean_ops_clause()
 
     remove_env_tables()
