@@ -18,6 +18,7 @@ from dataframe_sql.sql_objects import (
     Date,
     DerivedColumn,
     Expression,
+    Join,
     Literal,
     Number,
     QueryInfo,
@@ -112,6 +113,8 @@ class TransformerBaseClass(Transformer):
             frame_name = frame_name.value
         if isinstance(frame_name, Subquery):
             frame_name = frame_name.name
+        if isinstance(frame_name, Join):
+            return frame_name
         return self.dataframe_map[frame_name]
 
     def set_column_value(self, column: Column) -> None:
@@ -558,7 +561,7 @@ class InternalTransformer(TransformerBaseClass):
         :return: Token from sql_object
         """
         expression = expression[0]
-        if isinstance(expression, Subquery):
+        if isinstance(expression, (Subquery, Join)):
             value = expression
         else:
             value = expression.value
@@ -855,10 +858,7 @@ class HavingTransformer(TransformerBaseClass):
 
     def transform(self, tree: Tree):
         new_tree, plan = TransformerBaseClass.transform(self, tree)
-        print(plan)
         new_tree.children[0] = new_tree.children[0].value
-        #     new_tree.value = new_tree.value.value
-        # print(new_tree)
         return new_tree, plan
 
     def aggregate(self, function_name_list_form):
@@ -1114,7 +1114,6 @@ class SQLTransformer(TransformerBaseClass):
         """
         # There will only ever be four args if a join is specified and three if a
         # join isn't specified
-        print(args)
         if len(args) == 3:
             join_type = "inner"
             table1 = args[0]
@@ -1150,14 +1149,8 @@ class SQLTransformer(TransformerBaseClass):
             left_on = column2
             right_on = column1
 
-        dictionary_name = f"{table1}x{table2}"
-        self.dataframe_map[dictionary_name] = self.get_frame(table1).merge(
-            right=self.get_frame(table2),
-            how=join_type,
-            left_on=left_on,
-            right_on=right_on,
-        )
-        return Subquery(dictionary_name, query_info={})
+        return Join(left_table=table1, right_table=table2, join_type=join_type,
+                    left_on=left_on, right_on=right_on)
 
     @staticmethod
     def has_star(column_list: List[str]):
@@ -1384,8 +1377,7 @@ class SQLTransformer(TransformerBaseClass):
                 new_frame: DataFrame = first_frame.loc[where_value, :].copy()
                 execution_plan += f".loc[{where_plan}, :]"
             else:
-                new_frame: DataFrame = first_frame.loc[:, :].copy()
-                execution_plan += ".loc[:, :]"
+                new_frame: DataFrame = first_frame.copy()
         else:
             column_names = []
             for column in columns:
@@ -1409,6 +1401,19 @@ class SQLTransformer(TransformerBaseClass):
                 execution_plan += f".rename(columns={aliases}"
         return new_frame, execution_plan
 
+    def handle_join(self, join: Join) -> (DataFrame, str):
+        """
+        Return the dataframe and execution plan resulting from a join
+        :param join:
+        :return:
+        """
+        left_table = self.get_frame(join.left_table)
+        right_table = self.get_frame(join.right_table)
+        plan = f"{join.left_table}.merge({join.right_table}, how={join.join_type}, " \
+               f"left_on={join.left_on}, right_on={join.right_on})"
+        return left_table.merge(right_table, how=join.join_type, left_on=join.left_on,
+                                right_on=join.right_on), plan
+
     def to_dataframe(self, query_info: QueryInfo):
         """
         Returns the dataframe resulting from the SQL query
@@ -1422,10 +1427,12 @@ class SQLTransformer(TransformerBaseClass):
         frame_names = query_info.frame_names
         if not query_info.frame_names:
             raise Exception("No table specified")
-
         first_frame = self.get_frame(frame_names[0])
-        if not isinstance(frame_names[0], Subquery):
+        if isinstance(first_frame, DataFrame):
             execution_plan += f"{frame_names[0]}"
+        elif isinstance(first_frame, Join):
+            first_frame, join_plan = self.handle_join(join=first_frame)
+            execution_plan += join_plan
         for frame_name in frame_names[1:]:
             next_frame = self.get_frame(frame_name)
             first_frame = self.cross_join(first_frame, next_frame)
@@ -1473,7 +1480,6 @@ class SQLTransformer(TransformerBaseClass):
             having_eval, having_plan = query_info.having_transformer.transform(
                 query_info.having_expr
             )
-            print(having_plan)
             new_frame = new_frame.loc[having_eval.children[0], :]
             execution_plan += f".loc[{having_plan}, :]"
 

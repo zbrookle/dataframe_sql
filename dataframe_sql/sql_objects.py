@@ -333,6 +333,19 @@ class Subquery:
     def __repr__(self):
         return f"Subquery(name={self.name}, query_info={self.query_info})"
 
+class Join:
+    """
+    Wrapper for join related info
+    """
+
+    def __init__(self, left_table: str, right_table: str, join_type: str, left_on: str,
+                 right_on: str):
+        self.left_table = left_table
+        self.right_table = right_table
+        self.join_type = join_type
+        self.left_on = left_on
+        self.right_on = right_on
+
 
 class QueryInfo:
     """

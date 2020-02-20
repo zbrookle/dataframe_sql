@@ -20,7 +20,7 @@ def test_select_star():
     :return:
     """
     frame, plan = query("select * from forest_fires", show_execution_plan=True)
-    assert plan == "FOREST_FIRES.loc[:, :]"
+    assert plan == "FOREST_FIRES"
 
 
 def test_case_insensitivity():
@@ -29,7 +29,7 @@ def test_case_insensitivity():
     :return:
     """
     frame, plan = query("select * from FOREST_fires", show_execution_plan=True)
-    assert plan == "FOREST_FIRES.loc[:, :]"
+    assert plan == "FOREST_FIRES"
 
 
 def test_select_specific_fields():
@@ -95,179 +95,175 @@ def test_distinct():
     )
 
 
-# def test_subquery():
-#     """
-#     Test ability to perform subqueries
-#     :return:
-#     """
-#     my_frame, plan = query("""select * from (select area, rain from forest_fires)
-#     rain_area""",
-#                         show_execution_plan=True)
-#     print(plan)
+def test_subquery():
+    """
+    Test ability to perform subqueries
+    :return:
+    """
+    my_frame, plan = query("""select * from (select area, rain from forest_fires)
+    rain_area""",
+                        show_execution_plan=True)
+    assert plan == "FOREST_FIRES.loc[:, ['area', 'rain']]"
 
 
-#
-# def test_join_no_inner():
-#     """
-#     Test join
-#     :return:
-#     """
-#     frame, plan = query(
-#         """select * from digimon_mon_list join
-#             digimon_move_list
-#             on digimon_mon_list.attribute = digimon_move_list.attribute""",
-#         show_execution_plan=True
-#     )
-#     print(plan)
+def test_join_no_inner():
+    """
+    Test join
+    :return:
+    """
+    frame, plan = query(
+        """select * from digimon_mon_list join
+            digimon_move_list
+            on digimon_mon_list.attribute = digimon_move_list.attribute""",
+        show_execution_plan=True
+    )
+    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=inner, " \
+                   "left_on=Attribute, right_on=Attribute)"
 
-#
-# def test_join_wo_specifying_table():
-#     """
-#     Test join where table isn't specified in join
-#     :return:
-#     """
-#     my_frame = query(
-#         """
-#         select * from digimon_mon_list join
-#         digimon_move_list
-#         on mon_attribute = move_attribute
-#         """
-#     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(
-#         pandas_frame2, left_on="mon_attribute", right_on="move_attribute"
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_join_w_inner():
-#     """
-#     Test join
-#     :return:
-#     """
-#     my_frame = query(
-#         """select * from digimon_mon_list inner join
-#             digimon_move_list
-#             on digimon_mon_list.attribute = digimon_move_list.attribute"""
-#     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(pandas_frame2, on="Attribute")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_outer_join_no_outer():
-#     """
-#     Test outer join
-#     :return:
-#     """
-#     my_frame = query(
-#         """select * from digimon_mon_list full outer join
-#             digimon_move_list
-#             on digimon_mon_list.type = digimon_move_list.type"""
-#     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_outer_join_w_outer():
-#     """
-#     Test outer join
-#     :return:
-#     """
-#     my_frame = query(
-#         """select * from digimon_mon_list full join
-#             digimon_move_list
-#             on digimon_mon_list.type = digimon_move_list.type"""
-#     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_left_joins():
-#     """
-#     Test right, left, inner, and outer joins
-#     :return:
-#     """
-#     my_frame = query(
-#         """select * from digimon_mon_list left join
-#             digimon_move_list
-#             on digimon_mon_list.type = digimon_move_list.type"""
-#     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(pandas_frame2, how="left", on="Type")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_left_outer_joins():
-#     """
-#     Test right, left, inner, and outer joins
-#     :return:
-#     """
-#     my_frame = query(
-#         """select * from digimon_mon_list left outer join
-#             digimon_move_list
-#             on digimon_mon_list.type = digimon_move_list.type"""
-#     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(pandas_frame2, how="left", on="Type")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_right_joins():
-#     """
-#     Test right, left, inner, and outer joins
-#     :return:
-#     """
-#     my_frame = query(
-#         """select * from digimon_mon_list right join
-#             digimon_move_list
-#             on digimon_mon_list.type = digimon_move_list.type"""
-#     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(pandas_frame2, how="right", on="Type")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_right_outer_joins():
-#     """
-#     Test right, left, inner, and outer joins
-#     :return:
-#     """
-#     my_frame = query(
-#         """select * from digimon_mon_list right outer join
-#             digimon_move_list
-#             on digimon_mon_list.type = digimon_move_list.type"""
-#     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(pandas_frame2, how="right", on="Type")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_cross_joins():
-#     """
-#     Test right, left, inner, and outer joins
-#     :return:
-#     """
-#     my_frame = query(
-#         """select * from digimon_mon_list cross join
-#             digimon_move_list
-#             on digimon_mon_list.type = digimon_move_list.type"""
-#     )
-#     pandas_frame1 = DIGIMON_MON_LIST
-#     pandas_frame2 = DIGIMON_MOVE_LIST
-#     pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
+
+def test_join_wo_specifying_table():
+    """
+    Test join where table isn't specified in join
+    :return:
+    """
+    my_frame, plan = query(
+        """
+        select * from digimon_mon_list join
+        digimon_move_list
+        on mon_attribute = move_attribute
+        """,
+        show_execution_plan=True
+    )
+
+    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=inner, " \
+                   "left_on=mon_attribute, right_on=move_attribute)"
+
+
+def test_join_w_inner():
+    """
+    Test join
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from digimon_mon_list inner join
+            digimon_move_list
+            on digimon_mon_list.attribute = digimon_move_list.attribute""",
+        show_execution_plan=True
+    )
+
+    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=inner, " \
+                   "left_on=Attribute, right_on=Attribute)"
+
+
+def test_outer_join_no_outer():
+    """
+    Test outer join
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from digimon_mon_list full outer join
+            digimon_move_list
+            on digimon_mon_list.type = digimon_move_list.type""",
+        show_execution_plan=True
+    )
+
+    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, left_on=Type, right_on=Type)"
+
+
+def test_outer_join_w_outer():
+    """
+    Test outer join
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from digimon_mon_list full join
+            digimon_move_list
+            on digimon_mon_list.type = digimon_move_list.type""",
+        show_execution_plan=True
+    )
+
+    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, " \
+                   "left_on=Type, right_on=Type)"
+
+
+def test_left_joins():
+    """
+    Test right, left, inner, and outer joins
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from digimon_mon_list left join
+            digimon_move_list
+            on digimon_mon_list.type = digimon_move_list.type""",
+        show_execution_plan=True
+    )
+
+    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=left, " \
+                   "left_on=Type, right_on=Type)"
+
+
+def test_left_outer_joins():
+    """
+    Test right, left, inner, and outer joins
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from digimon_mon_list left outer join
+            digimon_move_list
+            on digimon_mon_list.type = digimon_move_list.type""",
+        show_execution_plan=True
+    )
+
+    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=left, " \
+                   "left_on=Type, right_on=Type)"
+
+
+def test_right_joins():
+    """
+    Test right, left, inner, and outer joins
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from digimon_mon_list right join
+            digimon_move_list
+            on digimon_mon_list.type = digimon_move_list.type""",
+        show_execution_plan=True
+    )
+
+    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=right, " \
+                   "left_on=Type, right_on=Type)"
+
+
+def test_right_outer_joins():
+    """
+    Test right, left, inner, and outer joins
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from digimon_mon_list right outer join
+            digimon_move_list
+            on digimon_mon_list.type = digimon_move_list.type""",
+        show_execution_plan=True
+    )
+
+    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=right, " \
+                   "left_on=Type, right_on=Type)"
+
+
+def test_cross_joins():
+    """
+    Test right, left, inner, and outer joins
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from digimon_mon_list cross join
+            digimon_move_list
+            on digimon_mon_list.type = digimon_move_list.type""",
+        show_execution_plan=True
+    )
+
+    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, " \
+                   "left_on=Type, right_on=Type)"
 
 
 def test_group_by():
@@ -412,7 +408,7 @@ def test_order_by():
         show_execution_plan=True,
     )
     assert (
-        plan == "FOREST_FIRES.loc[:, :].sort_values(by=['temp', 'wind', 'area'], "
+        plan == "FOREST_FIRES.sort_values(by=['temp', 'wind', 'area'], "
         "ascending=[False, True, True])"
     )
 
@@ -425,7 +421,7 @@ def test_limit():
     my_frame, plan = query(
         """select * from forest_fires limit 10""", show_execution_plan=True
     )
-    assert plan == "FOREST_FIRES.loc[:, :].head(10)"
+    assert plan == "FOREST_FIRES.head(10)"
 
 
 def test_having_one_condition():
@@ -483,17 +479,11 @@ def test_having_with_group_by():
 #     Test selecting from two different tables
 #     :return:
 #     """
-#     my_frame = query("""select * from forest_fires, digimon_mon_list""")
-#     forest_fires = FOREST_FIRES.copy()
-#     digimon_mon_list_new = DIGIMON_MON_LIST.copy()
-#     forest_fires["_temp_id"] = 1
-#     digimon_mon_list_new["_temp_id"] = 1
-#     pandas_frame = merge(forest_fires, digimon_mon_list_new, on="_temp_id").drop(
-#         columns=["_temp_id"]
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
+#     my_frame, plan = query("""select * from forest_fires, digimon_mon_list""",
+#                            show_execution_plan=True)
+#     print(plan)
+
+
 # def test_select_columns_from_two_tables_with_same_column_name():
 #     """
 #     Test selecting tables
@@ -1063,6 +1053,6 @@ def test_having_with_group_by():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_all_boolean_ops_clause()
+    test_cross_joins()
 
     remove_env_tables()
