@@ -1,12 +1,14 @@
 """
 Tests for dataframe method execution plan
 """
+from datetime import datetime
+
+from freezegun import freeze_time
 import pytest
 
 from dataframe_sql import query
 from dataframe_sql.tests.utils import register_env_tables, remove_env_tables
-from freezegun import freeze_time
-from datetime import datetime
+
 
 @pytest.fixture(autouse=True, scope="module")
 def module_setup_teardown():
@@ -558,13 +560,15 @@ def test_union():
     union
     select * from forest_fires order by wind asc limit 5
     """,
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
-    assert plan == "concat(FOREST_FIRES.sort_values(by=['wind'], " \
-                   "ascending=[False]).head(5), FOREST_FIRES.sort_values(" \
-                   "by=['wind'], ascending=[True]).head(5), ignore_index=True)" \
-                   ".drop_duplicates().reset_index(drop=True)"
+    assert (
+        plan == "concat(FOREST_FIRES.sort_values(by=['wind'], "
+        "ascending=[False]).head(5), FOREST_FIRES.sort_values("
+        "by=['wind'], ascending=[True]).head(5), ignore_index=True)"
+        ".drop_duplicates().reset_index(drop=True)"
+    )
 
 
 def test_union_distinct():
@@ -577,13 +581,16 @@ def test_union_distinct():
         select * from forest_fires order by wind desc limit 5
          union distinct
         select * from forest_fires order by wind asc limit 5
-        """, show_execution_plan=True
+        """,
+        show_execution_plan=True,
     )
 
-    assert plan == "concat(FOREST_FIRES.sort_values(by=['wind'], " \
-                   "ascending=[False]).head(5), FOREST_FIRES.sort_values(by=['wind']," \
-                   " ascending=[True]).head(5), ignore_index=True).drop_duplicates()" \
-                   ".reset_index(drop=True)"
+    assert (
+        plan == "concat(FOREST_FIRES.sort_values(by=['wind'], "
+        "ascending=[False]).head(5), FOREST_FIRES.sort_values(by=['wind'],"
+        " ascending=[True]).head(5), ignore_index=True).drop_duplicates()"
+        ".reset_index(drop=True)"
+    )
 
 
 def test_union_all():
@@ -596,13 +603,16 @@ def test_union_all():
         select * from forest_fires order by wind desc limit 5
          union all
         select * from forest_fires order by wind asc limit 5
-        """, show_execution_plan=True
+        """,
+        show_execution_plan=True,
     )
 
-    assert plan == "concat(FOREST_FIRES.sort_values(by=['wind'], ascending=[False])" \
-                   ".head(5), FOREST_FIRES.sort_values(by=['wind'], " \
-                   "ascending=[True]).head(5), ignore_index=True)" \
-                   ".reset_index(drop=True)"
+    assert (
+        plan == "concat(FOREST_FIRES.sort_values(by=['wind'], ascending=[False])"
+        ".head(5), FOREST_FIRES.sort_values(by=['wind'], "
+        "ascending=[True]).head(5), ignore_index=True)"
+        ".reset_index(drop=True)"
+    )
 
 
 def test_intersect_distinct():
@@ -615,15 +625,18 @@ def test_intersect_distinct():
             select * from forest_fires order by wind desc limit 5
              intersect distinct
             select * from forest_fires order by wind desc limit 3
-            """, show_execution_plan=True
+            """,
+        show_execution_plan=True,
     )
 
-    assert plan == "merge(left=FOREST_FIRES.sort_values(by=['wind'], " \
-                   "ascending=[False]).head(5), " \
-                   "right=FOREST_FIRES.sort_values(by=['wind'], " \
-                   "ascending=[False]).head(3), on=FOREST_FIRES" \
-                   ".sort_values(by=['wind'], ascending=[False])" \
-                   ".head(5).columns.to_list()).reset_index(drop=True)"
+    assert (
+        plan == "merge(left=FOREST_FIRES.sort_values(by=['wind'], "
+        "ascending=[False]).head(5), "
+        "right=FOREST_FIRES.sort_values(by=['wind'], "
+        "ascending=[False]).head(3), on=FOREST_FIRES"
+        ".sort_values(by=['wind'], ascending=[False])"
+        ".head(5).columns.to_list()).reset_index(drop=True)"
+    )
 
 
 def test_except_distinct():
@@ -636,14 +649,17 @@ def test_except_distinct():
                 select * from forest_fires order by wind desc limit 5
                  except distinct
                 select * from forest_fires order by wind desc limit 3
-                """, show_execution_plan=True
+                """,
+        show_execution_plan=True,
     )
 
-    assert plan == "FOREST_FIRES.sort_values(by=['wind'], ascending=[False])" \
-                   ".head(5)[~FOREST_FIRES.sort_values(by=['wind'], " \
-                   "ascending=[False]).head(5).isin(FOREST_FIRES.sort_values(" \
-                   "by=['wind'], ascending=[False]).head(3)).all(axis=1)" \
-                   ".drop_duplicates().reset_index(drop=True)"
+    assert (
+        plan == "FOREST_FIRES.sort_values(by=['wind'], ascending=[False])"
+        ".head(5)[~FOREST_FIRES.sort_values(by=['wind'], "
+        "ascending=[False]).head(5).isin(FOREST_FIRES.sort_values("
+        "by=['wind'], ascending=[False]).head(3)).all(axis=1)"
+        ".drop_duplicates().reset_index(drop=True)"
+    )
 
 
 def test_except_all():
@@ -656,13 +672,16 @@ def test_except_all():
                 select * from forest_fires order by wind desc limit 5
                  except all
                 select * from forest_fires order by wind desc limit 3
-                """, show_execution_plan=True
+                """,
+        show_execution_plan=True,
     )
 
-    assert plan == "FOREST_FIRES.sort_values(by=['wind'], ascending=[False]).head(5)" \
-                   "[~FOREST_FIRES.sort_values(by=['wind'], ascending=[False])" \
-                   ".head(5).isin(FOREST_FIRES.sort_values(by=['wind'], " \
-                   "ascending=[False]).head(3)).all(axis=1)].reset_index(drop=True)"
+    assert (
+        plan == "FOREST_FIRES.sort_values(by=['wind'], ascending=[False]).head(5)"
+        "[~FOREST_FIRES.sort_values(by=['wind'], ascending=[False])"
+        ".head(5).isin(FOREST_FIRES.sort_values(by=['wind'], "
+        "ascending=[False]).head(3)).all(axis=1)].reset_index(drop=True)"
+    )
 
 
 def test_between_operator():
@@ -675,7 +694,7 @@ def test_between_operator():
     select * from forest_fires
     where wind between 5 and 6
     """,
-        show_execution_plan=True
+        show_execution_plan=True,
     )
     assert plan == "FOREST_FIRES.loc[FOREST_FIRES['wind'].between(5, 6), :]"
 
@@ -691,7 +710,8 @@ def test_in_operator():
     my_frame, plan = query(
         """
     select * from forest_fires where day in ('fri', 'sun')
-    """, show_execution_plan=True
+    """,
+        show_execution_plan=True,
     )
 
     assert plan == "FOREST_FIRES.loc[FOREST_FIRES['day'].isin(['fri', 'sun']), :]"
@@ -705,10 +725,12 @@ def test_in_operator_expression_numerical():
     my_frame, plan = query(
         """
     select * from forest_fires where X in (5, 9)
-    """, show_execution_plan=True
+    """,
+        show_execution_plan=True,
     )
 
     assert plan == "FOREST_FIRES.loc[FOREST_FIRES['X'].isin([5, 9]), :]"
+
 
 def test_not_in_operator():
     """
@@ -719,10 +741,11 @@ def test_not_in_operator():
         """
     select * from forest_fires where day not in ('fri', 'sun')
     """,
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
     assert plan == "FOREST_FIRES.loc[~FOREST_FIRES['day'].isin(['fri', 'sun']), :]"
+
 
 # def test_case_statement_w_name():
 #     """
@@ -978,6 +1001,7 @@ def test_not_in_operator():
 #     tm.assert_frame_equal(pandas_frame, my_frame)
 #
 
+
 def test_set_string_value_as_column_value():
     """
     Select a string like 'Yes' as a column value
@@ -986,7 +1010,7 @@ def test_set_string_value_as_column_value():
     my_frame, plan = query(
         """
     select wind, 'yes' as wind_yes from forest_fires""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
     assert plan == "FOREST_FIRES.loc[:, ['wind']].assign(wind_yes='yes', )"
@@ -1001,11 +1025,13 @@ def test_date_cast():
         my_frame, plan = query(
             """
         select wind, cast('2019-01-01' as datetime64) as my_date from forest_fires""",
-            show_execution_plan=True
+            show_execution_plan=True,
         )
         print(plan)
-        assert plan == "FOREST_FIRES.loc[:, ['wind']].assign(my_date=" \
-                       "datetime(2019, 1, 1, 0, 0, 0), )"
+        assert (
+            plan == "FOREST_FIRES.loc[:, ['wind']].assign(my_date="
+            "datetime(2019, 1, 1, 0, 0, 0), )"
+        )
 
 
 def test_timestamps():
@@ -1018,13 +1044,16 @@ def test_timestamps():
             """
         select wind, now(), today(), timestamp('2019-01-31', '23:20:32')
         from forest_fires""",
-            show_execution_plan=True
+            show_execution_plan=True,
         )
         print(plan)
-        assert plan == "FOREST_FIRES.loc[:, ['wind']].assign(" \
-                       "now()=datetime(2019, 1, 1, 0, 0, 0), " \
-                       "today()=date(2019, 1, 1), " \
-                       "_literal0=datetime(2019, 1, 31, 23, 20, 32), )"
+        assert (
+            plan == "FOREST_FIRES.loc[:, ['wind']].assign("
+            "now()=datetime(2019, 1, 1, 0, 0, 0), "
+            "today()=date(2019, 1, 1), "
+            "_literal0=datetime(2019, 1, 31, 23, 20, 32), )"
+        )
+
 
 # TODO Add more tests where math operations on a column like X + 1
 

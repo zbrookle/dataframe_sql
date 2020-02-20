@@ -2,8 +2,8 @@
 Test cases for panda to sql
 """
 # pylint: disable=broad-except
-from datetime import date, datetime
 from copy import deepcopy
+from datetime import date, datetime
 from types import FunctionType
 
 from freezegun import freeze_time
@@ -957,9 +957,7 @@ def test_in_operator_expression_numerical():
     """
     )
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame = pandas_frame[(pandas_frame["X"]).isin((5, 9))].reset_index(
-        drop=True
-    )
+    pandas_frame = pandas_frame[(pandas_frame["X"]).isin((5, 9))].reset_index(drop=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 

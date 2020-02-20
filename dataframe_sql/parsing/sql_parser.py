@@ -3,11 +3,11 @@ Module containing all lark internal_transformer classes
 """
 from datetime import date, datetime
 import re
-from typing import Dict, List, Tuple, Union, Any
 from types import FunctionType
+from typing import Any, Dict, List, Tuple, Union
 
 from lark import Token, Transformer, Tree, v_args
-from pandas import DataFrame, concat, merge, Series
+from pandas import DataFrame, Series, concat, merge
 
 from dataframe_sql.exceptions.sql_exception import DataFrameDoesNotExist
 from dataframe_sql.sql_objects import (
@@ -461,12 +461,14 @@ class InternalTransformer(TransformerBaseClass):
         between_expressions = expressions[1:]
         if isinstance(main_expression.value, Series):
             plan = self.create_execution_plan(main_expression)
-            between_plans = [self.create_execution_plan(expr) for expr in
-                             between_expressions]
+            between_plans = [
+                self.create_execution_plan(expr) for expr in between_expressions
+            ]
             plan += f".between({between_plans[0]}, {between_plans[1]})"
 
-            return ValueWithPlan(main_expression.value.between(*between_expressions),
-                                 plan)
+            return ValueWithPlan(
+                main_expression.value.between(*between_expressions), plan
+            )
         return (expressions[0] >= expressions[1]) & (expressions[0] <= expressions[2])
 
     def in_expr(self, expressions):
@@ -1504,7 +1506,8 @@ class SQLTransformer(TransformerBaseClass):
                 if isinstance(literal_value, str):
                     literal_plan_value = f"'{literal_value}'"
                 elif isinstance(literal_value, date) and not isinstance(
-                        literal_value, datetime):
+                    literal_value, datetime
+                ):
                     literal_plan_value = literal_value.strftime("date(%Y, %-m, %-d)")
                 elif isinstance(literal_value, datetime):
                     literal_plan_value = literal_value.strftime(
