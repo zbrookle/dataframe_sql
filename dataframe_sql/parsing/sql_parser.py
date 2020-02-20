@@ -449,9 +449,6 @@ class InternalTransformer(TransformerBaseClass):
         :param expressions:
         :return:
         """
-        self._execution_plan += self.create_execution_plan_expression(
-            *expressions, "<="
-        )
         return expressions[0] <= expressions[1]
 
     def between(self, expressions):
@@ -460,6 +457,16 @@ class InternalTransformer(TransformerBaseClass):
         :param expressions:
         :return:
         """
+        main_expression = expressions[0]
+        between_expressions = expressions[1:]
+        if isinstance(main_expression.value, Series):
+            plan = self.create_execution_plan(main_expression)
+            between_plans = [self.create_execution_plan(expr) for expr in
+                             between_expressions]
+            plan += f".between({between_plans[0]}, {between_plans[1]})"
+
+            return ValueWithPlan(main_expression.value.between(*between_expressions),
+                                 plan)
         return (expressions[0] >= expressions[1]) & (expressions[0] <= expressions[2])
 
     def in_expr(self, expressions):
@@ -472,7 +479,9 @@ class InternalTransformer(TransformerBaseClass):
             expression.value if isinstance(expression, Literal) else expression
             for expression in expressions[1:]
         ]
-        return expressions[0].value.isin(in_list)
+        plan = self.create_execution_plan(expressions[0])
+        plan += f".isin({in_list})"
+        return ValueWithPlan(expressions[0].value.isin(in_list), plan)
 
     def not_in_expr(self, expressions):
         """
@@ -480,7 +489,9 @@ class InternalTransformer(TransformerBaseClass):
         :param expressions:
         :return:
         """
-        return ~self.in_expr(expressions)
+        in_value = self.in_expr(expressions)
+
+        return ValueWithPlan(~in_value.value, "~" + in_value.execution_plan)
 
     def bool_expression(self, expression: List[ValueWithPlan]) -> ValueWithPlan:
         """
@@ -1487,7 +1498,22 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += ".assign("
             for literal in literals:
                 assign_literals[literal.alias] = literal.value
-                execution_plan += f"{literal.alias}={literal.value}, "
+                literal_value = literal.value
+
+                # Set the literal plan value to look like the code representation
+                if isinstance(literal_value, str):
+                    literal_plan_value = f"'{literal_value}'"
+                elif isinstance(literal_value, date) and not isinstance(
+                        literal_value, datetime):
+                    literal_plan_value = literal_value.strftime("date(%Y, %-m, %-d)")
+                elif isinstance(literal_value, datetime):
+                    literal_plan_value = literal_value.strftime(
+                        "datetime(%Y, %-m, %-d, %-H, %-M, %-S)"
+                    )
+                else:
+                    literal_plan_value = literal_value
+
+                execution_plan += f"{literal.alias}={literal_plan_value}, "
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_literals)
 

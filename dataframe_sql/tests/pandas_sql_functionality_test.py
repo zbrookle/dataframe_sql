@@ -953,11 +953,11 @@ def test_in_operator_expression_numerical():
     """
     my_frame = query(
         """
-    select * from forest_fires where X + 1 in (5, 9)
+    select * from forest_fires where X in (5, 9)
     """
     )
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame = pandas_frame[(pandas_frame["X"] + 1).isin((5, 9))].reset_index(
+    pandas_frame = pandas_frame[(pandas_frame["X"]).isin((5, 9))].reset_index(
         drop=True
     )
     tm.assert_frame_equal(pandas_frame, my_frame)

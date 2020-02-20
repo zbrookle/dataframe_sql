@@ -5,7 +5,8 @@ import pytest
 
 from dataframe_sql import query
 from dataframe_sql.tests.utils import register_env_tables, remove_env_tables
-
+from freezegun import freeze_time
+from datetime import datetime
 
 @pytest.fixture(autouse=True, scope="module")
 def module_setup_teardown():
@@ -66,7 +67,7 @@ def test_type_conversion():
     assert (
         plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', "
         "'area']].rename(columns={'RH': 'my_rh'}).assign(my_int=2, my_float=3.0, "
-        "my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
+        "my_object='7', my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
     )
 
 
@@ -664,99 +665,84 @@ def test_except_all():
                    "ascending=[False]).head(3)).all(axis=1)].reset_index(drop=True)"
 
 
-# def test_between_operator():
-#     """
-#     Test using between operator
-#     :return:
-#     """
-#     my_frame = query(
-#         """
-#     select * from forest_fires
-#     where wind between 5 and 6
-#     """
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame = pandas_frame[
-#         (pandas_frame.wind >= 5) & (pandas_frame.wind <= 6)
-#     ].reset_index(drop=True)
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_in_operator():
-#     """
-#     Test using in operator in a sql query
-#     :return:
-#     """
-#     my_frame = query(
-#         """
-#     select * from forest_fires where day in ('fri', 'sun')
-#     """
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame = pandas_frame[pandas_frame.day.isin(("fri", "sun"))].reset_index(
-#         drop=True
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_in_operator_expression_numerical():
-#     """
-#     Test using in operator in a sql query
-#     :return:
-#     """
-#     my_frame = query(
-#         """
-#     select * from forest_fires where X + 1 in (5, 9)
-#     """
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame = pandas_frame[(pandas_frame["X"] + 1).isin((5, 9))].reset_index(
-#         drop=True
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_not_in_operator():
-#     """
-#     Test using in operator in a sql query
-#     :return:
-#     """
-#     my_frame = query(
-#         """
-#     select * from forest_fires where day not in ('fri', 'sun')
-#     """
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame = pandas_frame[~pandas_frame.day.isin(("fri", "sun"))].reset_index(
-#         drop=True
-#     )
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
+def test_between_operator():
+    """
+    Test using between operator
+    :return:
+    """
+    my_frame, plan = query(
+        """
+    select * from forest_fires
+    where wind between 5 and 6
+    """,
+        show_execution_plan=True
+    )
+    assert plan == "FOREST_FIRES.loc[FOREST_FIRES['wind'].between(5, 6), :]"
+
+
+# TODO Add boolean tests for scalar values like: 1 between 0 and 2
+
+
+def test_in_operator():
+    """
+    Test using in operator in a sql query
+    :return:
+    """
+    my_frame, plan = query(
+        """
+    select * from forest_fires where day in ('fri', 'sun')
+    """, show_execution_plan=True
+    )
+
+    assert plan == "FOREST_FIRES.loc[FOREST_FIRES['day'].isin(['fri', 'sun']), :]"
+
+
+def test_in_operator_expression_numerical():
+    """
+    Test using in operator in a sql query
+    :return:
+    """
+    my_frame, plan = query(
+        """
+    select * from forest_fires where X in (5, 9)
+    """, show_execution_plan=True
+    )
+
+    assert plan == "FOREST_FIRES.loc[FOREST_FIRES['X'].isin([5, 9]), :]"
+
+def test_not_in_operator():
+    """
+    Test using in operator in a sql query
+    :return:
+    """
+    my_frame, plan = query(
+        """
+    select * from forest_fires where day not in ('fri', 'sun')
+    """,
+        show_execution_plan=True
+    )
+
+    assert plan == "FOREST_FIRES.loc[~FOREST_FIRES['day'].isin(['fri', 'sun']), :]"
+
 # def test_case_statement_w_name():
 #     """
 #     Test using case statements
 #     :return:
 #     """
-#     my_frame = query(
+#     my_frame, plan = query(
 #         """
 #         select case when wind > 5 then 'strong'
 #         when wind = 5 then 'mid'
 #         else 'weak' end as wind_strength
 #         from
 #         forest_fires
-#         """
+#         """,
+#         show_execution_plan=True
 #     )
-#     pandas_frame = FOREST_FIRES.copy()[["wind"]]
-#     pandas_frame.loc[pandas_frame.wind > 5, "wind_strength"] = "strong"
-#     pandas_frame.loc[pandas_frame.wind == 5, "wind_strength"] = "mid"
-#     pandas_frame.loc[
-#         ~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), "wind_strength"
-#     ] = "weak"
-#     pandas_frame.drop(columns=["wind"], inplace=True)
-#     tm.assert_frame_equal(pandas_frame, my_frame)
 #
-#
+#     print(plan)
+
+
 # def test_case_statement_w_no_name():
 #     """
 #     Test using case statements
@@ -991,57 +977,60 @@ def test_except_all():
 #     pandas_frame.reset_index(drop=True, inplace=True)
 #     tm.assert_frame_equal(pandas_frame, my_frame)
 #
-#
-# def test_set_string_value_as_column_value():
-#     """
-#     Select a string like 'Yes' as a column value
-#     :return:
-#     """
-#     my_frame = query(
-#         """
-#     select wind, 'yes' as wind_yes from forest_fires"""
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame["wind_yes"] = "yes"
-#     pandas_frame = pandas_frame[["wind", "wind_yes"]]
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_date_cast():
-#     """
-#     Select casting a string as a date
-#     :return:
-#     """
-#     my_frame = query(
-#         """
-#     select wind, cast('2019-01-01' as datetime64) as my_date from forest_fires"""
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame["my_date"] = datetime.strptime("2019-01-01", "%Y-%m-%d")
-#     pandas_frame = pandas_frame[["wind", "my_date"]]
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_timestamps():
-#     """
-#     Select now() as date
-#     :return:
-#     """
-#     with freeze_time(datetime.now()):
-#         my_frame = query(
-#             """
-#         select wind, now(), today(), timestamp('2019-01-31', '23:20:32')
-#         from forest_fires"""
-#         )
-#         pandas_frame = FOREST_FIRES.copy()[["wind"]]
-#         pandas_frame["now()"] = datetime.now()
-#         pandas_frame["today()"] = date.today()
-#         pandas_frame["_literal0"] = datetime(2019, 1, 31, 23, 20, 32)
-#         tm.assert_frame_equal(pandas_frame, my_frame)
+
+def test_set_string_value_as_column_value():
+    """
+    Select a string like 'Yes' as a column value
+    :return:
+    """
+    my_frame, plan = query(
+        """
+    select wind, 'yes' as wind_yes from forest_fires""",
+        show_execution_plan=True
+    )
+
+    assert plan == "FOREST_FIRES.loc[:, ['wind']].assign(wind_yes='yes', )"
+
+
+def test_date_cast():
+    """
+    Select casting a string as a date
+    :return:
+    """
+    with freeze_time(datetime(2019, 1, 1, 0, 0, 0)):
+        my_frame, plan = query(
+            """
+        select wind, cast('2019-01-01' as datetime64) as my_date from forest_fires""",
+            show_execution_plan=True
+        )
+        print(plan)
+        assert plan == "FOREST_FIRES.loc[:, ['wind']].assign(my_date=" \
+                       "datetime(2019, 1, 1, 0, 0, 0), )"
+
+
+def test_timestamps():
+    """
+    Select now() as date
+    :return:
+    """
+    with freeze_time(datetime(2019, 1, 1, 0, 0, 0)):
+        my_frame, plan = query(
+            """
+        select wind, now(), today(), timestamp('2019-01-31', '23:20:32')
+        from forest_fires""",
+            show_execution_plan=True
+        )
+        print(plan)
+        assert plan == "FOREST_FIRES.loc[:, ['wind']].assign(" \
+                       "now()=datetime(2019, 1, 1, 0, 0, 0), " \
+                       "today()=date(2019, 1, 1), " \
+                       "_literal0=datetime(2019, 1, 31, 23, 20, 32), )"
+
+# TODO Add more tests where math operations on a column like X + 1
 
 if __name__ == "__main__":
     register_env_tables()
 
-    test_except_all()
+    test_date_cast()
 
     remove_env_tables()
