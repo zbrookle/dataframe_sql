@@ -20,6 +20,7 @@ def test_select_star():
     :return:
     """
     frame, plan = query("select * from forest_fires", show_execution_plan=True)
+    print(plan)
     assert plan == "FOREST_FIRES"
 
 
@@ -44,7 +45,7 @@ def test_select_specific_fields():
     assert (
         plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', "
         "'area']].rename("
-        "columns={'rain': 'water'}"
+        "columns={'rain': 'water'})"
     )
 
 
@@ -64,7 +65,7 @@ def test_type_conversion():
     )
     assert (
         plan == "FOREST_FIRES.loc[:, ['temp', 'RH', 'wind', 'rain', "
-        "'area']].rename(columns={'RH': 'my_rh'}.assign(my_int=2, my_float=3.0, "
+        "'area']].rename(columns={'RH': 'my_rh'}).assign(my_int=2, my_float=3.0, "
         "my_object=7, my_bool=False, ).astype({'temp': 'int64', 'my_rh': 'float64'})"
     )
 
@@ -100,9 +101,12 @@ def test_subquery():
     Test ability to perform subqueries
     :return:
     """
-    my_frame, plan = query("""select * from (select area, rain from forest_fires)
+    my_frame, plan = query(
+        """select * from (select area, rain from forest_fires)
     rain_area""",
-                        show_execution_plan=True)
+        show_execution_plan=True,
+    )
+
     assert plan == "FOREST_FIRES.loc[:, ['area', 'rain']]"
 
 
@@ -115,10 +119,12 @@ def test_join_no_inner():
         """select * from digimon_mon_list join
             digimon_move_list
             on digimon_mon_list.attribute = digimon_move_list.attribute""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
-    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=inner, " \
-                   "left_on=Attribute, right_on=Attribute)"
+    assert (
+        plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=inner, "
+        "left_on=Attribute, right_on=Attribute)"
+    )
 
 
 def test_join_wo_specifying_table():
@@ -132,11 +138,13 @@ def test_join_wo_specifying_table():
         digimon_move_list
         on mon_attribute = move_attribute
         """,
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
-    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=inner, " \
-                   "left_on=mon_attribute, right_on=move_attribute)"
+    assert (
+        plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=inner, "
+        "left_on=mon_attribute, right_on=move_attribute)"
+    )
 
 
 def test_join_w_inner():
@@ -148,11 +156,13 @@ def test_join_w_inner():
         """select * from digimon_mon_list inner join
             digimon_move_list
             on digimon_mon_list.attribute = digimon_move_list.attribute""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
-    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=inner, " \
-                   "left_on=Attribute, right_on=Attribute)"
+    assert (
+        plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=inner, "
+        "left_on=Attribute, right_on=Attribute)"
+    )
 
 
 def test_outer_join_no_outer():
@@ -164,10 +174,13 @@ def test_outer_join_no_outer():
         """select * from digimon_mon_list full outer join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
-    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, left_on=Type, right_on=Type)"
+    assert (
+        plan
+        == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, left_on=Type, right_on=Type)"
+    )
 
 
 def test_outer_join_w_outer():
@@ -179,11 +192,13 @@ def test_outer_join_w_outer():
         """select * from digimon_mon_list full join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
-    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, " \
-                   "left_on=Type, right_on=Type)"
+    assert (
+        plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, "
+        "left_on=Type, right_on=Type)"
+    )
 
 
 def test_left_joins():
@@ -195,11 +210,13 @@ def test_left_joins():
         """select * from digimon_mon_list left join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
-    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=left, " \
-                   "left_on=Type, right_on=Type)"
+    assert (
+        plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=left, "
+        "left_on=Type, right_on=Type)"
+    )
 
 
 def test_left_outer_joins():
@@ -211,11 +228,13 @@ def test_left_outer_joins():
         """select * from digimon_mon_list left outer join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
-    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=left, " \
-                   "left_on=Type, right_on=Type)"
+    assert (
+        plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=left, "
+        "left_on=Type, right_on=Type)"
+    )
 
 
 def test_right_joins():
@@ -227,11 +246,13 @@ def test_right_joins():
         """select * from digimon_mon_list right join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
-    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=right, " \
-                   "left_on=Type, right_on=Type)"
+    assert (
+        plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=right, "
+        "left_on=Type, right_on=Type)"
+    )
 
 
 def test_right_outer_joins():
@@ -243,11 +264,13 @@ def test_right_outer_joins():
         """select * from digimon_mon_list right outer join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
-    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=right, " \
-                   "left_on=Type, right_on=Type)"
+    assert (
+        plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=right, "
+        "left_on=Type, right_on=Type)"
+    )
 
 
 def test_cross_joins():
@@ -259,11 +282,13 @@ def test_cross_joins():
         """select * from digimon_mon_list cross join
             digimon_move_list
             on digimon_mon_list.type = digimon_move_list.type""",
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
-    assert plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, " \
-                   "left_on=Type, right_on=Type)"
+    assert (
+        plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, "
+        "left_on=Type, right_on=Type)"
+    )
 
 
 def test_group_by():
@@ -392,10 +417,12 @@ def test_all_boolean_ops_clause():
         """,
         show_execution_plan=True,
     )
-    assert plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar' " \
-                   "& FOREST_FIRES['temp']>8 " \
-                   "& FOREST_FIRES['rain']>=0 & ~(FOREST_FIRES['area']==0) " \
-                   "& FOREST_FIRES['dc']<100 & FOREST_FIRES['ffmc']<=90.1, :]"
+    assert (
+        plan == "FOREST_FIRES.loc[FOREST_FIRES['month']=='mar' "
+        "& FOREST_FIRES['temp']>8 "
+        "& FOREST_FIRES['rain']>=0 & ~(FOREST_FIRES['area']==0) "
+        "& FOREST_FIRES['dc']<100 & FOREST_FIRES['ffmc']<=90.1, :]"
+    )
 
 
 def test_order_by():
@@ -507,21 +534,23 @@ def test_having_with_group_by():
 #     pandas_frame = FOREST_FIRES.copy()[["wind", "RH"]].rename(columns={"RH": "rh"})
 #     tm.assert_frame_equal(pandas_frame, my_frame)
 #
-#
-# def test_nested_subquery():
-#     """
-#     Test nested subqueries
-#     :return:
-#     """
-#     my_frame = query(
-#         """select * from
-#             (select wind, rh from
-#               (select * from forest_fires) fires) wind_rh"""
-#     )
-#     pandas_frame = FOREST_FIRES.copy()[["wind", "RH"]].rename(columns={"RH": "rh"})
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
+
+
+def test_nested_subquery():
+    """
+    Test nested subqueries
+    :return:
+    """
+    my_frame, plan = query(
+        """select * from
+            (select wind, rh from
+              (select * from forest_fires) fires) wind_rh""",
+        show_execution_plan=True,
+    )
+
+    assert plan == "FOREST_FIRES.loc[:, ['wind', 'RH']].rename(columns={'RH': 'rh'})"
+
+
 # def test_union():
 #     """
 #     Test union in queries
@@ -1053,6 +1082,6 @@ def test_having_with_group_by():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_cross_joins()
+    test_nested_subquery()
 
     remove_env_tables()

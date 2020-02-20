@@ -28,7 +28,7 @@ from dataframe_sql.sql_objects import (
     ValueWithPlan,
 )
 
-DEBUG = False
+DEBUG = True
 PRINT = False
 
 ORDER_TYPES = ["asc", "desc", "ascending", "descending"]
@@ -205,8 +205,11 @@ class InternalTransformer(TransformerBaseClass):
         if isinstance(new_tree, Token) and isinstance(new_tree.value, ValueWithPlan):
             self._execution_plan = new_tree.value.execution_plan
             new_tree.value = new_tree.value.value
-        elif isinstance(new_tree, Tree) and isinstance(new_tree.children, list) and \
-                isinstance(new_tree.children[0], ValueWithPlan):
+        elif (
+            isinstance(new_tree, Tree)
+            and isinstance(new_tree.children, list)
+            and isinstance(new_tree.children[0], ValueWithPlan)
+        ):
             #  Check if new tree has a plan so that this can be used as the execution
             #  plan to be returned in the transformation
             self._execution_plan = new_tree.children[0].execution_plan
@@ -917,8 +920,10 @@ class HavingTransformer(TransformerBaseClass):
             self.column_to_dataframe_name,
         )
         having_expr = Tree("having_expr", having_expr)
-        print("Plan:",
-              internal_transformer.transform(having_expr, get_execution_plan=True)[1])
+        print(
+            "Plan:",
+            internal_transformer.transform(having_expr, get_execution_plan=True)[1],
+        )
         return internal_transformer.transform(having_expr, get_execution_plan=True)
 
 
@@ -1036,8 +1041,10 @@ class SQLTransformer(TransformerBaseClass):
         :return:
         """
         alias_name = alias.children[0].value
-        self.dataframe_map[alias_name] = self.to_dataframe(query_info)
-        subquery = Subquery(name=alias_name, query_info=query_info)
+        self.dataframe_map[alias_name], subquery_plan = self.to_dataframe(query_info)
+        subquery = Subquery(
+            name=alias_name, query_info=query_info, execution_plan=subquery_plan
+        )
         self.column_name_map[alias_name] = {}
         for column in self.dataframe_map[alias_name].columns:
             self.add_column_to_column_to_dataframe_name_map(column.lower(), alias_name)
@@ -1149,8 +1156,13 @@ class SQLTransformer(TransformerBaseClass):
             left_on = column2
             right_on = column1
 
-        return Join(left_table=table1, right_table=table2, join_type=join_type,
-                    left_on=left_on, right_on=right_on)
+        return Join(
+            left_table=table1,
+            right_table=table2,
+            join_type=join_type,
+            left_on=left_on,
+            right_on=right_on,
+        )
 
     @staticmethod
     def has_star(column_list: List[str]):
@@ -1398,7 +1410,8 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += f".loc[{where_plan}, {column_names}]"
             if aliases:
                 new_frame = new_frame.rename(columns=aliases)
-                execution_plan += f".rename(columns={aliases}"
+                execution_plan += f".rename(columns={aliases})"
+
         return new_frame, execution_plan
 
     def handle_join(self, join: Join) -> (DataFrame, str):
@@ -1409,10 +1422,19 @@ class SQLTransformer(TransformerBaseClass):
         """
         left_table = self.get_frame(join.left_table)
         right_table = self.get_frame(join.right_table)
-        plan = f"{join.left_table}.merge({join.right_table}, how={join.join_type}, " \
-               f"left_on={join.left_on}, right_on={join.right_on})"
-        return left_table.merge(right_table, how=join.join_type, left_on=join.left_on,
-                                right_on=join.right_on), plan
+        plan = (
+            f"{join.left_table}.merge({join.right_table}, how={join.join_type}, "
+            f"left_on={join.left_on}, right_on={join.right_on})"
+        )
+        return (
+            left_table.merge(
+                right_table,
+                how=join.join_type,
+                left_on=join.left_on,
+                right_on=join.right_on,
+            ),
+            plan,
+        )
 
     def to_dataframe(self, query_info: QueryInfo):
         """
@@ -1421,18 +1443,20 @@ class SQLTransformer(TransformerBaseClass):
         """
         execution_plan = ""
 
-        if DEBUG:
-            print("Query info:", query_info)
-
+        # Determine/extract the first frame that all dataframe operations will stem from
         frame_names = query_info.frame_names
         if not query_info.frame_names:
             raise Exception("No table specified")
         first_frame = self.get_frame(frame_names[0])
-        if isinstance(first_frame, DataFrame):
-            execution_plan += f"{frame_names[0]}"
+        if isinstance(first_frame, DataFrame) and not isinstance(
+            frame_names[0], Subquery
+        ):
+            execution_plan = f"{frame_names[0]}"
         elif isinstance(first_frame, Join):
             first_frame, join_plan = self.handle_join(join=first_frame)
             execution_plan += join_plan
+        elif isinstance(frame_names[0], Subquery):
+            execution_plan = frame_names[0].execution_plan
         for frame_name in frame_names[1:]:
             next_frame = self.get_frame(frame_name)
             first_frame = self.cross_join(first_frame, next_frame)
@@ -1498,9 +1522,7 @@ class SQLTransformer(TransformerBaseClass):
             new_frame = new_frame.head(query_info.limit)
             execution_plan += f".head({query_info.limit})"
 
-        self._execution_plan += execution_plan
-
-        return new_frame
+        return new_frame, execution_plan
 
     def set_expr(self, query_info):
         """
@@ -1508,73 +1530,142 @@ class SQLTransformer(TransformerBaseClass):
         :param query_info:
         :return:
         """
-        return self.to_dataframe(query_info).reset_index(drop=True)
+        frame, plan = self.to_dataframe(query_info)
+        # TODO Maybe don't always reset index (maybe put into execution plan)
+        return frame.reset_index(drop=True), plan
 
-    def union_all(self, frame1: DataFrame, frame2: DataFrame):
+    def union_all(
+        self,
+        frame1_and_plan: Tuple[DataFrame, str],
+        frame2_and_plan: Tuple[DataFrame, str],
+    ):
         """
         Return union all of two dataframes
-        :param frame1: Left dataframe
-        :param frame2: Right dataframe
+        :param frame1_and_plan: Left dataframe and execution plan
+        :param frame2_and_plan: Right dataframe and execution plan
         :return:
         """
-        return concat([frame1, frame2], ignore_index=True).reset_index(drop=True)
-
-    def union_distinct(self, frame1: DataFrame, frame2: DataFrame):
-        """
-        Return union all of two dataframes
-        :param frame1: Left dataframe
-        :param frame2: Right dataframe
-        :return:
-        """
-        return (
-            concat([frame1, frame2], ignore_index=True)
-            .drop_duplicates()
-            .reset_index(drop=True)
+        plan = (
+            f"concat({frame1_and_plan[1]}, {frame2_and_plan[1]}, "
+            f"ignore_index=True).reset_index(drop=True)"
         )
 
-    def intersect_distinct(self, frame1: DataFrame, frame2: DataFrame):
+        return (
+            concat(
+                [frame1_and_plan[0], frame2_and_plan[0]], ignore_index=True
+            ).reset_index(drop=True),
+            plan,
+        )
+
+    def union_distinct(
+        self,
+        frame1_and_plan: Tuple[DataFrame, str],
+        frame2_and_plan: Tuple[DataFrame, str],
+    ):
         """
-        Return intersection of two dataframes
-        :param frame1: Left dataframe
-        :param frame2: Right dataframe
+        Return union distinct of two dataframes
+        :param frame1_and_plan: Left dataframe and execution plan
+        :param frame2_and_plan: Right dataframe and execution plan
         :return:
         """
-        return merge(
-            left=frame1, right=frame2, how="inner", on=frame1.columns.to_list()
-        ).reset_index(drop=True)
+        plan = (
+            f"concat({frame1_and_plan[1]}, {frame2_and_plan[1]}, "
+            f"ignore_index=True).drop_duplicates().reset_index(drop=True)"
+        )
 
-    def except_distinct(self, frame1: DataFrame, frame2: DataFrame):
+        return (
+            concat([frame1_and_plan[0], frame2_and_plan[0]], ignore_index=True)
+            .drop_duplicates()
+            .reset_index(drop=True),
+            plan,
+        )
+
+    def intersect_distinct(
+        self,
+        frame1_and_plan: Tuple[DataFrame, str],
+        frame2_and_plan: Tuple[DataFrame, str],
+    ):
+        """
+        Return intersection of two dataframes
+        :param frame1_and_plan: Left dataframe and execution plan
+        :param frame2_and_plan: Right dataframe and execution plan
+        :return:
+        """
+        frame1 = frame1_and_plan[0]
+        frame2 = frame2_and_plan[0]
+
+        plan = (
+            f"merge(left={frame1_and_plan[1]}, right={frame2_and_plan[1]}, "
+            f"on={frame1_and_plan[1]}.columns.to_list()).reset_index(drop=True)"
+        )
+
+        return (
+            merge(
+                left=frame1, right=frame2, how="inner", on=frame1.columns.to_list()
+            ).reset_index(drop=True),
+            plan,
+        )
+
+    def except_distinct(
+        self,
+        frame1_and_plan: Tuple[DataFrame, str],
+        frame2_and_plan: Tuple[DataFrame, str],
+    ):
         """
         Return first dataframe excluding everything that's also in the second dataframe,
         no duplicates
-        :param frame1: Left dataframe
-        :param frame2: Right dataframe
+        :param frame1_and_plan: Left dataframe and execution plan
+        :param frame2_and_plan: Right dataframe and execution plan
         :return:
         """
+        frame1 = frame1_and_plan[0]
+        frame2 = frame2_and_plan[0]
+        plan1 = frame1_and_plan[1]
+        plan2 = frame2_and_plan[1]
+
+        plan = (
+            f"{plan1}[~{plan1}.isin({plan2}).all(axis=1).drop_duplicates("
+            f").reset_index(drop=True)"
+        )
+
         return (
             frame1[~frame1.isin(frame2).all(axis=1)]
             .drop_duplicates()
-            .reset_index(drop=True)
+            .reset_index(drop=True),
+            plan,
         )
 
-    def except_all(self, frame1: DataFrame, frame2: DataFrame):
+    def except_all(
+        self,
+        frame1_and_plan: Tuple[DataFrame, str],
+        frame2_and_plan: Tuple[DataFrame, str],
+    ):
         """
         Return first dataframe excluding everything that's also in the second dataframe,
         with duplicates
-        :param frame1: Left dataframe
-        :param frame2: Right dataframe
+        :param frame1_and_plan: Left dataframe and execution plan
+        :param frame2_and_plan: Right dataframe and execution plan
         :return:
         """
-        return frame1[~frame1.isin(frame2).all(axis=1)].reset_index(drop=True)
+        frame1 = frame1_and_plan[0]
+        frame2 = frame2_and_plan[0]
+        plan1 = frame1_and_plan[1]
+        plan2 = frame2_and_plan[1]
 
-    def final(self, dataframe):
+        plan = f"{plan1}[~{plan1}.isin({plan2}).all(axis=1)].reset_index(drop=True)"
+
+        return frame1[~frame1.isin(frame2).all(axis=1)].reset_index(drop=True), plan
+
+    def final(self, dataframe_and_plan):
         """
         Returns the final dataframe
-        :param dataframe:
+        :param dataframe_and_plan:
         :return:
         """
         DerivedColumn.reset_expression_count()
+        dataframe = dataframe_and_plan[0]
+        plan = dataframe_and_plan[1]
 
         if self._get_execution_plan:
-            return dataframe, self._execution_plan
+            return dataframe, plan
         return dataframe

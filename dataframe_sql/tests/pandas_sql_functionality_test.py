@@ -1309,7 +1309,7 @@ if __name__ == "__main__":
     # table_state = {}
     # for key in TableInfo.dataframe_map:
     #     table_state[key] = TableInfo.dataframe_map[key].copy()
-    test_having_one_condition()
+    test_union_all()
     # for key in TableInfo.dataframe_map:
     #     tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
 
