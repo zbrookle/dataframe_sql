@@ -1310,21 +1310,20 @@ class SQLTransformer(TransformerBaseClass):
 
         return query_info
 
-    def cross_join(self, df1, df2):
+    def cross_join(self, df1: DataFrame, df2: DataFrame, current_plan: str,
+                   df2_name: str):
         """
         Returns the crossjoin between two dataframes
         :param df1: Dataframe1
         :param df2: Dataframe2
+        :param current_plan:
+        :param df2_name:
         :return: Crossjoined dataframe
         """
-        temp_key_name = "_cross_join_tempkey"
-        df1[temp_key_name] = 1
-        df2[temp_key_name] = 1
-        new_frame = merge(df1, df2, on=temp_key_name).drop(columns=[temp_key_name])
-        df1.drop(columns=[temp_key_name], inplace=True)
-        if df1 is not df2:
-            df2.drop(columns=[temp_key_name], inplace=True)
-        return new_frame
+        frame = df1.assign(__=1).merge(df2.assign(__=1), on='__').drop(columns=['__'])
+        plan = f"{current_plan}.assign(__=1).merge({df2_name}.assign(__=1), " \
+               f"on='__').drop(columns=['__'])"
+        return frame, plan
 
     @staticmethod
     def handle_aggregation(
@@ -1402,7 +1401,7 @@ class SQLTransformer(TransformerBaseClass):
                 new_frame: DataFrame = first_frame.loc[where_value, :].copy()
                 execution_plan += f".loc[{where_plan}, :]"
             else:
-                new_frame: DataFrame = first_frame.copy()
+                new_frame = first_frame.copy()
         else:
             column_names = []
             for column in columns:
@@ -1427,7 +1426,7 @@ class SQLTransformer(TransformerBaseClass):
 
         return new_frame, execution_plan
 
-    def handle_join(self, join: Join) -> (DataFrame, str):
+    def handle_join(self, join: Join) -> Tuple[DataFrame, str]:
         """
         Return the dataframe and execution plan resulting from a join
         :param join:
@@ -1461,6 +1460,7 @@ class SQLTransformer(TransformerBaseClass):
         if not query_info.frame_names:
             raise Exception("No table specified")
         first_frame = self.get_frame(frame_names[0])
+
         if isinstance(first_frame, DataFrame) and not isinstance(
             frame_names[0], Subquery
         ):
@@ -1472,7 +1472,8 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan = frame_names[0].execution_plan
         for frame_name in frame_names[1:]:
             next_frame = self.get_frame(frame_name)
-            first_frame = self.cross_join(first_frame, next_frame)
+            first_frame, execution_plan = self.cross_join(first_frame, next_frame,
+                                                          execution_plan, frame_name)
 
         new_frame, execution_plan = self.handle_columns(
             query_info.columns,
@@ -1490,7 +1491,7 @@ class SQLTransformer(TransformerBaseClass):
             for expression in expressions:
                 expression_value = expression.evaluate()
                 assign_expressions[expression.alias] = expression_value
-                execution_plan += f"{expression.alias}={expression_value}"
+                execution_plan += f"{expression.alias}={expression.execution_plan}"
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_expressions)
 
@@ -1500,23 +1501,8 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += ".assign("
             for literal in literals:
                 assign_literals[literal.alias] = literal.value
-                literal_value = literal.value
+                execution_plan += f"{literal.alias}={literal.get_plan_representation()}, "
 
-                # Set the literal plan value to look like the code representation
-                if isinstance(literal_value, str):
-                    literal_plan_value = f"'{literal_value}'"
-                elif isinstance(literal_value, date) and not isinstance(
-                    literal_value, datetime
-                ):
-                    literal_plan_value = literal_value.strftime("date(%Y, %-m, %-d)")
-                elif isinstance(literal_value, datetime):
-                    literal_plan_value = literal_value.strftime(
-                        "datetime(%Y, %-m, %-d, %-H, %-M, %-S)"
-                    )
-                else:
-                    literal_plan_value = literal_value
-
-                execution_plan += f"{literal.alias}={literal_plan_value}, "
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_literals)
 

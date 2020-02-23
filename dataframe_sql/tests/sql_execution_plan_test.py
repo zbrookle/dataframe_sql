@@ -314,8 +314,6 @@ def test_avg():
     my_frame, plan = query(
         "select avg(temp) from forest_fires", show_execution_plan=True
     )
-    # THIS SHOULD translate to FOREST_FIRES.loc[:, ['temp']].rename('temp',
-    # _col1).aggregate({'_col1', 'mean'}).to_frame().transpose()
     assert (
         plan == "FOREST_FIRES.loc[:, ['temp']].assign(__=1).groupby(['__']).agg("
         "**{'_col0': ('temp', 'mean')}).reset_index(drop=True)"
@@ -488,50 +486,54 @@ def test_having_with_group_by():
     )
 
 
-# def test_operations_between_columns_and_numbers():
-#     """
-#     Tests operations between columns
-#     :return:
-#     """
-#     my_frame, plan = query("""select temp * wind + rain / dmc + 37 from
-#     forest_fires""",
-#                      show_execution_plan=True)
-#     print(plan)
+def test_operations_between_columns_and_numbers():
+    """
+    Tests operations between columns
+    :return:
+    """
+    my_frame, plan = query(
+        """select temp * wind + rain / dmc + 37 from
+    forest_fires""",
+        show_execution_plan=True,
+    )
+
+    assert plan == "FOREST_FIRES.loc[:, []].assign(_col0=FOREST_FIRES['temp'] * " \
+                   "FOREST_FIRES['wind'] + FOREST_FIRES['rain'] / " \
+                   "FOREST_FIRES['dmc'] + 37)"
 
 
-# def test_select_star_from_multiple_tables():
-#     """
-#     Test selecting from two different tables
-#     :return:
-#     """
-#     my_frame, plan = query("""select * from forest_fires, digimon_mon_list""",
-#                            show_execution_plan=True)
-#     print(plan)
+def test_select_star_from_multiple_tables():
+    """
+    Test selecting from two different tables
+    :return:
+    """
+    my_frame, plan = query("""select * from forest_fires, digimon_mon_list""",
+                           show_execution_plan=True)
+
+    assert plan == "FOREST_FIRES.assign(__=1).merge(DIGIMON_MON_LIST" \
+                   ".assign(__=1), on='__').drop(columns=['__'])"
 
 
-# def test_select_columns_from_two_tables_with_same_column_name():
-#     """
-#     Test selecting tables
-#     :return:
-#     """
-#     my_frame = query("""select * from forest_fires table1, forest_fires table2""")
-#     table1 = FOREST_FIRES.copy()
-#     table2 = FOREST_FIRES.copy()
-#     table1["_temp_id"] = 1
-#     table2["_temp_id"] = 1
-#     pandas_frame = merge(table1, table2, on="_temp_id").drop(columns=["_temp_id"])
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_maintain_case_in_query():
-#     """
-#     Test nested subqueries
-#     :return:
-#     """
-#     my_frame = query("""select wind, rh from forest_fires""")
-#     pandas_frame = FOREST_FIRES.copy()[["wind", "RH"]].rename(columns={"RH": "rh"})
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
+def test_select_columns_from_two_tables_with_same_column_name():
+    """
+    Test selecting tables
+    :return:
+    """
+    my_frame, plan = query("""select * from forest_fires table1, forest_fires table2""",
+                           show_execution_plan=True
+                           )
+    assert plan == "FOREST_FIRES.assign(__=1).merge(FOREST_FIRES" \
+                   ".assign(__=1), on='__').drop(columns=['__'])"
+
+
+def test_maintain_case_in_query():
+    """
+    Test nested subqueries
+    :return:
+    """
+    my_frame, plan = query("""select wind, rh from forest_fires""",
+                           show_execution_plan=True)
+    assert plan == "FOREST_FIRES.loc[:, ['wind', 'RH']].rename(columns={'RH': 'rh'})"
 
 
 def test_nested_subquery():
@@ -747,23 +749,23 @@ def test_not_in_operator():
     assert plan == "FOREST_FIRES.loc[~FOREST_FIRES['day'].isin(['fri', 'sun']), :]"
 
 
-# def test_case_statement_w_name():
-#     """
-#     Test using case statements
-#     :return:
-#     """
-#     my_frame, plan = query(
-#         """
-#         select case when wind > 5 then 'strong'
-#         when wind = 5 then 'mid'
-#         else 'weak' end as wind_strength
-#         from
-#         forest_fires
-#         """,
-#         show_execution_plan=True
-#     )
-#
-#     print(plan)
+def test_case_statement_w_name():
+    """
+    Test using case statements
+    :return:
+    """
+    my_frame, plan = query(
+        """
+        select case when wind > 5 then 'strong'
+        when wind = 5 then 'mid'
+        else 'weak' end as wind_strength
+        from
+        forest_fires
+        """,
+        show_execution_plan=True
+    )
+
+    print(plan)
 
 
 # def test_case_statement_w_no_name():
@@ -1060,6 +1062,6 @@ def test_timestamps():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_date_cast()
+    test_case_statement_w_name()
 
     remove_env_tables()

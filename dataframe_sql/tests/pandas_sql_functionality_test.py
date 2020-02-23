@@ -682,12 +682,12 @@ def test_operations_between_columns_and_numbers():
     """
     my_frame = query("""select temp * wind + rain / dmc + 37 from forest_fires""")
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame["temp_mul_wind_add_rain_div_dmc_add_37"] = (
+    pandas_frame["_col0"] = (
         pandas_frame["temp"] * pandas_frame["wind"]
         + pandas_frame["rain"] / pandas_frame["DMC"]
         + 37
     )
-    pandas_frame = pandas_frame["temp_mul_wind_add_rain_div_dmc_add_37"].to_frame()
+    pandas_frame = pandas_frame["_col0"].to_frame()
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -1296,6 +1296,8 @@ def test_timestamps():
         pandas_frame["_literal0"] = datetime(2019, 1, 31, 23, 20, 32)
         tm.assert_frame_equal(pandas_frame, my_frame)
 
+
+#################### NEW TESTS ##########################
 
 # TODO Add in more having and boolean tests
 # TODO Add in parentheses for order of operations
