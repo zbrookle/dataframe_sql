@@ -5,6 +5,7 @@ Test cases for panda to sql
 from copy import deepcopy
 from datetime import date, datetime
 from types import FunctionType
+from functools import wraps
 
 from freezegun import freeze_time
 import numpy as np
@@ -56,6 +57,7 @@ def display_dict_difference(before_dict: dict, after_dict: dict, name: str):
 
 
 def assert_state_not_change(func: FunctionType):
+    @wraps(func)
     def new_func():
         table_state = {}
         for key in TableInfo.dataframe_map:
@@ -194,10 +196,10 @@ def test_type_conversion():
     my_frame = query(
         """select cast(temp as int64),
         cast(RH as float64) my_rh, wind, rain, area,
-    cast(2.0 as int64) my_int,
-    cast(3 as float64) as my_float,
-    cast(7 as object) as my_object,
-    cast(0 as bool) as my_bool from forest_fires"""
+        cast(2.0 as int64) my_int,
+        cast(3 as float64) as my_float,
+        cast(7 as object) as my_object,
+        cast(0 as bool) as my_bool from forest_fires"""
     )
     fire_frame = FOREST_FIRES[["temp", "RH", "wind", "rain", "area"]].rename(
         columns={"RH": "my_rh"}
@@ -593,7 +595,7 @@ def test_all_boolean_ops_clause():
         & (pandas_frame.DC < 100)
         & (pandas_frame.FFMC <= 90.1)
     ].reset_index(drop=True)
-    tm.assert_frame_equal(my_frame, pandas_frame)
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 @assert_state_not_change
@@ -1323,11 +1325,6 @@ def test_case_statement_with_same_conditions():
 if __name__ == "__main__":
     register_env_tables()
 
-    # table_state = {}
-    # for key in TableInfo.dataframe_map:
-    #     table_state[key] = TableInfo.dataframe_map[key].copy()
-    test_case_statement_w_name()
-    # for key in TableInfo.dataframe_map:
-    #     tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
+    test_rank_statement_many_columns()
 
     remove_env_tables()

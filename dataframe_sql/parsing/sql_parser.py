@@ -4,7 +4,7 @@ Module containing all lark internal_transformer classes
 from datetime import date, datetime
 import re
 from types import FunctionType
-from typing import Any, Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 from lark import Token, Transformer, Tree, v_args
 from pandas import DataFrame, Series, concat, merge
@@ -31,9 +31,6 @@ from dataframe_sql.sql_objects import (
 import pandas as pd
 
 # pd.set_option('display.max_rows', 1000)
-
-DEBUG = True
-PRINT = False
 
 ORDER_TYPES = ["asc", "desc", "ascending", "descending"]
 ORDER_TYPES_MAPPING = {
@@ -969,10 +966,6 @@ class HavingTransformer(TransformerBaseClass):
             self.column_to_dataframe_name,
         )
         having_expr = Tree("having_expr", having_expr)
-        print(
-            "Plan:",
-            internal_transformer.transform(having_expr, get_execution_plan=True)[1],
-        )
         return internal_transformer.transform(having_expr, get_execution_plan=True)
 
 
@@ -1291,8 +1284,6 @@ class SQLTransformer(TransformerBaseClass):
         :param select_expressions:
         :return:
         """
-        if DEBUG:
-            print("Select Expressions:", select_expressions)
 
         tables = []
         query_info = QueryInfo()

@@ -831,21 +831,21 @@ def test_case_statement_w_other_columns_as_result():
         "(FOREST_FIRES['wind']==5), FOREST_FIRES['day']))"
     )
 
-
-def test_rank_statement_one_column():
-    """
-    Test rank statement
-    :return:
-    """
-    my_frame, plan = query(
-        """
-    select wind, rank() over(order by wind) as wind_rank
-    from forest_fires
-    """,
-        show_execution_plan=True,
-    )
-    print(plan)
-
+#
+# def test_rank_statement_one_column():
+#     """
+#     Test rank statement
+#     :return:
+#     """
+#     my_frame, plan = query(
+#         """
+#     select wind, rank() over(order by wind) as wind_rank
+#     from forest_fires
+#     """,
+#         show_execution_plan=True,
+#     )
+#     print(plan)
+#
 
 #
 #
