@@ -497,9 +497,11 @@ def test_operations_between_columns_and_numbers():
         show_execution_plan=True,
     )
 
-    assert plan == "FOREST_FIRES.loc[:, []].assign(_col0=FOREST_FIRES['temp'] * " \
-                   "FOREST_FIRES['wind'] + FOREST_FIRES['rain'] / " \
-                   "FOREST_FIRES['dmc'] + 37)"
+    assert (
+        plan == "FOREST_FIRES.loc[:, []].assign(_col0=FOREST_FIRES['temp'] * "
+        "FOREST_FIRES['wind'] + FOREST_FIRES['rain'] / "
+        "FOREST_FIRES['dmc'] + 37)"
+    )
 
 
 def test_select_star_from_multiple_tables():
@@ -507,11 +509,14 @@ def test_select_star_from_multiple_tables():
     Test selecting from two different tables
     :return:
     """
-    my_frame, plan = query("""select * from forest_fires, digimon_mon_list""",
-                           show_execution_plan=True)
+    my_frame, plan = query(
+        """select * from forest_fires, digimon_mon_list""", show_execution_plan=True
+    )
 
-    assert plan == "FOREST_FIRES.assign(__=1).merge(DIGIMON_MON_LIST" \
-                   ".assign(__=1), on='__').drop(columns=['__'])"
+    assert (
+        plan == "FOREST_FIRES.assign(__=1).merge(DIGIMON_MON_LIST"
+        ".assign(__=1), on='__').drop(columns=['__'])"
+    )
 
 
 def test_select_columns_from_two_tables_with_same_column_name():
@@ -519,11 +524,14 @@ def test_select_columns_from_two_tables_with_same_column_name():
     Test selecting tables
     :return:
     """
-    my_frame, plan = query("""select * from forest_fires table1, forest_fires table2""",
-                           show_execution_plan=True
-                           )
-    assert plan == "FOREST_FIRES.assign(__=1).merge(FOREST_FIRES" \
-                   ".assign(__=1), on='__').drop(columns=['__'])"
+    my_frame, plan = query(
+        """select * from forest_fires table1, forest_fires table2""",
+        show_execution_plan=True,
+    )
+    assert (
+        plan == "FOREST_FIRES.assign(__=1).merge(FOREST_FIRES"
+        ".assign(__=1), on='__').drop(columns=['__'])"
+    )
 
 
 def test_maintain_case_in_query():
@@ -531,8 +539,9 @@ def test_maintain_case_in_query():
     Test nested subqueries
     :return:
     """
-    my_frame, plan = query("""select wind, rh from forest_fires""",
-                           show_execution_plan=True)
+    my_frame, plan = query(
+        """select wind, rh from forest_fires""", show_execution_plan=True
+    )
     assert plan == "FOREST_FIRES.loc[:, ['wind', 'RH']].rename(columns={'RH': 'rh'})"
 
 
@@ -762,68 +771,82 @@ def test_case_statement_w_name():
         from
         forest_fires
         """,
-        show_execution_plan=True
+        show_execution_plan=True,
     )
 
+    assert (
+        plan == "FOREST_FIRES.loc[:, []].assign(wind_strength=NONE_SERIES"
+        ".mask(((FOREST_FIRES['wind']>5) ^ (FALSE_SERIES)) & "
+        "(FOREST_FIRES['wind']>5), 'strong')"
+        ".mask(((FOREST_FIRES['wind']==5) ^ ((FALSE_SERIES) | "
+        "(FOREST_FIRES['wind']>5))) & (FOREST_FIRES['wind']==5), "
+        "'mid').where(((FALSE_SERIES) | (FOREST_FIRES['wind']>5)) "
+        "| (FOREST_FIRES['wind']==5), 'weak'))"
+    )
+
+
+def test_case_statement_w_no_name():
+    """
+    Test using case statements
+    :return:
+    """
+    my_frame, plan = query(
+        """
+        select case when wind > 5 then 'strong' when wind = 5 then 'mid' else 'weak' end
+        from forest_fires
+        """,
+        show_execution_plan=True,
+    )
+
+    assert (
+        plan == "FOREST_FIRES.loc[:, []].assign(_col0=NONE_SERIES"
+        ".mask(((FOREST_FIRES['wind']>5) ^ (FALSE_SERIES)) & "
+        "(FOREST_FIRES['wind']>5), 'strong')"
+        ".mask(((FOREST_FIRES['wind']==5) ^ ((FALSE_SERIES) | "
+        "(FOREST_FIRES['wind']>5))) & (FOREST_FIRES['wind']==5), 'mid')"
+        ".where(((FALSE_SERIES) | (FOREST_FIRES['wind']>5)) | "
+        "(FOREST_FIRES['wind']==5), 'weak'))"
+    )
+
+
+def test_case_statement_w_other_columns_as_result():
+    """
+    Test using case statements
+    :return:
+    """
+    my_frame, plan = query(
+        """
+        select case when wind > 5 then month when wind = 5 then 'mid' else day end
+        from forest_fires
+        """,
+        show_execution_plan=True,
+    )
+    assert (
+        plan == "FOREST_FIRES.loc[:, []].assign(_col0=NONE_SERIES"
+        ".mask(((FOREST_FIRES['wind']>5) ^ (FALSE_SERIES)) & "
+        "(FOREST_FIRES['wind']>5), FOREST_FIRES['month'])"
+        ".mask(((FOREST_FIRES['wind']==5) ^ ((FALSE_SERIES) | "
+        "(FOREST_FIRES['wind']>5))) & (FOREST_FIRES['wind']==5), 'mid')"
+        ".where(((FALSE_SERIES) | (FOREST_FIRES['wind']>5)) | "
+        "(FOREST_FIRES['wind']==5), FOREST_FIRES['day']))"
+    )
+
+
+def test_rank_statement_one_column():
+    """
+    Test rank statement
+    :return:
+    """
+    my_frame, plan = query(
+        """
+    select wind, rank() over(order by wind) as wind_rank
+    from forest_fires
+    """,
+        show_execution_plan=True,
+    )
     print(plan)
 
 
-# def test_case_statement_w_no_name():
-#     """
-#     Test using case statements
-#     :return:
-#     """
-#     my_frame = query(
-#         """
-#         select case when wind > 5 then 'strong' when wind = 5 then 'mid' else 'weak' end
-#         from forest_fires
-#         """
-#     )
-#     pandas_frame = FOREST_FIRES.copy()[["wind"]]
-#     pandas_frame.loc[pandas_frame.wind > 5, "_expression0"] = "strong"
-#     pandas_frame.loc[pandas_frame.wind == 5, "_expression0"] = "mid"
-#     pandas_frame.loc[
-#         ~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), "_expression0"
-#     ] = "weak"
-#     pandas_frame.drop(columns=["wind"], inplace=True)
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_case_statement_w_other_columns_as_reult():
-#     """
-#     Test using case statements
-#     :return:
-#     """
-#     my_frame = query(
-#         """
-#         select case when wind > 5 then month when wind = 5 then 'mid' else day end
-#         from forest_fires
-#         """
-#     )
-#     pandas_frame = FOREST_FIRES.copy()[["wind"]]
-#     pandas_frame.loc[pandas_frame.wind > 5, "_expression0"] = FOREST_FIRES["month"]
-#     pandas_frame.loc[pandas_frame.wind == 5, "_expression0"] = "mid"
-#     pandas_frame.loc[
-#         ~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), "_expression0"
-#     ] = FOREST_FIRES["day"]
-#     pandas_frame.drop(columns=["wind"], inplace=True)
-#     tm.assert_frame_equal(pandas_frame, my_frame)
-#
-#
-# def test_rank_statement_one_column():
-#     """
-#     Test rank statement
-#     :return:
-#     """
-#     my_frame = query(
-#         """
-#     select wind, rank() over(order by wind) as wind_rank
-#     from forest_fires
-#     """
-#     )
-#     pandas_frame = FOREST_FIRES.copy()[["wind"]]
-#     pandas_frame["wind_rank"] = pandas_frame.wind.rank(method="min").astype("int")
-#     tm.assert_frame_equal(pandas_frame, my_frame)
 #
 #
 # def test_rank_statement_many_columns():
@@ -1062,6 +1085,6 @@ def test_timestamps():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_case_statement_w_name()
+    test_rank_statement_one_column()
 
     remove_env_tables()

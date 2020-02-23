@@ -997,9 +997,7 @@ def test_case_statement_w_name():
     pandas_frame = FOREST_FIRES.copy()[["wind"]]
     pandas_frame.loc[pandas_frame.wind > 5, "wind_strength"] = "strong"
     pandas_frame.loc[pandas_frame.wind == 5, "wind_strength"] = "mid"
-    pandas_frame.loc[
-        ~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), "wind_strength"
-    ] = "weak"
+    pandas_frame.loc[pandas_frame.wind < 5, "wind_strength"] = "weak"
     pandas_frame.drop(columns=["wind"], inplace=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
@@ -1027,7 +1025,7 @@ def test_case_statement_w_no_name():
 
 
 @assert_state_not_change
-def test_case_statement_w_other_columns_as_reult():
+def test_case_statement_w_other_columns_as_result():
     """
     Test using case statements
     :return:
@@ -1303,13 +1301,32 @@ def test_timestamps():
 # TODO Add in parentheses for order of operations
 
 
+@assert_state_not_change
+def test_case_statement_with_same_conditions():
+    """
+    Test using case statements
+    :return:
+    """
+    my_frame = query(
+        """
+        select case when wind > 5 then month when wind > 5 then 'mid' else day end
+        from forest_fires
+        """
+    )
+    pandas_frame = FOREST_FIRES.copy()[["wind"]]
+    pandas_frame.loc[pandas_frame.wind > 5, "_col0"] = FOREST_FIRES["month"]
+    pandas_frame.loc[~(pandas_frame.wind > 5), "_col0"] = FOREST_FIRES["day"]
+    pandas_frame.drop(columns=["wind"], inplace=True)
+    tm.assert_frame_equal(pandas_frame, my_frame)
+
+
 if __name__ == "__main__":
     register_env_tables()
 
     # table_state = {}
     # for key in TableInfo.dataframe_map:
     #     table_state[key] = TableInfo.dataframe_map[key].copy()
-    test_union_all()
+    test_case_statement_w_name()
     # for key in TableInfo.dataframe_map:
     #     tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
 

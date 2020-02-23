@@ -28,6 +28,10 @@ from dataframe_sql.sql_objects import (
     ValueWithPlan,
 )
 
+import pandas as pd
+
+# pd.set_option('display.max_rows', 1000)
+
 DEBUG = True
 PRINT = False
 
@@ -76,7 +80,7 @@ def get_wrapper_value(value):
     :return:
     """
     if isinstance(value, Value):
-        return value.value
+        return value.get_value()
     return value
 
 
@@ -583,31 +587,61 @@ class InternalTransformer(TransformerBaseClass):
             value = expression.value
         return Token("from_expression", value)
 
-    def when_then(self, when_then):
+    def when_then(self, when_then_values):
         """
         When / then sql_object
-        :param when_then:
+        :param when_then_values:
         :return:
         """
-        then_value = get_wrapper_value(when_then[1])
-        return when_then[0], then_value
+        return when_then_values[0], when_then_values[1]
 
-    def case_expression(self, when_expressions: List[Tuple[ValueWithPlan, Any]]):
+    def case_expression(self, when_expressions: List[Tuple[ValueWithPlan, Value]]):
         """
         Handles dataframe_sql case expressions
         :param when_expressions:
         :return:
         """
-        # TODO Possibly a problem when dealing with booleans
-        new_column = when_expressions[0][0].value
-        for when_expression in when_expressions:
-            if isinstance(when_expression, Tuple):  # type: ignore
-                new_column[when_expression[0].value] = when_expression[1]
+        case_execution_plan = "NONE_SERIES"
+        dataframe_size = when_expressions[0][0].value.size
+        new_column = Series(data=[None for _ in range(0, dataframe_size)])
+        current_truth_value = Series(data=[False for _ in range(0, dataframe_size)])
+
+        current_truth_value_plan = (
+            "FALSE_SERIES"  # See the README section why this is here
+        )
+
+        for i, when_expression in enumerate(when_expressions):
+            if isinstance(when_expression, Tuple):
+                conditional_object = when_expression[0]
+                expression_truth_value = conditional_object.get_value()
+                new_column = new_column.mask(
+                    (expression_truth_value ^ current_truth_value)
+                    & expression_truth_value,
+                    when_expression[1].get_value(),
+                )
+                expression_truth_value_plan = (
+                    conditional_object.get_plan_representation()
+                )
+                case_execution_plan += (
+                    f".mask((({expression_truth_value_plan}) ^ "
+                    f"({current_truth_value_plan})) & ({expression_truth_value_plan}), "
+                    f"{when_expression[1].get_plan_representation()})"
+                )
+                current_truth_value = current_truth_value | expression_truth_value
+                current_truth_value_plan = (
+                    f"({current_truth_value_plan}) | "
+                    f"({expression_truth_value_plan})"
+                )
             else:
-                new_column[new_column == False] = get_wrapper_value(
-                    when_expression
-                )  # noqa
-        return Expression(value=new_column)
+                conditional_object: Value = when_expression
+                new_column = new_column.where(
+                    current_truth_value, conditional_object.get_value()
+                )
+                case_execution_plan += (
+                    f".where({current_truth_value_plan}, "
+                    f"{conditional_object.get_plan_representation()})"
+                )
+        return Expression(value=new_column, execution_plan=case_execution_plan)
 
     def rank_form(self, form):
         """
@@ -737,6 +771,8 @@ class InternalTransformer(TransformerBaseClass):
         :param rank_function: Function to be used in rank evaluation
         :return:
         """
+        print("yes")
+
         expressions = tokens[0]
         series_list = []
         order_list = []
@@ -1310,8 +1346,9 @@ class SQLTransformer(TransformerBaseClass):
 
         return query_info
 
-    def cross_join(self, df1: DataFrame, df2: DataFrame, current_plan: str,
-                   df2_name: str):
+    def cross_join(
+        self, df1: DataFrame, df2: DataFrame, current_plan: str, df2_name: str
+    ):
         """
         Returns the crossjoin between two dataframes
         :param df1: Dataframe1
@@ -1320,9 +1357,11 @@ class SQLTransformer(TransformerBaseClass):
         :param df2_name:
         :return: Crossjoined dataframe
         """
-        frame = df1.assign(__=1).merge(df2.assign(__=1), on='__').drop(columns=['__'])
-        plan = f"{current_plan}.assign(__=1).merge({df2_name}.assign(__=1), " \
-               f"on='__').drop(columns=['__'])"
+        frame = df1.assign(__=1).merge(df2.assign(__=1), on="__").drop(columns=["__"])
+        plan = (
+            f"{current_plan}.assign(__=1).merge({df2_name}.assign(__=1), "
+            f"on='__').drop(columns=['__'])"
+        )
         return frame, plan
 
     @staticmethod
@@ -1472,8 +1511,9 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan = frame_names[0].execution_plan
         for frame_name in frame_names[1:]:
             next_frame = self.get_frame(frame_name)
-            first_frame, execution_plan = self.cross_join(first_frame, next_frame,
-                                                          execution_plan, frame_name)
+            first_frame, execution_plan = self.cross_join(
+                first_frame, next_frame, execution_plan, frame_name
+            )
 
         new_frame, execution_plan = self.handle_columns(
             query_info.columns,
@@ -1491,7 +1531,9 @@ class SQLTransformer(TransformerBaseClass):
             for expression in expressions:
                 expression_value = expression.evaluate()
                 assign_expressions[expression.alias] = expression_value
-                execution_plan += f"{expression.alias}={expression.execution_plan}"
+                execution_plan += (
+                    f"{expression.alias}={expression.get_plan_representation()}"
+                )
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_expressions)
 
@@ -1501,7 +1543,9 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += ".assign("
             for literal in literals:
                 assign_literals[literal.alias] = literal.value
-                execution_plan += f"{literal.alias}={literal.get_plan_representation()}, "
+                execution_plan += (
+                    f"{literal.alias}={literal.get_plan_representation()}, "
+                )
 
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_literals)

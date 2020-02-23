@@ -54,7 +54,7 @@ class Value:
             value=self.value + self.get_other_value(other),
             alias=self.alias,
             execution_plan=f"{self.get_plan_representation()} + "
-                           f"{other.get_plan_representation()}",
+            f"{other.get_plan_representation()}",
         )
 
     def __sub__(self, other):
@@ -62,7 +62,7 @@ class Value:
             value=self.value - self.get_other_value(other),
             alias=self.alias,
             execution_plan=f"{self.get_plan_representation()} - "
-                           f"{other.get_plan_representation()}",
+            f"{other.get_plan_representation()}",
         )
 
     def __mul__(self, other):
@@ -70,7 +70,7 @@ class Value:
             value=self.value * self.get_other_value(other),
             alias=self.alias,
             execution_plan=f"{self.get_plan_representation()} * "
-                           f"{other.get_plan_representation()}",
+            f"{other.get_plan_representation()}",
         )
 
     def __truediv__(self, other):
@@ -78,7 +78,7 @@ class Value:
             value=self.value / self.get_other_value(other),
             alias=self.alias,
             execution_plan=f"{self.get_plan_representation()} / "
-                           f"{other.get_plan_representation()}",
+            f"{other.get_plan_representation()}",
         )
 
     def get_table(self):
@@ -242,6 +242,9 @@ class ValueWithPlan(Value):
 
     def __repr__(self):
         return Value.__repr__(self) + ")"
+
+    def get_plan_representation(self) -> str:
+        return self.execution_plan
 
 
 class DerivedColumn(Value):
