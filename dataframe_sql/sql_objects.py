@@ -1,12 +1,11 @@
 """
 Module containing all sql objects
 """
-from typing import List, Tuple, Optional
-
-from pandas import Series
+from typing import List, Optional, Tuple
 
 from lark import Transformer
-
+from pandas import Series
+from datetime import datetime, date
 
 # pylint: disable=too-few-public-methods
 class AmbiguousColumn:
@@ -51,47 +50,84 @@ class Value:
         return display
 
     def __add__(self, other):
-        other_name = self.get_other_name(other)
-        other = self.get_other_value(other)
         return Expression(
-            value=self.value + other, alias=f"{self.final_name}_add_{other_name}"
+            value=self.value + self.get_other_value(other),
+            alias=self.alias,
+            execution_plan=f"{self.get_plan_representation()} + "
+                           f"{other.get_plan_representation()}",
         )
 
     def __sub__(self, other):
-        other_name = self.get_other_name(other)
-        other = self.get_other_value(other)
         return Expression(
-            value=self.value - other, alias=f"{self.final_name}_sub_{other_name}"
+            value=self.value - self.get_other_value(other),
+            alias=self.alias,
+            execution_plan=f"{self.get_plan_representation()} - "
+                           f"{other.get_plan_representation()}",
         )
 
     def __mul__(self, other):
-        other_name = self.get_other_name(other)
-        other = self.get_other_value(other)
         return Expression(
-            value=self.value * other, alias=f"{self.final_name}_mul_{other_name}"
+            value=self.value * self.get_other_value(other),
+            alias=self.alias,
+            execution_plan=f"{self.get_plan_representation()} * "
+                           f"{other.get_plan_representation()}",
         )
 
     def __truediv__(self, other):
-        other_name = self.get_other_name(other)
-        other = self.get_other_value(other)
         return Expression(
-            value=self.value / other, alias=f"{self.final_name}_div_{other_name}"
+            value=self.value / self.get_other_value(other),
+            alias=self.alias,
+            execution_plan=f"{self.get_plan_representation()} / "
+                           f"{other.get_plan_representation()}",
         )
 
+    def get_table(self):
+        """
+        Returns the table of the current value
+        :return:
+        """
+        return None
+
+    def get_name(self) -> str:
+        """
+        Returns the name of the current value
+        :return:
+        """
+        return self.final_name
+
+    def get_value(self):
+        """
+        Returns the value of the object
+        :return:
+        """
+        return self.value
+
+    def get_plan_representation(self) -> str:
+        """
+        Return the representation that the object will have in the execution plan
+        :return:
+        """
+        return f"{self.get_value()}"
+
     @staticmethod
-    def get_other_name(other):
+    def get_other_name(other) -> str:
         """
         Gets the name representation for the other value
         :param other:
         :return:
         """
-        if isinstance(other, Column):
-            return other.name
-        if isinstance(other, Expression):
-            return other.alias
-        if isinstance(other, Literal):
-            return str(other.value)
+        if isinstance(other, Value):
+            return other.get_name()
         return str(other)
+
+    @staticmethod
+    def get_other_table(other) -> Optional[str]:
+        """
+        Gets the name representation for the other value
+        :param other:
+        :return:
+        """
+        return other.get_table()
 
     @staticmethod
     def get_other_value(other):
@@ -100,8 +136,8 @@ class Value:
         :param other:
         :return:
         """
-        if isinstance(other, (Literal, Column, Expression)):
-            return other.value
+        if isinstance(other, Value):
+            return other.get_value()
         return other
 
     def set_alias(self, alias):
@@ -149,6 +185,18 @@ class Literal(Value):
 
     def __repr__(self):
         return Value.__repr__(self) + ")"
+
+    def get_name(self):
+        return str(self.value)
+
+    def get_plan_representation(self) -> str:
+        if isinstance(self.value, str):
+            return f"'{self.value}'"
+        elif isinstance(self.value, date) and not isinstance(self.value, datetime):
+            return self.value.strftime("date(%Y, %-m, %-d)")
+        elif isinstance(self.value, datetime):
+            return self.value.strftime("datetime(%Y, %-m, %-d, %-H, %-M, %-S)")
+        return f"{self.value}"
 
 
 class Number(Literal):
@@ -237,8 +285,9 @@ class Expression(DerivedColumn):
     Store information about an sql_object
     """
 
-    def __init__(self, value, alias="", typename="", function=""):
+    def __init__(self, value, alias="", typename="", function="", execution_plan=""):
         DerivedColumn.__init__(self, value, alias, typename, function)
+        self.execution_plan = execution_plan
 
     def evaluate(self):
         """
@@ -248,6 +297,12 @@ class Expression(DerivedColumn):
         if isinstance(self.value, Column):
             return self.value.value
         return self.value
+
+    def get_name(self) -> str:
+        return self.alias
+
+    def get_plan_representation(self) -> str:
+        return self.execution_plan
 
 
 class Aggregate(DerivedColumn):
@@ -319,6 +374,15 @@ class Column(Value):
         :return:
         """
         self.value = new_value
+
+    def get_name(self):
+        return self.name
+
+    def get_table(self):
+        return self.table
+
+    def get_plan_representation(self):
+        return f"{self.table}['{self.name}']"
 
 
 class Subquery:
