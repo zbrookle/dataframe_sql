@@ -34,7 +34,7 @@ function invgrep {
     # This is useful for the CI, as we want to fail if one of the patterns
     # that we want to avoid is found by grep.
     grep -n "$@" | sed "s/^/$INVGREP_PREPEND/" | sed "s/$/$INVGREP_APPEND/" ; EXIT_STATUS=${PIPESTATUS[0]}
-    return $((! $EXIT_STATUS))
+    return $EXIT_STATUS
 }
 
 if [[ "$GITHUB_ACTIONS" == "true" ]]; then
@@ -85,6 +85,7 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
     MSG='Check for non-standard imports' ; echo $MSG
     invgrep -R --include="*.py*" -E "from collections.abc import" dataframe_sql
     invgrep -R --include="*.py*" -E "from numpy import nan" dataframe_sql
+
 
     # Checks for function_object suite
     # Check for imports from pandas.util.testing instead of `import pandas.util.testing as tm`
@@ -170,15 +171,6 @@ if [[ -z "$CHECK" || "$CHECK" == "docstrings" ]]; then
 
     MSG='Validate docstrings (GL03, GL04, GL05, GL06, GL07, GL09, GL10, SS04, SS05, PR03, PR04, PR05, PR10, EX04, RT01, RT04, RT05, SA01, SA02, SA03, SA05)' ; echo $MSG
     scripts/validate_docstrings.py --format=azure --errors=GL03,GL04,GL05,GL06,GL07,GL09,GL10,SS04,SS05,PR03,PR04,PR05,PR10,EX04,RT01,RT04,RT05,SA01,SA02,SA03,SA05
-    RET=$(($RET + $?)) ; echo $MSG "DONE"
-
-fi
-
-### DEPENDENCIES ###
-if [[ -z "$CHECK" || "$CHECK" == "dependencies" ]]; then
-
-    MSG='Check that requirements-dev.txt has been generated from environment.yml' ; echo $MSG
-    scripts/generate_pip_deps_from_conda.py --compare --azure
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
 fi

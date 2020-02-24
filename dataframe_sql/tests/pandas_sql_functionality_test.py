@@ -2,7 +2,10 @@
 Test cases for panda to sql
 """
 # pylint: disable=broad-except
+from copy import deepcopy
 from datetime import date, datetime
+from functools import wraps
+from types import FunctionType
 
 from freezegun import freeze_time
 import numpy as np
@@ -31,6 +34,58 @@ def module_setup_teardown():
     register_env_tables()
     yield
     remove_env_tables()
+
+
+def display_dict_difference(before_dict: dict, after_dict: dict, name: str):
+    dict_diff_report = f"Dictionary Difference Report for {name}:\n"
+    for key in before_dict:
+        after_value = after_dict.get(key)
+        before_value = before_dict[key]
+        if after_value != before_value:
+            dict_diff_report += (
+                f"Value at key '{key}' was {before_value} and now is "
+                f"{after_value}\n"
+            )
+    for key in after_dict:
+        if before_dict.get(key) is None:
+            dict_diff_report += (
+                f"There is now a value {after_dict[key]} at '{key}', "
+                f"but there was nothing there before\n"
+            )
+
+    raise Exception(dict_diff_report)
+
+
+def assert_state_not_change(func: FunctionType):
+    @wraps(func)
+    def new_func():
+        table_state = {}
+        for key in TableInfo.dataframe_map:
+            table_state[key] = TableInfo.dataframe_map[key].copy()
+        column_to_dataframe_name = deepcopy(TableInfo.column_to_dataframe_name)
+        column_name_map = deepcopy(TableInfo.column_name_map)
+        dataframe_name_map = deepcopy(TableInfo.dataframe_name_map)
+
+        func()
+
+        for key in TableInfo.dataframe_map:
+            tm.assert_frame_equal(table_state[key], TableInfo.dataframe_map[key])
+        if column_to_dataframe_name != TableInfo.column_to_dataframe_name:
+            display_dict_difference(
+                column_to_dataframe_name,
+                TableInfo.column_to_dataframe_name,
+                "column_to_dataframe_name",
+            )
+        if column_name_map != TableInfo.column_name_map:
+            display_dict_difference(
+                column_name_map, TableInfo.column_name_map, "column_name_map"
+            )
+        if dataframe_name_map != TableInfo.dataframe_name_map:
+            display_dict_difference(
+                dataframe_name_map, TableInfo.dataframe_name_map, "dataframe_name_map"
+            )
+
+    return new_func
 
 
 def test_add_remove_temp_table():
@@ -84,6 +139,7 @@ def test_add_remove_temp_table():
             assert registered_frame_name == table
 
 
+@assert_state_not_change
 def test_for_valid_query():
     """
     Test that exception is raised for invalid query
@@ -96,6 +152,7 @@ def test_for_valid_query():
         assert isinstance(err, InvalidQueryException)
 
 
+@assert_state_not_change
 def test_select_star():
     """
     Tests the simple select * case
@@ -106,6 +163,7 @@ def test_select_star():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_case_insensitivity():
     """
     Tests to ensure that the sql is case insensitive for table names
@@ -116,6 +174,7 @@ def test_case_insensitivity():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_select_specific_fields():
     """
     Tests selecting specific fields
@@ -128,6 +187,7 @@ def test_select_specific_fields():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_type_conversion():
     """
     Tests sql as statements
@@ -136,10 +196,10 @@ def test_type_conversion():
     my_frame = query(
         """select cast(temp as int64),
         cast(RH as float64) my_rh, wind, rain, area,
-    cast(2.0 as int64) my_int,
-    cast(3 as float64) as my_float,
-    cast(7 as object) as my_object,
-    cast(0 as bool) as my_bool from forest_fires"""
+        cast(2.0 as int64) my_int,
+        cast(3 as float64) as my_float,
+        cast(7 as object) as my_object,
+        cast(0 as bool) as my_bool from forest_fires"""
     )
     fire_frame = FOREST_FIRES[["temp", "RH", "wind", "rain", "area"]].rename(
         columns={"RH": "my_rh"}
@@ -160,6 +220,7 @@ def test_type_conversion():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_for_non_existent_table():
     """
     Check that exception is raised if table does not exist
@@ -171,6 +232,7 @@ def test_for_non_existent_table():
         assert isinstance(err, DataFrameDoesNotExist)
 
 
+@assert_state_not_change
 def test_using_math():
     """
     Test the mathematical operations and order of operations
@@ -182,6 +244,7 @@ def test_using_math():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_distinct():
     """
     Test use of the distinct keyword
@@ -195,6 +258,7 @@ def test_distinct():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_subquery():
     """
     Test ability to perform subqueries
@@ -205,6 +269,7 @@ def test_subquery():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_join_no_inner():
     """
     Test join
@@ -221,6 +286,7 @@ def test_join_no_inner():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_join_wo_specifying_table():
     """
     Test join where table isn't specified in join
@@ -241,6 +307,7 @@ def test_join_wo_specifying_table():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_join_w_inner():
     """
     Test join
@@ -257,6 +324,7 @@ def test_join_w_inner():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_outer_join_no_outer():
     """
     Test outer join
@@ -273,6 +341,7 @@ def test_outer_join_no_outer():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_outer_join_w_outer():
     """
     Test outer join
@@ -289,6 +358,7 @@ def test_outer_join_w_outer():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_left_joins():
     """
     Test right, left, inner, and outer joins
@@ -305,6 +375,7 @@ def test_left_joins():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_left_outer_joins():
     """
     Test right, left, inner, and outer joins
@@ -321,6 +392,7 @@ def test_left_outer_joins():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_right_joins():
     """
     Test right, left, inner, and outer joins
@@ -337,6 +409,7 @@ def test_right_joins():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_right_outer_joins():
     """
     Test right, left, inner, and outer joins
@@ -353,6 +426,7 @@ def test_right_outer_joins():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_cross_joins():
     """
     Test right, left, inner, and outer joins
@@ -369,6 +443,7 @@ def test_cross_joins():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_group_by():
     """
     Test group by constraint
@@ -381,6 +456,7 @@ def test_group_by():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_avg():
     """
     Test the avg
@@ -397,6 +473,7 @@ def test_avg():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_sum():
     """
     Test the sum
@@ -412,6 +489,7 @@ def test_sum():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_max():
     """
     Test the max
@@ -427,6 +505,7 @@ def test_max():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_min():
     """
     Test the min
@@ -442,6 +521,7 @@ def test_min():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_multiple_aggs():
     """
     Test multiple aggregations
@@ -462,6 +542,7 @@ def test_multiple_aggs():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_agg_w_groupby():
     """
     Test using aggregates and group by together
@@ -481,6 +562,7 @@ def test_agg_w_groupby():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_where_clause():
     """
     Test where clause
@@ -492,6 +574,31 @@ def test_where_clause():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
+def test_all_boolean_ops_clause():
+    """
+    Test where clause
+    :return:
+    """
+    my_frame = query(
+        """select * from forest_fires where month = 'mar' and temp > 8 and rain >= 0
+        and area != 0 and dc < 100 and ffmc <= 90.1
+        """
+    )
+
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame = pandas_frame[
+        (pandas_frame.month == "mar")
+        & (pandas_frame.temp > 8.0)
+        & (pandas_frame.rain >= 0)
+        & (pandas_frame.area != 0)
+        & (pandas_frame.DC < 100)
+        & (pandas_frame.FFMC <= 90.1)
+    ].reset_index(drop=True)
+    tm.assert_frame_equal(pandas_frame, my_frame)
+
+
+@assert_state_not_change
 def test_order_by():
     """
     Test order by clause
@@ -508,6 +615,7 @@ def test_order_by():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_limit():
     """
     Test limit clause
@@ -518,7 +626,26 @@ def test_limit():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-def test_having():
+# # TODO Add in parentheses support for Order of ops
+# @assert_state_not_change
+# def test_having_multiple_conditions():
+#     """
+#     Test having clause
+#     :return:
+#     """
+#     my_frame = query(
+#         "select min(temp) from forest_fires having min(temp) > 2 and "
+#         "max(dc) < 200 or month = 'oct'"
+#     )
+#     pandas_frame = FOREST_FIRES.copy()
+#     pandas_frame["_col0"] = FOREST_FIRES["temp"]
+#     aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
+#     pandas_frame = aggregated_df[aggregated_df["_col0"] > 2]
+#     tm.assert_frame_equal(pandas_frame, my_frame)
+
+
+@assert_state_not_change
+def test_having_one_condition():
     """
     Test having clause
     :return:
@@ -531,6 +658,7 @@ def test_having():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_having_with_group_by():
     """
     Test having clause
@@ -548,6 +676,7 @@ def test_having_with_group_by():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_operations_between_columns_and_numbers():
     """
     Tests operations between columns
@@ -555,15 +684,16 @@ def test_operations_between_columns_and_numbers():
     """
     my_frame = query("""select temp * wind + rain / dmc + 37 from forest_fires""")
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame["temp_mul_wind_add_rain_div_dmc_add_37"] = (
+    pandas_frame["_col0"] = (
         pandas_frame["temp"] * pandas_frame["wind"]
         + pandas_frame["rain"] / pandas_frame["DMC"]
         + 37
     )
-    pandas_frame = pandas_frame["temp_mul_wind_add_rain_div_dmc_add_37"].to_frame()
+    pandas_frame = pandas_frame["_col0"].to_frame()
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_select_star_from_multiple_tables():
     """
     Test selecting from two different tables
@@ -580,6 +710,7 @@ def test_select_star_from_multiple_tables():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_select_columns_from_two_tables_with_same_column_name():
     """
     Test selecting tables
@@ -594,6 +725,7 @@ def test_select_columns_from_two_tables_with_same_column_name():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_maintain_case_in_query():
     """
     Test nested subqueries
@@ -604,6 +736,7 @@ def test_maintain_case_in_query():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_nested_subquery():
     """
     Test nested subqueries
@@ -618,6 +751,7 @@ def test_nested_subquery():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_union():
     """
     Test union in queries
@@ -644,6 +778,7 @@ def test_union():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_union_distinct():
     """
     Test union distinct in queries
@@ -670,6 +805,7 @@ def test_union_distinct():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_union_all():
     """
     Test union distinct in queries
@@ -694,6 +830,7 @@ def test_union_all():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_intersect_distinct():
     """
     Test union distinct in queries
@@ -721,6 +858,7 @@ def test_intersect_distinct():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_except_distinct():
     """
     Test except distinct in queries
@@ -747,6 +885,7 @@ def test_except_distinct():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_except_all():
     """
     Test except distinct in queries
@@ -771,6 +910,7 @@ def test_except_all():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_between_operator():
     """
     Test using between operator
@@ -789,6 +929,7 @@ def test_between_operator():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_in_operator():
     """
     Test using in operator in a sql query
@@ -806,6 +947,7 @@ def test_in_operator():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_in_operator_expression_numerical():
     """
     Test using in operator in a sql query
@@ -813,16 +955,15 @@ def test_in_operator_expression_numerical():
     """
     my_frame = query(
         """
-    select * from forest_fires where X + 1 in (5, 9)
+    select * from forest_fires where X in (5, 9)
     """
     )
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame = pandas_frame[(pandas_frame["X"] + 1).isin((5, 9))].reset_index(
-        drop=True
-    )
+    pandas_frame = pandas_frame[(pandas_frame["X"]).isin((5, 9))].reset_index(drop=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_not_in_operator():
     """
     Test using in operator in a sql query
@@ -840,6 +981,7 @@ def test_not_in_operator():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_case_statement_w_name():
     """
     Test using case statements
@@ -857,13 +999,12 @@ def test_case_statement_w_name():
     pandas_frame = FOREST_FIRES.copy()[["wind"]]
     pandas_frame.loc[pandas_frame.wind > 5, "wind_strength"] = "strong"
     pandas_frame.loc[pandas_frame.wind == 5, "wind_strength"] = "mid"
-    pandas_frame.loc[
-        ~((pandas_frame.wind == 5) | (pandas_frame.wind > 5)), "wind_strength"
-    ] = "weak"
+    pandas_frame.loc[pandas_frame.wind < 5, "wind_strength"] = "weak"
     pandas_frame.drop(columns=["wind"], inplace=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_case_statement_w_no_name():
     """
     Test using case statements
@@ -885,7 +1026,8 @@ def test_case_statement_w_no_name():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-def test_case_statement_w_other_columns_as_reult():
+@assert_state_not_change
+def test_case_statement_w_other_columns_as_result():
     """
     Test using case statements
     :return:
@@ -906,6 +1048,7 @@ def test_case_statement_w_other_columns_as_reult():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_rank_statement_one_column():
     """
     Test rank statement
@@ -922,6 +1065,7 @@ def test_rank_statement_one_column():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_rank_statement_many_columns():
     """
     Test rank statement
@@ -960,6 +1104,7 @@ def test_rank_statement_many_columns():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_dense_rank_statement_many_columns():
     """
     Test dense_rank statement
@@ -997,6 +1142,7 @@ def test_dense_rank_statement_many_columns():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_rank_over_partition_by():
     """
     Test rank partition by statement
@@ -1051,6 +1197,7 @@ def test_rank_over_partition_by():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_dense_rank_over_partition_by():
     """
     Test rank partition by statement
@@ -1099,6 +1246,7 @@ def test_dense_rank_over_partition_by():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_set_string_value_as_column_value():
     """
     Select a string like 'Yes' as a column value
@@ -1114,6 +1262,7 @@ def test_set_string_value_as_column_value():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_date_cast():
     """
     Select casting a string as a date
@@ -1129,6 +1278,7 @@ def test_date_cast():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
 def test_timestamps():
     """
     Select now() as date
@@ -1147,9 +1297,32 @@ def test_timestamps():
         tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+# TODO Add in more having and boolean tests
+# TODO Add in parentheses for order of operations
+
+
+@assert_state_not_change
+def test_case_statement_with_same_conditions():
+    """
+    Test using case statements
+    :return:
+    """
+    my_frame = query(
+        """
+        select case when wind > 5 then month when wind > 5 then 'mid' else day end
+        from forest_fires
+        """
+    )
+    pandas_frame = FOREST_FIRES.copy()[["wind"]]
+    pandas_frame.loc[pandas_frame.wind > 5, "_col0"] = FOREST_FIRES["month"]
+    pandas_frame.loc[~(pandas_frame.wind > 5), "_col0"] = FOREST_FIRES["day"]
+    pandas_frame.drop(columns=["wind"], inplace=True)
+    tm.assert_frame_equal(pandas_frame, my_frame)
+
+
 if __name__ == "__main__":
     register_env_tables()
 
-    test_order_by()
+    test_in_operator()
 
     remove_env_tables()

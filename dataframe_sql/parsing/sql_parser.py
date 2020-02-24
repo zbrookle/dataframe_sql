@@ -1,12 +1,13 @@
 """
-Module containing all lark transformer classes
+Module containing all lark internal_transformer classes
 """
 from datetime import date, datetime
 import re
-from typing import Dict, List, Tuple
+from types import FunctionType
+from typing import Dict, List, Tuple, Union
 
 from lark import Token, Transformer, Tree, v_args
-from pandas import DataFrame, concat, merge
+from pandas import DataFrame, Series, concat, merge
 
 from dataframe_sql.exceptions.sql_exception import DataFrameDoesNotExist
 from dataframe_sql.sql_objects import (
@@ -17,16 +18,17 @@ from dataframe_sql.sql_objects import (
     Date,
     DerivedColumn,
     Expression,
+    Join,
     Literal,
     Number,
     QueryInfo,
     String,
     Subquery,
     Value,
+    ValueWithPlan,
 )
 
-DEBUG = False
-PRINT = False
+# pd.set_option('display.max_rows', 1000)
 
 ORDER_TYPES = ["asc", "desc", "ascending", "descending"]
 ORDER_TYPES_MAPPING = {
@@ -73,7 +75,7 @@ def get_wrapper_value(value):
     :return:
     """
     if isinstance(value, Value):
-        return value.value
+        return value.get_value()
     return value
 
 
@@ -110,6 +112,8 @@ class TransformerBaseClass(Transformer):
             frame_name = frame_name.value
         if isinstance(frame_name, Subquery):
             frame_name = frame_name.name
+        if isinstance(frame_name, Join):
+            return frame_name
         return self.dataframe_map[frame_name]
 
     def set_column_value(self, column: Column) -> None:
@@ -129,14 +133,32 @@ class TransformerBaseClass(Transformer):
 
     def column_name(self, name_list_format: List[str]):
         """
-        Returns a column token with the name extracted
+        Returns a column token_or_tree with the name extracted
         :param name_list_format: List formatted name
-        :return: Tree with column token
+        :return: Tree with column token_or_tree
         """
         name = "".join(name_list_format)
         column = Column(name="".join(name))
         self.set_column_value(column)
         return column
+
+
+def boolean_decorator(boolean_operator: str):
+    """
+    Returns a function that wraps around the given boolean function
+    :param boolean_operator:
+    :return:
+    """
+
+    def boolean_function(function: FunctionType):
+        def wrapper(self, expressions: list):
+            plan = self.create_execution_plan_expression(*expressions, boolean_operator)
+            result = function(self, expressions)
+            return ValueWithPlan(result, plan)
+
+        return wrapper
+
+    return boolean_function
 
 
 # pylint: disable=no-self-use, too-many-public-methods, too-many-instance-attributes
@@ -175,6 +197,24 @@ class InternalTransformer(TransformerBaseClass):
         self.rank_offset = 0
         self.rank_map = {}
         self.last_key = None
+
+    def transform(self, tree, get_execution_plan=False):
+        self._execution_plan = ""
+        new_tree = TransformerBaseClass.transform(self, tree)
+        if isinstance(new_tree, Token) and isinstance(new_tree.value, ValueWithPlan):
+            self._execution_plan = new_tree.value.get_plan_representation()
+            new_tree.value = new_tree.value.value
+        elif (
+            isinstance(new_tree, Tree)
+            and isinstance(new_tree.children, list)
+            and isinstance(new_tree.children[0], ValueWithPlan)
+        ):
+            #  Check if new tree has a plan so that this can be used as the execution
+            #  plan to be returned in the transformation
+            self._execution_plan = new_tree.children[0].get_plan_representation()
+        if get_execution_plan:
+            return new_tree, self._execution_plan
+        return new_tree
 
     def mul(self, args: Tuple[int, int]):
         """
@@ -250,7 +290,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def number(self, numerical_value):
         """
-        Return a number token with a numeric value as a child
+        Return a number token_or_tree with a numeric value as a child
         :param numerical_value:
         :return:
         """
@@ -258,7 +298,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def string(self, string_token):
         """
-        Return value of the token associated with the string
+        Return value of the token_or_tree associated with the string
         :param string_token:
         :return:
         """
@@ -325,42 +365,43 @@ class InternalTransformer(TransformerBaseClass):
         date_value.set_alias("today()")
         return date_value
 
-    # def create_execution_plan(self, sql_object: Value):
-    #     """
-    #     Creates the execution plan. To be used in boolean expressions
-    #     :param sql_object:
-    #     :return:
-    #     """
-    #     if isinstance(sql_object, Column):
-    #         execution_plan = f"{sql_object.table}['{sql_object.name}']"
-    #     elif isinstance(sql_object, String):
-    #         execution_plan = f"'{sql_object.value}'"
-    #     else:
-    #         execution_plan = f"{sql_object.value}"
-    #
-    #     return execution_plan
-    #
-    # def create_execution_plan_expression(self, expression1, expression2, relationship):
-    #     """
-    #     Returns the execution plan for both expressions taking relationship into account
-    #
-    #     :param expression1:
-    #     :param expression2:
-    #     :param relationship:
-    #     :return:
-    #     """
-    #     return f"{self.create_execution_plan(expression1)}{relationship}" \
-    #            f"{self.create_execution_plan(expression2)}"
+    def create_execution_plan_expression(
+        self, expression1: Value, expression2: Value, relationship
+    ):
+        """
+        Returns the execution plan for both expressions taking relationship into account
 
+        :param expression1:
+        :param expression2:
+        :param relationship:
+        :return:
+        """
+        return (
+            f"{expression1.get_plan_representation()}{relationship}"
+            f"{expression2.get_plan_representation()}"
+        )
+
+    @boolean_decorator("==")
     def equals(self, expressions):
         """
         Compares two expressions for equality
         :param expressions:
         :return:
         """
-        # print(self.create_execution_plan_expression(*expressions, "=="))
         return expressions[0] == expressions[1]
 
+    def not_equals(self, expressions):
+        """
+        Compares two expressions for inequality
+        :param expressions:
+        :return:
+        """
+        plan_expr = self.create_execution_plan_expression(
+            expressions[0], expressions[1], "=="
+        )
+        return ValueWithPlan(~(expressions[0] == expressions[1]), f"~({plan_expr})")
+
+    @boolean_decorator(">")
     def greater_than(self, expressions):
         """
         Performs a greater than sql_object
@@ -369,6 +410,16 @@ class InternalTransformer(TransformerBaseClass):
         """
         return expressions[0] > expressions[1]
 
+    @boolean_decorator(">=")
+    def greater_than_or_equal(self, expressions):
+        """
+        Performs a greater than or equal sql_object
+        :param expressions:
+        :return:
+        """
+        return expressions[0] >= expressions[1]
+
+    @boolean_decorator("<")
     def less_than(self, expressions):
         """
         Performs a less than sql_object
@@ -377,41 +428,93 @@ class InternalTransformer(TransformerBaseClass):
         """
         return expressions[0] < expressions[1]
 
-    def between(self, expressions):
+    @boolean_decorator("<=")
+    def less_than_or_equal(self, expressions):
+        """
+        Performs a less than or equal sql_object
+        :param expressions:
+        :return:
+        """
+        return expressions[0] <= expressions[1]
+
+    def between(self, expressions: List[Value]):
         """
         Performs a less than or equal and greater than or equal
         :param expressions:
         :return:
         """
-        return (expressions[0] >= expressions[1]) & (expressions[0] <= expressions[2])
+        main_expression = expressions[0]
+        between_expressions = expressions[1:]
+        plan = main_expression.get_plan_representation()
+        plan += (
+            f".between({between_expressions[0].get_plan_representation()}, "
+            f"{between_expressions[1].get_plan_representation()})"
+        )
 
-    def in_expr(self, expressions):
+        return ValueWithPlan(main_expression.value.between(*between_expressions), plan)
+
+    def in_expr(self, expressions: List[Value]):
         """
         Evaluate in sql_object
         :param expressions:
         :return:
         """
-        in_list = [
-            expression.value if isinstance(expression, Literal) else expression
-            for expression in expressions[1:]
-        ]
-        return expressions[0].value.isin(in_list)
+        in_list = [expression.get_value() for expression in expressions[1:]]
+        plan = expressions[0].get_plan_representation()
+        plan += f".isin({in_list})"
+        return ValueWithPlan(expressions[0].value.isin(in_list), plan)
 
-    def not_in_expr(self, expressions):
+    def not_in_expr(self, expressions: List[Value]):
         """
         Negate in expr
         :param expressions:
         :return:
         """
-        return ~self.in_expr(expressions)
+        in_value = self.in_expr(expressions)
 
-    def bool_expression(self, expression):
+        return ValueWithPlan(~in_value.value, "~" + in_value.execution_plan)
+
+    def bool_expression(self, expression: List[ValueWithPlan]) -> ValueWithPlan:
         """
         Return the bool sql_object
         :param expression:
         :return: boolean sql_object
         """
         return expression[0]
+
+    def bool_and(self, truth_series_pair: List[Value]) -> ValueWithPlan:
+        """
+        Return the truth value of the series pair
+        :param truth_series_pair:
+        :return:
+        """
+        plans: List[str] = []
+        truth_series_pair_values: List[Series] = []
+        for i, value in enumerate(truth_series_pair):
+            truth_series_pair_values.append(value.get_value())
+            plans.append(value.get_plan_representation())
+
+        return ValueWithPlan(
+            truth_series_pair_values[0] & truth_series_pair_values[1],
+            f"{plans[0]} & {plans[1]}",
+        )
+
+    def bool_or(self, truth_series_pair):
+        """
+        Return the truth value of the series pair
+        :param truth_series_pair:
+        :return:
+        """
+        return truth_series_pair[0] | truth_series_pair[1]
+
+    def comparison_type(self, comparison):
+        """
+        Return the comparison
+
+        :param comparison:
+        :return:
+        """
+        return comparison[0]
 
     def negated_bool_expression(self, bool_expression):
         """
@@ -423,7 +526,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def where_expr(self, truth_value_dataframe):
         """
-        Return a where token
+        Return a where token_or_tree
         :param truth_value_dataframe:
         :return: Token
         """
@@ -439,7 +542,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def alias_string(self, name: List[str]):
         """
-        Returns an alias token with the name extracted
+        Returns an alias token_or_tree with the name extracted
         :param name:
         :return:
         """
@@ -447,42 +550,75 @@ class InternalTransformer(TransformerBaseClass):
 
     def from_expression(self, expression):
         """
-        Return a from sql_object token
+        Return a from sql_object token_or_tree
         :param expression:
         :return: Token from sql_object
         """
         expression = expression[0]
-        if isinstance(expression, Subquery):
+        if isinstance(expression, (Subquery, Join)):
             value = expression
         else:
             value = expression.value
         return Token("from_expression", value)
 
-    def when_then(self, when_then):
+    def when_then(self, when_then_values):
         """
         When / then sql_object
-        :param when_then:
+        :param when_then_values:
         :return:
         """
-        then_value = get_wrapper_value(when_then[1])
-        return when_then[0], then_value
+        return when_then_values[0], when_then_values[1]
 
-    def case_expression(self, when_expressions):
+    def case_expression(
+        self, when_expressions: List[Union[Tuple[Value, Value], Value]]
+    ):
         """
         Handles dataframe_sql case expressions
         :param when_expressions:
         :return:
         """
-        # TODO Possibly a problem when dealing with booleans
-        new_column = when_expressions[0][0]
-        for when_expression in when_expressions:
-            if isinstance(when_expression, Tuple):  # type: ignore
-                new_column[when_expression[0]] = when_expression[1]
+        case_execution_plan = "NONE_SERIES"
+        if isinstance(when_expressions[0], tuple):
+            dataframe_size = when_expressions[0][0].value.size
+        new_column = Series(data=[None for _ in range(0, dataframe_size)])
+        current_truth_value = Series(data=[False for _ in range(0, dataframe_size)])
+
+        current_truth_value_plan = (
+            "FALSE_SERIES"  # See the README section why this is here
+        )
+
+        for i, when_expression in enumerate(when_expressions):
+            if isinstance(when_expression, tuple):
+                conditional_object = when_expression[0]
+                expression_truth_value = conditional_object.get_value()
+                new_column = new_column.mask(
+                    (expression_truth_value ^ current_truth_value)
+                    & expression_truth_value,
+                    when_expression[1].get_value(),
+                )
+                expression_truth_value_plan = (
+                    conditional_object.get_plan_representation()
+                )
+                case_execution_plan += (
+                    f".mask((({expression_truth_value_plan}) ^ "
+                    f"({current_truth_value_plan})) & ({expression_truth_value_plan}), "
+                    f"{when_expression[1].get_plan_representation()})"
+                )
+                current_truth_value = current_truth_value | expression_truth_value
+                current_truth_value_plan = (
+                    f"({current_truth_value_plan}) | "
+                    f"({expression_truth_value_plan})"
+                )
             else:
-                new_column[new_column == False] = get_wrapper_value(
-                    when_expression
-                )  # noqa
-        return Expression(value=new_column)
+                conditional_object = when_expression
+                new_column = new_column.where(
+                    current_truth_value, conditional_object.get_value()
+                )
+                case_execution_plan += (
+                    f".where({current_truth_value_plan}, "
+                    f"{conditional_object.get_plan_representation()})"
+                )
+        return Expression(value=new_column, execution_plan=case_execution_plan)
 
     def rank_form(self, form):
         """
@@ -598,7 +734,7 @@ class InternalTransformer(TransformerBaseClass):
 
     def partition_by(self, column_list):
         """
-        Returns a partition token containing the corresponding column
+        Returns a partition token_or_tree containing the corresponding column
         :param column_list: List containing only one column
         :return:
         """
@@ -612,6 +748,8 @@ class InternalTransformer(TransformerBaseClass):
         :param rank_function: Function to be used in rank evaluation
         :return:
         """
+        print("yes")
+
         expressions = tokens[0]
         series_list = []
         order_list = []
@@ -663,8 +801,8 @@ class InternalTransformer(TransformerBaseClass):
     def select_expression(self, expression_and_alias):
         """
         Returns the appropriate object for the given sql_object
-        :param expression_and_alias: An sql_object token and A token containing the
-        name to be assigned
+        :param expression_and_alias: An sql_object token_or_tree and
+              A token_or_tree containing the name to be assigned
         :return:
         """
         expression = expression_and_alias[0]
@@ -692,16 +830,16 @@ class InternalTransformer(TransformerBaseClass):
 
     def group_by(self, column):
         """
-        Returns a group token
+        Returns a group token_or_tree
         :param column: Column to group by
-        :return: group token
+        :return: group token_or_tree
         """
         column = column[0]
         return Token("group", str(column.name))
 
     def as_type(self, column_and_type):
         """
-        Extracts token type and returns tree object with sql_object and type
+        Extracts token_or_tree type and returns tree object with sql_object and type
         :param sql_object: Expression to be evaluated / the name of a column
         :param typename: Data type
         :return:
@@ -747,6 +885,11 @@ class HavingTransformer(TransformerBaseClass):
             column_to_dataframe_name=column_to_dataframe_name,
         )
 
+    def transform(self, tree: Tree):
+        new_tree, plan = TransformerBaseClass.transform(self, tree)
+        new_tree.children[0] = new_tree.children[0].value
+        return new_tree, plan
+
     def aggregate(self, function_name_list_form):
         """
         Return the string representation fo aggregate function name instead of list
@@ -757,7 +900,7 @@ class HavingTransformer(TransformerBaseClass):
 
     def aggregation_name(self, tokens):
         """
-        Extracts function name from token
+        Extracts function name from token_or_tree
         :param tokens:
         :return:
         """
@@ -765,21 +908,30 @@ class HavingTransformer(TransformerBaseClass):
 
     def sql_aggregation(self, aggregation_expr):
         """
-        Handles presence of functions in an sql_object
+        Handles presence of aggregation in an sql_object
         :param aggregation_expr: Function sql_object
         :return:
         """
         aggregate_name = aggregation_expr[0]
         column = aggregation_expr[1]
         table = self.dataframe_map[column.table]
-        aggregates = {column.name: aggregate_name}
+        column_true_name = self.column_name_map[column.table][column.name]
+        aggregates = {column_true_name: aggregate_name}
         if self.group_by:
             new_series = (
                 table.groupby(self.group_by).aggregate(aggregates).reset_index()
             )
+            aggregation_plan = (
+                f"{column.table}.groupby({self.group_by}).aggregate("
+                f"{aggregates}).reset_index()"
+            )
         else:
             new_series = table.aggregate(aggregates).to_frame().transpose()
-        return new_series[column.name]
+            aggregation_plan = (
+                f"{column.table}.aggregate({aggregates}).to_frame()" f".transpose()"
+            )
+        aggregation_plan += f"[{column_true_name}]"
+        return ValueWithPlan(new_series[column_true_name], aggregation_plan)
 
     def having_expr(self, having_expr):
         """
@@ -794,7 +946,7 @@ class HavingTransformer(TransformerBaseClass):
             self.column_to_dataframe_name,
         )
         having_expr = Tree("having_expr", having_expr)
-        return internal_transformer.transform(having_expr)
+        return internal_transformer.transform(having_expr, get_execution_plan=True)
 
 
 # pylint: disable=no-self-use, super-init-not-called
@@ -882,7 +1034,7 @@ class SQLTransformer(TransformerBaseClass):
 
     def limit_count(self, limit_count_value):
         """
-        Returns a limit token
+        Returns a limit token_or_tree
         :param limit_count_value:
         :return:
         """
@@ -901,7 +1053,6 @@ class SQLTransformer(TransformerBaseClass):
                     query_info.order_by.append(token.value)
                 elif token.type == "limit":
                     query_info.limit = token.value
-        print(query_info.order_by)
         return query_info
 
     def subquery(self, query_info, alias):
@@ -912,8 +1063,10 @@ class SQLTransformer(TransformerBaseClass):
         :return:
         """
         alias_name = alias.children[0].value
-        self.dataframe_map[alias_name] = self.to_dataframe(query_info)
-        subquery = Subquery(name=alias_name, query_info=query_info)
+        self.dataframe_map[alias_name], subquery_plan = self.to_dataframe(query_info)
+        subquery = Subquery(
+            name=alias_name, query_info=query_info, execution_plan=subquery_plan
+        )
         self.column_name_map[alias_name] = {}
         for column in self.dataframe_map[alias_name].columns:
             self.add_column_to_column_to_dataframe_name_map(column.lower(), alias_name)
@@ -975,6 +1128,14 @@ class SQLTransformer(TransformerBaseClass):
             return "right", column
         raise Exception("Column does not exist in either table")
 
+    def comparison_type(self, comparison):
+        """
+        Return the comparison expression
+        :param comparison:
+        :return:
+        """
+        return comparison
+
     def join_expression(self, *args):
         """
         Evaluate a join into one dataframe using a merge method
@@ -1017,14 +1178,13 @@ class SQLTransformer(TransformerBaseClass):
             left_on = column2
             right_on = column1
 
-        dictionary_name = f"{table1}x{table2}"
-        self.dataframe_map[dictionary_name] = self.get_frame(table1).merge(
-            right=self.get_frame(table2),
-            how=join_type,
+        return Join(
+            left_table=table1,
+            right_table=table2,
+            join_type=join_type,
             left_on=left_on,
             right_on=right_on,
         )
-        return Subquery(dictionary_name, query_info={})
 
     @staticmethod
     def has_star(column_list: List[str]):
@@ -1041,8 +1201,9 @@ class SQLTransformer(TransformerBaseClass):
     @staticmethod
     def handle_non_token_non_tree(query_info: QueryInfo, token, token_pos):
         """
-        Handles non token non tree items and extracts necessary query information
-        from it
+        Handles non token_or_tree non tree items and extracts necessary query
+        information from it
+
         :param query_info: Dictionary of all info about the query
         :param token: Item being handled
         :param token_pos: Ordinal position of the item
@@ -1071,32 +1232,32 @@ class SQLTransformer(TransformerBaseClass):
             if isinstance(token.value, Column) and not query_info.column_selected.get(
                 token.value.name
             ):
-                query_info.columns.append(token.value)
-                query_info.column_selected[token.value.name] = True
+                query_info.columns.append(token.get_value())
+                query_info.column_selected[token.value.get_name()] = True
 
         if isinstance(token, Literal):
             query_info.literals.append(token)
 
-    def handle_token(self, query_info: QueryInfo, token, token_pos):
+    def handle_token_or_tree(self, query_info: QueryInfo, token_or_tree, item_pos):
         """
         Handles token and extracts necessary query information from it
         :param query_info: Dictionary of all info about the query
-        :param token: Item being handled
-        :param token_pos: Ordinal position of the token
+        :param token_or_tree: Item being handled
+        :param item_pos: Ordinal position of the token
         :return:
         """
-        if isinstance(token, Token):
-            if token.type == "from_expression":
-                query_info.frame_names.append(token.value)
-            elif token.type == "group":
-                query_info.group_columns.append(token.value)
-            elif token.type == "where_expr":
-                query_info.where_expr = token.value
-        elif isinstance(token, Tree):
-            if token.data == "having_expr":
-                query_info.having_expr = token
+        if isinstance(token_or_tree, Token):
+            if token_or_tree.type == "from_expression":
+                query_info.frame_names.append(token_or_tree.value)
+            elif token_or_tree.type == "group":
+                query_info.group_columns.append(token_or_tree.value)
+            elif token_or_tree.type == "where_expr":
+                query_info.where_expr = token_or_tree.value
+        elif isinstance(token_or_tree, Tree):
+            if token_or_tree.data == "having_expr":
+                query_info.having_expr = token_or_tree
         else:
-            self.handle_non_token_non_tree(query_info, token, token_pos)
+            self.handle_non_token_non_tree(query_info, token_or_tree, item_pos)
 
     def select(self, *select_expressions: Tuple[Tree]) -> QueryInfo:
         """
@@ -1104,8 +1265,6 @@ class SQLTransformer(TransformerBaseClass):
         :param select_expressions:
         :return:
         """
-        if DEBUG:
-            print("Select Expressions:", select_expressions)
 
         tables = []
         query_info = QueryInfo()
@@ -1138,7 +1297,7 @@ class SQLTransformer(TransformerBaseClass):
             Tree("select", select_expressions_no_boolean_clauses)
         ).children
 
-        query_info.transformer = internal_transformer
+        query_info.internal_transformer = internal_transformer
 
         if isinstance(select_expressions[0], Token):
             if str(select_expressions[0]) == "distinct":
@@ -1146,42 +1305,36 @@ class SQLTransformer(TransformerBaseClass):
             select_expressions = select_expressions[1:]
 
         for token_pos, token in enumerate(select_expressions):
-            self.handle_token(query_info, token, token_pos)
+            self.handle_token_or_tree(query_info, token, token_pos)
 
-        having_expr = query_info.having_expr
-        # TODO Fix having expressions
-
-        if having_expr is not None:
-            having_expr = (
-                HavingTransformer(
-                    tables,
-                    query_info.group_columns,
-                    self.dataframe_map,
-                    self.column_name_map,
-                    self.column_to_dataframe_name,
-                )
-                .transform(having_expr)
-                .children[0]
+        if query_info.having_expr is not None:
+            query_info.having_transformer = HavingTransformer(
+                tables,
+                query_info.group_columns,
+                self.dataframe_map,
+                self.column_name_map,
+                self.column_to_dataframe_name,
             )
 
-        query_info.having_expr = having_expr
         return query_info
 
-    def cross_join(self, df1, df2):
+    def cross_join(
+        self, df1: DataFrame, df2: DataFrame, current_plan: str, df2_name: str
+    ):
         """
         Returns the crossjoin between two dataframes
         :param df1: Dataframe1
         :param df2: Dataframe2
+        :param current_plan:
+        :param df2_name:
         :return: Crossjoined dataframe
         """
-        temp_key_name = "_cross_join_tempkey"
-        df1[temp_key_name] = 1
-        df2[temp_key_name] = 1
-        new_frame = merge(df1, df2, on=temp_key_name).drop(columns=[temp_key_name])
-        df1.drop(columns=[temp_key_name], inplace=True)
-        if df1 is not df2:
-            df2.drop(columns=[temp_key_name], inplace=True)
-        return new_frame
+        frame = df1.assign(__=1).merge(df2.assign(__=1), on="__").drop(columns=["__"])
+        plan = (
+            f"{current_plan}.assign(__=1).merge({df2_name}.assign(__=1), "
+            f"on='__').drop(columns=['__'])"
+        )
+        return frame, plan
 
     @staticmethod
     def handle_aggregation(
@@ -1227,7 +1380,13 @@ class SQLTransformer(TransformerBaseClass):
         return dataframe, execution_plan
 
     def handle_columns(
-        self, columns: list, aliases: dict, first_frame: DataFrame, execution_plan: str
+        self,
+        columns: list,
+        aliases: dict,
+        first_frame: DataFrame,
+        execution_plan: str,
+        where_expr: Tree,
+        internal_transformer: Transformer,
     ):
         """
         Returns frame with appropriately selected and named columns
@@ -1235,11 +1394,25 @@ class SQLTransformer(TransformerBaseClass):
         :param aliases:
         :param first_frame:
         :param execution_plan: Currently evaluated dataframe execution plan
+        :param where_expr: Syntax tree containing where clause
+        :param internal_transformer: Transformer to transform the where clauses
         :return:
         """
+        where_value = None
+        where_plan = ":"
+        if where_expr is not None:
+            where_value_token, where_plan = internal_transformer.transform(
+                where_expr, get_execution_plan=True
+            )
+            where_value = where_value_token.value
+
         column_names = [column.name for column in columns]
         if self.has_star(column_names):
-            new_frame: DataFrame = first_frame.copy()
+            if where_value is not None:
+                new_frame: DataFrame = first_frame.loc[where_value, :].copy()
+                execution_plan += f".loc[{where_plan}, :]"
+            else:
+                new_frame = first_frame.copy()
         else:
             column_names = []
             for column in columns:
@@ -1253,12 +1426,38 @@ class SQLTransformer(TransformerBaseClass):
                 ):
                     aliases[true_column_name] = column.name
 
-            new_frame = first_frame.loc[:, column_names]
-            execution_plan += f".loc[:, {column_names}]"
+            if where_value is not None:
+                new_frame = first_frame.loc[where_value, column_names]
+            else:
+                new_frame = first_frame.loc[:, column_names]
+            execution_plan += f".loc[{where_plan}, {column_names}]"
             if aliases:
                 new_frame = new_frame.rename(columns=aliases)
-                execution_plan += f".rename(columns={aliases}"
+                execution_plan += f".rename(columns={aliases})"
+
         return new_frame, execution_plan
+
+    def handle_join(self, join: Join) -> Tuple[DataFrame, str]:
+        """
+        Return the dataframe and execution plan resulting from a join
+        :param join:
+        :return:
+        """
+        left_table = self.get_frame(join.left_table)
+        right_table = self.get_frame(join.right_table)
+        plan = (
+            f"{join.left_table}.merge({join.right_table}, how={join.join_type}, "
+            f"left_on={join.left_on}, right_on={join.right_on})"
+        )
+        return (
+            left_table.merge(
+                right_table,
+                how=join.join_type,
+                left_on=join.left_on,
+                right_on=join.right_on,
+            ),
+            plan,
+        )
 
     def to_dataframe(self, query_info: QueryInfo):
         """
@@ -1267,24 +1466,34 @@ class SQLTransformer(TransformerBaseClass):
         """
         execution_plan = ""
 
-        if DEBUG:
-            print("Query info:", query_info)
-
-        having_expr = query_info.having_expr
-
+        # Determine/extract the first frame that all dataframe operations will stem from
         frame_names = query_info.frame_names
         if not query_info.frame_names:
             raise Exception("No table specified")
-
         first_frame = self.get_frame(frame_names[0])
-        if not isinstance(frame_names[0], Subquery):
-            execution_plan += f"{frame_names[0]}"
+
+        if isinstance(first_frame, DataFrame) and not isinstance(
+            frame_names[0], Subquery
+        ):
+            execution_plan = f"{frame_names[0]}"
+        elif isinstance(first_frame, Join):
+            first_frame, join_plan = self.handle_join(join=first_frame)
+            execution_plan += join_plan
+        elif isinstance(frame_names[0], Subquery):
+            execution_plan = frame_names[0].execution_plan
         for frame_name in frame_names[1:]:
             next_frame = self.get_frame(frame_name)
-            first_frame = self.cross_join(first_frame, next_frame)
+            first_frame, execution_plan = self.cross_join(
+                first_frame, next_frame, execution_plan, frame_name
+            )
 
         new_frame, execution_plan = self.handle_columns(
-            query_info.columns, query_info.aliases, first_frame, execution_plan
+            query_info.columns,
+            query_info.aliases,
+            first_frame,
+            execution_plan,
+            query_info.where_expr,
+            query_info.internal_transformer,
         )
 
         expressions = query_info.expressions
@@ -1294,7 +1503,9 @@ class SQLTransformer(TransformerBaseClass):
             for expression in expressions:
                 expression_value = expression.evaluate()
                 assign_expressions[expression.alias] = expression_value
-                execution_plan += f"{expression.alias}={expression_value}"
+                execution_plan += (
+                    f"{expression.alias}={expression.get_plan_representation()}"
+                )
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_expressions)
 
@@ -1304,7 +1515,10 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += ".assign("
             for literal in literals:
                 assign_literals[literal.alias] = literal.value
-                execution_plan += f"{literal.alias}={literal.value}, "
+                execution_plan += (
+                    f"{literal.alias}={literal.get_plan_representation()}, "
+                )
+
             execution_plan += ")"
             new_frame = new_frame.assign(**assign_literals)
 
@@ -1313,18 +1527,19 @@ class SQLTransformer(TransformerBaseClass):
             execution_plan += f".astype({conversions})"
             new_frame = new_frame.astype(conversions)
 
-        where_expr = query_info.where_expr
-        if where_expr is not None:
-            internal_transformer = query_info.transformer
-            where_value_token = internal_transformer.transform(where_expr)
-            new_frame = new_frame[where_value_token.value]
-
         new_frame, execution_plan = self.handle_aggregation(
             query_info.aggregates, query_info.group_columns, new_frame, execution_plan,
         )
 
-        if having_expr is not None:
-            new_frame = new_frame[having_expr]
+        if (
+            query_info.having_expr is not None
+            and query_info.having_transformer is not None
+        ):
+            having_eval, having_plan = query_info.having_transformer.transform(
+                query_info.having_expr
+            )
+            new_frame = new_frame.loc[having_eval.children[0], :]
+            execution_plan += f".loc[{having_plan}, :]"
 
         if query_info.distinct:
             execution_plan += ".drop_duplicates(keep='first', inplace=True)"
@@ -1332,18 +1547,16 @@ class SQLTransformer(TransformerBaseClass):
 
         order_by = query_info.order_by
         if order_by:
-            new_frame.sort_values(
-                by=[pair[0] for pair in order_by],
-                ascending=[pair[1] for pair in order_by],
-                inplace=True,
-            )
+            by_pairs = [pair[0] for pair in order_by]
+            ascending_info = [pair[1] for pair in order_by]
+            new_frame = new_frame.sort_values(by=by_pairs, ascending=ascending_info)
+            execution_plan += f".sort_values(by={by_pairs}, ascending={ascending_info})"
 
         if query_info.limit is not None:
             new_frame = new_frame.head(query_info.limit)
+            execution_plan += f".head({query_info.limit})"
 
-        self._execution_plan += execution_plan
-
-        return new_frame
+        return new_frame, execution_plan
 
     def set_expr(self, query_info):
         """
@@ -1351,73 +1564,142 @@ class SQLTransformer(TransformerBaseClass):
         :param query_info:
         :return:
         """
-        return self.to_dataframe(query_info).reset_index(drop=True)
+        frame, plan = self.to_dataframe(query_info)
+        # TODO Maybe don't always reset index (maybe put into execution plan)
+        return frame.reset_index(drop=True), plan
 
-    def union_all(self, frame1: DataFrame, frame2: DataFrame):
+    def union_all(
+        self,
+        frame1_and_plan: Tuple[DataFrame, str],
+        frame2_and_plan: Tuple[DataFrame, str],
+    ):
         """
         Return union all of two dataframes
-        :param frame1: Left dataframe
-        :param frame2: Right dataframe
+        :param frame1_and_plan: Left dataframe and execution plan
+        :param frame2_and_plan: Right dataframe and execution plan
         :return:
         """
-        return concat([frame1, frame2], ignore_index=True).reset_index(drop=True)
-
-    def union_distinct(self, frame1: DataFrame, frame2: DataFrame):
-        """
-        Return union all of two dataframes
-        :param frame1: Left dataframe
-        :param frame2: Right dataframe
-        :return:
-        """
-        return (
-            concat([frame1, frame2], ignore_index=True)
-            .drop_duplicates()
-            .reset_index(drop=True)
+        plan = (
+            f"concat({frame1_and_plan[1]}, {frame2_and_plan[1]}, "
+            f"ignore_index=True).reset_index(drop=True)"
         )
 
-    def intersect_distinct(self, frame1: DataFrame, frame2: DataFrame):
+        return (
+            concat(
+                [frame1_and_plan[0], frame2_and_plan[0]], ignore_index=True
+            ).reset_index(drop=True),
+            plan,
+        )
+
+    def union_distinct(
+        self,
+        frame1_and_plan: Tuple[DataFrame, str],
+        frame2_and_plan: Tuple[DataFrame, str],
+    ):
         """
-        Return intersection of two dataframes
-        :param frame1: Left dataframe
-        :param frame2: Right dataframe
+        Return union distinct of two dataframes
+        :param frame1_and_plan: Left dataframe and execution plan
+        :param frame2_and_plan: Right dataframe and execution plan
         :return:
         """
-        return merge(
-            left=frame1, right=frame2, how="inner", on=frame1.columns.to_list()
-        ).reset_index(drop=True)
+        plan = (
+            f"concat({frame1_and_plan[1]}, {frame2_and_plan[1]}, "
+            f"ignore_index=True).drop_duplicates().reset_index(drop=True)"
+        )
 
-    def except_distinct(self, frame1: DataFrame, frame2: DataFrame):
+        return (
+            concat([frame1_and_plan[0], frame2_and_plan[0]], ignore_index=True)
+            .drop_duplicates()
+            .reset_index(drop=True),
+            plan,
+        )
+
+    def intersect_distinct(
+        self,
+        frame1_and_plan: Tuple[DataFrame, str],
+        frame2_and_plan: Tuple[DataFrame, str],
+    ):
+        """
+        Return intersection of two dataframes
+        :param frame1_and_plan: Left dataframe and execution plan
+        :param frame2_and_plan: Right dataframe and execution plan
+        :return:
+        """
+        frame1 = frame1_and_plan[0]
+        frame2 = frame2_and_plan[0]
+
+        plan = (
+            f"merge(left={frame1_and_plan[1]}, right={frame2_and_plan[1]}, "
+            f"on={frame1_and_plan[1]}.columns.to_list()).reset_index(drop=True)"
+        )
+
+        return (
+            merge(
+                left=frame1, right=frame2, how="inner", on=frame1.columns.to_list()
+            ).reset_index(drop=True),
+            plan,
+        )
+
+    def except_distinct(
+        self,
+        frame1_and_plan: Tuple[DataFrame, str],
+        frame2_and_plan: Tuple[DataFrame, str],
+    ):
         """
         Return first dataframe excluding everything that's also in the second dataframe,
         no duplicates
-        :param frame1: Left dataframe
-        :param frame2: Right dataframe
+        :param frame1_and_plan: Left dataframe and execution plan
+        :param frame2_and_plan: Right dataframe and execution plan
         :return:
         """
+        frame1 = frame1_and_plan[0]
+        frame2 = frame2_and_plan[0]
+        plan1 = frame1_and_plan[1]
+        plan2 = frame2_and_plan[1]
+
+        plan = (
+            f"{plan1}[~{plan1}.isin({plan2}).all(axis=1).drop_duplicates("
+            f").reset_index(drop=True)"
+        )
+
         return (
             frame1[~frame1.isin(frame2).all(axis=1)]
             .drop_duplicates()
-            .reset_index(drop=True)
+            .reset_index(drop=True),
+            plan,
         )
 
-    def except_all(self, frame1: DataFrame, frame2: DataFrame):
+    def except_all(
+        self,
+        frame1_and_plan: Tuple[DataFrame, str],
+        frame2_and_plan: Tuple[DataFrame, str],
+    ):
         """
         Return first dataframe excluding everything that's also in the second dataframe,
         with duplicates
-        :param frame1: Left dataframe
-        :param frame2: Right dataframe
+        :param frame1_and_plan: Left dataframe and execution plan
+        :param frame2_and_plan: Right dataframe and execution plan
         :return:
         """
-        return frame1[~frame1.isin(frame2).all(axis=1)].reset_index(drop=True)
+        frame1 = frame1_and_plan[0]
+        frame2 = frame2_and_plan[0]
+        plan1 = frame1_and_plan[1]
+        plan2 = frame2_and_plan[1]
 
-    def final(self, dataframe):
+        plan = f"{plan1}[~{plan1}.isin({plan2}).all(axis=1)].reset_index(drop=True)"
+
+        return frame1[~frame1.isin(frame2).all(axis=1)].reset_index(drop=True), plan
+
+    def final(self, dataframe_and_plan):
         """
         Returns the final dataframe
-        :param dataframe:
+        :param dataframe_and_plan:
         :return:
         """
         DerivedColumn.reset_expression_count()
+        dataframe = dataframe_and_plan[0]
+        plan = dataframe_and_plan[1]
 
         if self._get_execution_plan:
-            return dataframe, self._execution_plan
+            return dataframe, plan
         return dataframe

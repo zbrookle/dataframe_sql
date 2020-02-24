@@ -79,7 +79,7 @@ def find_end_paren(function_code: str, start: int):
         elif character == ")":
             parentheses.pop()
         if not parentheses:
-            return i
+            return i + start
 
 
 def split_into_pandas_and_dataframe_sql(function_code: str):
@@ -91,14 +91,10 @@ def split_into_pandas_and_dataframe_sql(function_code: str):
     """
     data_frame_sql_code_init = "my_frame = query"
     dataframe_sql_code_start = function_code.find(data_frame_sql_code_init)
-    dataframe_sql_code_call_first_paren = dataframe_sql_code_start + len(
-        data_frame_sql_code_init
-    )
-    end_paren = (
-        find_end_paren(function_code, dataframe_sql_code_call_first_paren)
-        + len(data_frame_sql_code_init)
-        + 1
-    )
+    text_offset = len(data_frame_sql_code_init)
+    dataframe_sql_code_call_first_paren = dataframe_sql_code_start + text_offset
+    end_paren = find_end_paren(function_code, dataframe_sql_code_call_first_paren) + 1
+
     dataframe_sql_code = function_code[dataframe_sql_code_start:end_paren]
     pandas_code = function_code[end_paren:]
     return dataframe_sql_code, pandas_code
@@ -141,7 +137,7 @@ if __name__ == "__main__":
 
     tests = get_pandas_tests()
     for test in tests[3:]:
-        print(test.__name__)
+        print(f"######### {test.__name__} #########")
         code = get_function_code(test)
         fix_code_indent(code)
         remove_assertion(code)
@@ -152,6 +148,17 @@ if __name__ == "__main__":
         #     print(code_string)
         #     exec(code_string)
 
-        test_performance(*split_into_pandas_and_dataframe_sql(code_string))
+        code = split_into_pandas_and_dataframe_sql(code_string)
+        try:
+            test_performance(*code)
+        except Exception as err:
+            print("Code Failed")
+            print("#####################")
+            print("#### Your Code ####")
+            print(code[0])
+            print("#### Pandas Code ####")
+            print(code[1])
+            print("#####################")
+            raise err
 
     remove_env_tables()  # noqa
