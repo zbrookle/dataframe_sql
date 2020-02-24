@@ -1325,6 +1325,6 @@ def test_case_statement_with_same_conditions():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_rank_statement_many_columns()
+    test_in_operator()
 
     remove_env_tables()

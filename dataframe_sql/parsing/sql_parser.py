@@ -204,7 +204,7 @@ class InternalTransformer(TransformerBaseClass):
         self._execution_plan = ""
         new_tree = TransformerBaseClass.transform(self, tree)
         if isinstance(new_tree, Token) and isinstance(new_tree.value, ValueWithPlan):
-            self._execution_plan = new_tree.value.execution_plan
+            self._execution_plan = new_tree.value.get_plan_representation()
             new_tree.value = new_tree.value.value
         elif (
             isinstance(new_tree, Tree)
@@ -213,7 +213,7 @@ class InternalTransformer(TransformerBaseClass):
         ):
             #  Check if new tree has a plan so that this can be used as the execution
             #  plan to be returned in the transformation
-            self._execution_plan = new_tree.children[0].execution_plan
+            self._execution_plan = new_tree.children[0].get_plan_representation()
         if get_execution_plan:
             return new_tree, self._execution_plan
         return new_tree
@@ -367,24 +367,8 @@ class InternalTransformer(TransformerBaseClass):
         date_value.set_alias("today()")
         return date_value
 
-    def create_execution_plan(self, sql_object: Value):
-        """
-        Creates the execution plan. To be used in boolean expressions
-        :param sql_object:
-        :return:
-        """
-        if isinstance(sql_object, Column):
-            execution_plan = f"{sql_object.table}['{sql_object.name}']"
-        elif isinstance(sql_object, String):
-            execution_plan = f"'{sql_object.value}'"
-        elif isinstance(sql_object, ValueWithPlan):
-            execution_plan = sql_object.execution_plan
-        else:
-            execution_plan = f"{sql_object.value}"
-
-        return execution_plan
-
-    def create_execution_plan_expression(self, expression1, expression2, relationship):
+    def create_execution_plan_expression(self, expression1: Value, expression2: Value,
+                                         relationship):
         """
         Returns the execution plan for both expressions taking relationship into account
 
@@ -394,8 +378,8 @@ class InternalTransformer(TransformerBaseClass):
         :return:
         """
         return (
-            f"{self.create_execution_plan(expression1)}{relationship}"
-            f"{self.create_execution_plan(expression2)}"
+            f"{expression1.get_plan_representation()}{relationship}"
+            f"{expression2.get_plan_representation()}"
         )
 
     @boolean_decorator("==")
@@ -452,7 +436,7 @@ class InternalTransformer(TransformerBaseClass):
         """
         return expressions[0] <= expressions[1]
 
-    def between(self, expressions):
+    def between(self, expressions: List[Value]):
         """
         Performs a less than or equal and greater than or equal
         :param expressions:
@@ -460,33 +444,28 @@ class InternalTransformer(TransformerBaseClass):
         """
         main_expression = expressions[0]
         between_expressions = expressions[1:]
-        if isinstance(main_expression.value, Series):
-            plan = self.create_execution_plan(main_expression)
-            between_plans = [
-                self.create_execution_plan(expr) for expr in between_expressions
-            ]
-            plan += f".between({between_plans[0]}, {between_plans[1]})"
+        plan = main_expression.get_plan_representation()
+        plan += f".between({between_expressions[0].get_plan_representation()}, " \
+                f"{between_expressions[1].get_plan_representation()})"
 
-            return ValueWithPlan(
-                main_expression.value.between(*between_expressions), plan
-            )
-        return (expressions[0] >= expressions[1]) & (expressions[0] <= expressions[2])
+        return ValueWithPlan(
+            main_expression.value.between(*between_expressions), plan
+        )
 
-    def in_expr(self, expressions):
+    def in_expr(self, expressions: List[Value]):
         """
         Evaluate in sql_object
         :param expressions:
         :return:
         """
         in_list = [
-            expression.value if isinstance(expression, Literal) else expression
-            for expression in expressions[1:]
+            expression.get_value() for expression in expressions[1:]
         ]
-        plan = self.create_execution_plan(expressions[0])
+        plan = expressions[0].get_plan_representation()
         plan += f".isin({in_list})"
         return ValueWithPlan(expressions[0].value.isin(in_list), plan)
 
-    def not_in_expr(self, expressions):
+    def not_in_expr(self, expressions: List[Value]):
         """
         Negate in expr
         :param expressions:
@@ -515,8 +494,8 @@ class InternalTransformer(TransformerBaseClass):
         plan = [None, None]
         for i, value in enumerate(truth_series_pair):
             if isinstance(value, ValueWithPlan):
-                truth_series_pair[i] = value.value
-                plan[i] = value.execution_plan
+                truth_series_pair[i] = value.get_value()
+                plan[i] = value.get_plan_representation()
 
         return ValueWithPlan(
             truth_series_pair[0] & truth_series_pair[1], f"{plan[0]} & {plan[1]}"
@@ -1251,8 +1230,8 @@ class SQLTransformer(TransformerBaseClass):
             if isinstance(token.value, Column) and not query_info.column_selected.get(
                 token.value.name
             ):
-                query_info.columns.append(token.value)
-                query_info.column_selected[token.value.name] = True
+                query_info.columns.append(token.get_value())
+                query_info.column_selected[token.value.get_name()] = True
 
         if isinstance(token, Literal):
             query_info.literals.append(token)
