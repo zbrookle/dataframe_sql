@@ -144,19 +144,19 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for extra blank lines after the class definition' ; echo $MSG
-    invgrep -R --include="*.py" --include="*.pyx" -E 'class.*:\n\n( )+"""' .
+    invgrep -R --include="*.py" -E 'class.*:\n\n( )+"""' .
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
-    MSG='Check for use of comment-based annotation syntax' ; echo $MSG
-    invgrep -R --include="*.py" -P '# type: (?!ignore)' dataframe_sql
-    RET=$(($RET + $?)) ; echo $MSG "DONE"
+#    MSG='Check for use of comment-based annotation syntax' ; echo $MSG
+#    invgrep -R --include="*.py" -P '# type: (?!ignore)' dataframe_sql
+#    RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for use of foo.__class__ instead of type(foo)' ; echo $MSG
-    invgrep -R --include=*.{py,pyx} '\.__class__' dataframe_sql
+    invgrep -R --include="*.py" '\.__class__' dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for use of xrange instead of range' ; echo $MSG
-    invgrep -R --include=*.{py,pyx} 'xrange' dataframe_sql
+    invgrep -R --include="*.py" 'xrange' dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check that no file in the repo contains trailing whitespaces' ; echo $MSG

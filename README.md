@@ -1,11 +1,11 @@
 ## Execution plan
 
 
-### Values of certain "random" variables 
-In certaine places it was necessary to create functionality that pandas doesn't
- support and in those cases, there may be strange variables that you come across in
-  the execution plan. 
-  
+### Values of certain "random" variables
+In certain places it was necessary to create functionality that pandas doesn't support
+and in those cases, there may be strange variables that you come across in the
+execution plan.
+
 This is what their values are:
 
 ```python
