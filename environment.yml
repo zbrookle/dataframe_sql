@@ -1,0 +1,27 @@
+name: dataframe_sql-dev
+channels:
+  - conda-forge
+dependencies:
+  # required
+  - pandas>=1.0.1
+  - python=3.7
+
+  # code checks
+  - black=19.10b0
+  - flake8
+  - flake8-comprehensions>=3.1.0  # used by flake8, linting of unnecessary comprehensions
+  - isort  # check that imports are in the right order
+  - mypy=0.730
+  - pycodestyle  # used by flake8
+
+  # documentation
+  - gitpython  # obtain contributors from git for whatsnew
+  - gitdb2=2.0.6  # GH-32060
+
+  # testing
+  - pytest>=5.0.1
+  - pytest-cov
+  - pytest-xdist>=1.21
+
+
+
