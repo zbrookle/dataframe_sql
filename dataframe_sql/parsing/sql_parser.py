@@ -28,8 +28,6 @@ from dataframe_sql.sql_objects import (
     ValueWithPlan,
 )
 
-import pandas as pd
-
 # pd.set_option('display.max_rows', 1000)
 
 ORDER_TYPES = ["asc", "desc", "ascending", "descending"]
@@ -367,8 +365,9 @@ class InternalTransformer(TransformerBaseClass):
         date_value.set_alias("today()")
         return date_value
 
-    def create_execution_plan_expression(self, expression1: Value, expression2: Value,
-                                         relationship):
+    def create_execution_plan_expression(
+        self, expression1: Value, expression2: Value, relationship
+    ):
         """
         Returns the execution plan for both expressions taking relationship into account
 
@@ -397,7 +396,9 @@ class InternalTransformer(TransformerBaseClass):
         :param expressions:
         :return:
         """
-        plan_expr = self.create_execution_plan_expression(*expressions, "==")
+        plan_expr = self.create_execution_plan_expression(
+            expressions[0], expressions[1], "=="
+        )
         return ValueWithPlan(~(expressions[0] == expressions[1]), f"~({plan_expr})")
 
     @boolean_decorator(">")
@@ -445,12 +446,12 @@ class InternalTransformer(TransformerBaseClass):
         main_expression = expressions[0]
         between_expressions = expressions[1:]
         plan = main_expression.get_plan_representation()
-        plan += f".between({between_expressions[0].get_plan_representation()}, " \
-                f"{between_expressions[1].get_plan_representation()})"
-
-        return ValueWithPlan(
-            main_expression.value.between(*between_expressions), plan
+        plan += (
+            f".between({between_expressions[0].get_plan_representation()}, "
+            f"{between_expressions[1].get_plan_representation()})"
         )
+
+        return ValueWithPlan(main_expression.value.between(*between_expressions), plan)
 
     def in_expr(self, expressions: List[Value]):
         """
@@ -458,9 +459,7 @@ class InternalTransformer(TransformerBaseClass):
         :param expressions:
         :return:
         """
-        in_list = [
-            expression.get_value() for expression in expressions[1:]
-        ]
+        in_list = [expression.get_value() for expression in expressions[1:]]
         plan = expressions[0].get_plan_representation()
         plan += f".isin({in_list})"
         return ValueWithPlan(expressions[0].value.isin(in_list), plan)
@@ -483,22 +482,21 @@ class InternalTransformer(TransformerBaseClass):
         """
         return expression[0]
 
-    def bool_and(
-        self, truth_series_pair: List[Union[ValueWithPlan, Series]]
-    ) -> ValueWithPlan:
+    def bool_and(self, truth_series_pair: List[Value]) -> ValueWithPlan:
         """
         Return the truth value of the series pair
         :param truth_series_pair:
         :return:
         """
-        plan = [None, None]
+        plans: List[str] = []
+        truth_series_pair_values: List[Series] = []
         for i, value in enumerate(truth_series_pair):
-            if isinstance(value, ValueWithPlan):
-                truth_series_pair[i] = value.get_value()
-                plan[i] = value.get_plan_representation()
+            truth_series_pair_values.append(value.get_value())
+            plans.append(value.get_plan_representation())
 
         return ValueWithPlan(
-            truth_series_pair[0] & truth_series_pair[1], f"{plan[0]} & {plan[1]}"
+            truth_series_pair_values[0] & truth_series_pair_values[1],
+            f"{plans[0]} & {plans[1]}",
         )
 
     def bool_or(self, truth_series_pair):
@@ -571,14 +569,17 @@ class InternalTransformer(TransformerBaseClass):
         """
         return when_then_values[0], when_then_values[1]
 
-    def case_expression(self, when_expressions: List[Tuple[ValueWithPlan, Value]]):
+    def case_expression(
+        self, when_expressions: List[Union[Tuple[Value, Value], Value]]
+    ):
         """
         Handles dataframe_sql case expressions
         :param when_expressions:
         :return:
         """
         case_execution_plan = "NONE_SERIES"
-        dataframe_size = when_expressions[0][0].value.size
+        if isinstance(when_expressions[0], tuple):
+            dataframe_size = when_expressions[0][0].value.size
         new_column = Series(data=[None for _ in range(0, dataframe_size)])
         current_truth_value = Series(data=[False for _ in range(0, dataframe_size)])
 
@@ -587,7 +588,7 @@ class InternalTransformer(TransformerBaseClass):
         )
 
         for i, when_expression in enumerate(when_expressions):
-            if isinstance(when_expression, Tuple):
+            if isinstance(when_expression, tuple):
                 conditional_object = when_expression[0]
                 expression_truth_value = conditional_object.get_value()
                 new_column = new_column.mask(
@@ -609,7 +610,7 @@ class InternalTransformer(TransformerBaseClass):
                     f"({expression_truth_value_plan})"
                 )
             else:
-                conditional_object: Value = when_expression
+                conditional_object = when_expression
                 new_column = new_column.where(
                     current_truth_value, conditional_object.get_value()
                 )
@@ -800,8 +801,8 @@ class InternalTransformer(TransformerBaseClass):
     def select_expression(self, expression_and_alias):
         """
         Returns the appropriate object for the given sql_object
-        :param expression_and_alias: An sql_object token_or_tree and A token_or_tree containing the
-        name to be assigned
+        :param expression_and_alias: An sql_object token_or_tree and
+              A token_or_tree containing the name to be assigned
         :return:
         """
         expression = expression_and_alias[0]
@@ -1200,8 +1201,9 @@ class SQLTransformer(TransformerBaseClass):
     @staticmethod
     def handle_non_token_non_tree(query_info: QueryInfo, token, token_pos):
         """
-        Handles non token_or_tree non tree items and extracts necessary query information
-        from it
+        Handles non token_or_tree non tree items and extracts necessary query
+        information from it
+
         :param query_info: Dictionary of all info about the query
         :param token: Item being handled
         :param token_pos: Ordinal position of the item
@@ -1529,7 +1531,10 @@ class SQLTransformer(TransformerBaseClass):
             query_info.aggregates, query_info.group_columns, new_frame, execution_plan,
         )
 
-        if query_info.having_expr is not None:
+        if (
+            query_info.having_expr is not None
+            and query_info.having_transformer is not None
+        ):
             having_eval, having_plan = query_info.having_transformer.transform(
                 query_info.having_expr
             )

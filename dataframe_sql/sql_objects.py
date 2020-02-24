@@ -1,11 +1,12 @@
 """
 Module containing all sql objects
 """
-from typing import List, Optional, Tuple
+from datetime import date, datetime
+from typing import Any, List, Optional, Tuple
 
 from lark import Transformer
 from pandas import Series
-from datetime import datetime, date
+
 
 # pylint: disable=too-few-public-methods
 class AmbiguousColumn:
@@ -13,13 +14,13 @@ class AmbiguousColumn:
     Class for identifying ambiguous table names
     """
 
-    def __init__(self, tables):
+    def __init__(self, tables: List[str]) -> None:
         self.tables = tables
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"AmbiguousColumn({','.join(self.tables)})"
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return isinstance(other, AmbiguousColumn) and self.tables == other.tables
 
 

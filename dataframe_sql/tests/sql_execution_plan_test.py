@@ -181,8 +181,8 @@ def test_outer_join_no_outer():
     )
 
     assert (
-        plan
-        == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, left_on=Type, right_on=Type)"
+        plan == "DIGIMON_MON_LIST.merge(DIGIMON_MOVE_LIST, how=outer, "
+        "left_on=Type, right_on=Type)"
     )
 
 
@@ -831,6 +831,7 @@ def test_case_statement_w_other_columns_as_result():
         "(FOREST_FIRES['wind']==5), FOREST_FIRES['day']))"
     )
 
+
 #
 # def test_rank_statement_one_column():
 #     """
@@ -1085,6 +1086,6 @@ def test_timestamps():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_rank_statement_one_column()
+    # test_rank_statement_one_column()
 
     remove_env_tables()

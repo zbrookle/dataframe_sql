@@ -4,8 +4,8 @@ Test cases for panda to sql
 # pylint: disable=broad-except
 from copy import deepcopy
 from datetime import date, datetime
-from types import FunctionType
 from functools import wraps
+from types import FunctionType
 
 from freezegun import freeze_time
 import numpy as np
@@ -1296,8 +1296,6 @@ def test_timestamps():
         pandas_frame["_literal0"] = datetime(2019, 1, 31, 23, 20, 32)
         tm.assert_frame_equal(pandas_frame, my_frame)
 
-
-#################### NEW TESTS ##########################
 
 # TODO Add in more having and boolean tests
 # TODO Add in parentheses for order of operations

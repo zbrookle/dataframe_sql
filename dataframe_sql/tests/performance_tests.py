@@ -93,9 +93,7 @@ def split_into_pandas_and_dataframe_sql(function_code: str):
     dataframe_sql_code_start = function_code.find(data_frame_sql_code_init)
     text_offset = len(data_frame_sql_code_init)
     dataframe_sql_code_call_first_paren = dataframe_sql_code_start + text_offset
-    end_paren = (
-        find_end_paren(function_code, dataframe_sql_code_call_first_paren) + 1
-    )
+    end_paren = find_end_paren(function_code, dataframe_sql_code_call_first_paren) + 1
 
     dataframe_sql_code = function_code[dataframe_sql_code_start:end_paren]
     pandas_code = function_code[end_paren:]
