@@ -30,27 +30,19 @@ jobs:
       if: always()
 
     - name: Linting
-      run: |
-        source activate pandas-dev
-        ci/code_checks.sh lint
+      run: ci/code_checks.sh lint
       if: always()
 
     - name: Dependencies consistency
-      run: |
-        source activate pandas-dev
-        ci/code_checks.sh dependencies
+      run: ci/code_checks.sh dependencies
       if: always()
 
     - name: Checks on imported code
-      run: |
-        source activate pandas-dev
-        ci/code_checks.sh code
+      run: ci/code_checks.sh code
       if: always()
 
     - name: Running doctests
-      run: |
-        source activate pandas-dev
-        ci/code_checks.sh doctests
+      run: ci/code_checks.sh doctests
       if: always()
 
     - name: Docstring validation
