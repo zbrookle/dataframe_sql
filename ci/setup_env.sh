@@ -79,8 +79,8 @@ else
     echo "Not using ccache"
 fi
 
-echo "source deactivate"
-source deactivate
+echo "conda deactivate"
+conda deactivate
 
 echo "conda list (root environment)"
 conda list
@@ -101,7 +101,7 @@ if [[ "$BITS32" == "yes" ]]; then
 fi
 
 echo "activate dataframe_sql"
-source activate dataframe_sql
+conda activate dataframe_sql
 
 echo
 echo "remove qt"

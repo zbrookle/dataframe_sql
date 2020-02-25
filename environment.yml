@@ -1,4 +1,4 @@
-name: dataframe_sql-dev
+name: dataframe_sql
 channels:
   - conda-forge
 dependencies:
