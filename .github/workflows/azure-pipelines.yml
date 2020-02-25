@@ -21,7 +21,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v1
 
-    - name: Setup environment and build pandas
+    - name: Setup environment
       run: |
         chmod +x ci/setup_env.sh
         ci/setup_env.sh
