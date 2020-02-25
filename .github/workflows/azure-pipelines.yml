@@ -27,38 +27,50 @@ jobs:
         ci/setup_env.sh
       if: always()
 
-    - name: Make code checks executable
-      run: chmod +x ci/code_checks.sh
-      if: always()
-
     - name: Looking for unwanted patterns
-      run: ci/code_checks.sh patterns
+      run: |
+        chmod +x ci/code_checks.sh
+        ci/code_checks.sh patterns
       if: always()
 
     - name: Linting
-      run: ci/code_checks.sh lint
+      run: |
+        source activate dataframe_sql
+        ci/code_checks.sh lint
       if: always()
 
     - name: Dependencies consistency
-      run: ci/code_checks.sh dependencies
+      run: |
+        source activate dataframe_sql
+        ci/code_checks.sh dependencies
       if: always()
 
     - name: Checks on imported code
-      run: ci/code_checks.sh code
+      run: |
+        source activate dataframe_sql
+        ci/code_checks.sh code
       if: always()
 
     - name: Running doctests
-      run: ci/code_checks.sh doctests
+      run: |
+        source activate dataframe_sql
+        ci/code_checks.sh doctests
       if: always()
 
     - name: Docstring validation
-      run: ci/code_checks.sh docstrings
+      run: |
+        source activate dataframe_sql
+        ci/code_checks.sh docstrings
       if: always()
 
     - name: Typing validation
-      run: ci/code_checks.sh typing
+      run: |
+        source activate dataframe_sql
+        ci/code_checks.sh typing
       if: always()
 
-    - name: Testing docstring validation script
-      run: pytest --capture=no --strict scripts
-      if: always()
+    - name: Unit tests
+      run: |
+        source activate dataframe_sql
+        chmod +x ci/run_tests.sh
+        ci/run_tests.sh
