@@ -4,6 +4,7 @@ channels:
 dependencies:
   # required
   - pandas>=1.0.1
+  - lark-parser=0.8.1
   - python=3.7
 
   # code checks
