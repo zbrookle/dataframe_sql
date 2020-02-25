@@ -166,14 +166,14 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
     unset INVGREP_APPEND
 fi
 
-### DOCSTRINGS ###
-if [[ -z "$CHECK" || "$CHECK" == "docstrings" ]]; then
-
-    MSG='Validate docstrings (GL03, GL04, GL05, GL06, GL07, GL09, GL10, SS04, SS05, PR03, PR04, PR05, PR10, EX04, RT01, RT04, RT05, SA01, SA02, SA03, SA05)' ; echo $MSG
-    scripts/validate_docstrings.py --format=azure --errors=GL03,GL04,GL05,GL06,GL07,GL09,GL10,SS04,SS05,PR03,PR04,PR05,PR10,EX04,RT01,RT04,RT05,SA01,SA02,SA03,SA05
-    RET=$(($RET + $?)) ; echo $MSG "DONE"
-
-fi
+#### DOCSTRINGS ###
+#if [[ -z "$CHECK" || "$CHECK" == "docstrings" ]]; then
+#
+#    MSG='Validate docstrings (GL03, GL04, GL05, GL06, GL07, GL09, GL10, SS04, SS05, PR03, PR04, PR05, PR10, EX04, RT01, RT04, RT05, SA01, SA02, SA03, SA05)' ; echo $MSG
+#    scripts/validate_docstrings.py --format=azure --errors=GL03,GL04,GL05,GL06,GL07,GL09,GL10,SS04,SS05,PR03,PR04,PR05,PR10,EX04,RT01,RT04,RT05,SA01,SA02,SA03,SA05
+#    RET=$(($RET + $?)) ; echo $MSG "DONE"
+#
+#fi
 
 ### TYPING ###
 if [[ -z "$CHECK" || "$CHECK" == "typing" ]]; then
@@ -187,4 +187,4 @@ if [[ -z "$CHECK" || "$CHECK" == "typing" ]]; then
 fi
 
 
-#exit $RET
+exit $RET
