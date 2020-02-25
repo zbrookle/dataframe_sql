@@ -4,4 +4,4 @@ from pathlib import Path
 CODE_DIRECTORY = Path(__file__).parent
 
 
-setup(name="DataFrameSql",)
+setup(name="dataframe_sql",)

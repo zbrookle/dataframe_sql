@@ -2,8 +2,13 @@
 
 ![CI](https://github.com/zbrookle/dataframe_sql/workflows/CI/badge.svg)
 
-## Execution plan
+## Installation
 
+```bash
+pip install dataframe_sql
+```
+
+## Execution plan
 
 ### Values of certain "random" variables
 In certain places it was necessary to create functionality that pandas doesn't support
