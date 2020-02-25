@@ -1,3 +1,7 @@
+# dataframe_sql
+
+![CI](https://github.com/zbrookle/dataframe_sql/workflows/CI/badge.svg)
+
 ## Execution plan
 
 
