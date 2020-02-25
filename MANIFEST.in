@@ -1,0 +1,2 @@
+include versioneer.py
+include dataframe_sql/_version.py
