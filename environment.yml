@@ -20,6 +20,7 @@ dependencies:
   - gitdb2=2.0.6  # GH-32060
 
   # testing
+  - freezegun
   - pytest>=5.0.1
   - pytest-cov
   - pytest-xdist>=1.21

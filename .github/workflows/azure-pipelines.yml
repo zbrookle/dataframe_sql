@@ -74,3 +74,4 @@ jobs:
         source activate dataframe_sql
         chmod +x ci/run_tests.sh
         ci/run_tests.sh
+      if: always()
