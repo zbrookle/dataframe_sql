@@ -81,11 +81,12 @@ fi
 ### PATTERNS ###
 if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
 
+    ls -a
+
     # Check for imports from collections.abc instead of `from collections import abc`
     MSG='Check for non-standard imports' ; echo $MSG
     invgrep -R --include="*.py*" -E "from collections.abc import" dataframe_sql
     invgrep -R --include="*.py*" -E "from numpy import nan" dataframe_sql
-
 
     # Checks for function_object suite
     # Check for imports from pandas.util.testing instead of `import pandas.util.testing as tm`
