@@ -135,21 +135,13 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
     invgrep -r -E --include '*.py' '(unittest(\.| import )mock|mock\.Mock\(\)|mock\.patch)' dataframe_sql/tests/
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
-    MSG='Check for wrong space after code-block directive and before colon (".. code-block ::" instead of ".. code-block::")' ; echo $MSG
-    invgrep -R --include="*.rst" ".. code-block ::" doc/source
-    RET=$(($RET + $?)) ; echo $MSG "DONE"
-
-    MSG='Check for wrong space after ipython directive and before colon (".. ipython ::" instead of ".. ipython::")' ; echo $MSG
-    invgrep -R --include="*.rst" ".. ipython ::" doc/source
-    RET=$(($RET + $?)) ; echo $MSG "DONE"
-
     MSG='Check for extra blank lines after the class definition' ; echo $MSG
     invgrep -R --include="*.py" -E 'class.*:\n\n( )+"""' .
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
-#    MSG='Check for use of comment-based annotation syntax' ; echo $MSG
-#    invgrep -R --include="*.py" -P '# type: (?!ignore)' dataframe_sql
-#    RET=$(($RET + $?)) ; echo $MSG "DONE"
+    MSG='Check for use of comment-based annotation syntax' ; echo $MSG
+    invgrep -R --include="*.py" -P '# type: (?!ignore)' dataframe_sql
+    RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for use of foo.__class__ instead of type(foo)' ; echo $MSG
     invgrep -R --include="*.py" '\.__class__' dataframe_sql
