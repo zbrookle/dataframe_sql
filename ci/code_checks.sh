@@ -34,7 +34,7 @@ function invgrep {
     # This is useful for the CI, as we want to fail if one of the patterns
     # that we want to avoid is found by grep.
     grep -n "$@" | sed "s/^/$INVGREP_PREPEND/" | sed "s/$/$INVGREP_APPEND/" ; EXIT_STATUS=${PIPESTATUS[0]}
-    return $EXIT_STATUS
+    return $((! $EXIT_STATUS))
 }
 
 if [[ "$GITHUB_ACTIONS" == "true" ]]; then
@@ -85,7 +85,6 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
     MSG='Check for non-standard imports' ; echo $MSG
     invgrep -R --include="*.py*" -E "from collections.abc import" dataframe_sql
     invgrep -R --include="*.py*" -E "from numpy import nan" dataframe_sql
-
 
     # Checks for function_object suite
     # Check for imports from pandas.util.testing instead of `import pandas.util.testing as tm`
