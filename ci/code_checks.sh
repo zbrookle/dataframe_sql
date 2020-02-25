@@ -92,85 +92,70 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
     invgrep -R --include="*.py*" -E "from pandas.util.testing import" dataframe_sql/tests
     invgrep -R --include="*.py*" -E "from pandas.util import testing as tm" dataframe_sql/tests
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for use of exec' ; echo $MSG
     invgrep -R --include="*.py*" -E "[^a-zA-Z0-9_]exec\(" --exclude performance_tests.py dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for pytest warns' ; echo $MSG
     invgrep -r -E --include '*.py' 'pytest\.warns' dataframe_sql/tests/
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for pytest raises without context' ; echo $MSG
     invgrep -r -E --include '*.py' "[[:space:]] pytest.raises" dataframe_sql/tests/
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for python2-style file encodings' ; echo $MSG
     invgrep -R --include="*.py" --include="*.pyx" -E "# -\*- coding: utf-8 -\*-" dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for python2-style super usage' ; echo $MSG
     invgrep -R --include="*.py" -E "super\(\w*, (self|cls)\)" dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     # Check for the following code in testing: `np.testing` and `np.array_equal`
     MSG='Check for invalid testing' ; echo $MSG
     invgrep -r -E --include '*.py' --exclude testing.py '(numpy|np)(\.testing|\.array_equal)' dataframe_sql/tests/
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for deprecated messages without sphinx directive' ; echo $MSG
     invgrep -R --include="*.py" --include="*.pyx" -E "(DEPRECATED|DEPRECATE|Deprecated)(:|,|\.)" dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for python2 new-style classes and for empty parentheses' ; echo $MSG
     invgrep -R --include="*.py" --include="*.pyx" -E "class\s\S*\((object)?\):" dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for incorrect sphinx directives' ; echo $MSG
     invgrep -R --include="*.py" --include="*.pyx" --include="*.rst" -E "\.\. (autosummary|contents|currentmodule|deprecated|function|image|important|include|ipython|literalinclude|math|module|note|raw|seealso|toctree|versionadded|versionchanged|warning):[^:]" ./dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     # Check for the following code in testing: `unittest.mock`, `mock.Mock()` or `mock.patch`
     MSG='Check that unittest.mock is not used (pytest builtin monkeypatch fixture should be used instead)' ; echo $MSG
     invgrep -r -E --include '*.py' '(unittest(\.| import )mock|mock\.Mock\(\)|mock\.patch)' dataframe_sql/tests/
+    echo $?
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for extra blank lines after the class definition' ; echo $MSG
     invgrep -R --include="*.py" -E 'class.*:\n\n( )+"""' .
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for use of comment-based annotation syntax' ; echo $MSG
     invgrep -R --include="*.py" '# type: (?!ignore)' dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for use of foo.__class__ instead of type(foo)' ; echo $MSG
     invgrep -R --include="*.py" '\.__class__' dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check for use of xrange instead of range' ; echo $MSG
     invgrep -R --include="*.py" 'xrange' dataframe_sql
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     MSG='Check that no file in the repo contains trailing whitespaces' ; echo $MSG
     INVGREP_APPEND=" <- trailing whitespaces found"
     invgrep -RI --exclude=\*.{svg,c,cpp,html,js} --exclude-dir=env "\s$" *
     RET=$(($RET + $?)) ; echo $MSG "DONE"
-    echo $RET
 
     unset INVGREP_APPEND
 fi
