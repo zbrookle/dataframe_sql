@@ -171,4 +171,4 @@ if [[ -z "$CHECK" || "$CHECK" == "typing" ]]; then
 fi
 
 
-#exit $RET
+exit $RET
