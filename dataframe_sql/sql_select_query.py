@@ -118,13 +118,6 @@ class SqlToDataFrame:
         self._show_execution_plan = show_exececution_plan
 
         self.ast = self.parse_sql()
-        if SHOW_TREE or SHOW_DF:
-            print("Result:")
-        if SHOW_TREE:
-            print(self.ast)
-            print(self.ast.pretty())
-        if SHOW_DF:
-            print(self.ast)
         self.data_frame: DataFrame = self.ast
 
     def parse_sql(self):
