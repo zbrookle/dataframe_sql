@@ -1,8 +1,6 @@
 from distutils.core import setup
 from pathlib import Path
 
-from setuptools import find_packages
-
 from versioneer import get_cmdclass, get_version
 
 CODE_DIRECTORY = Path(__file__).parent
