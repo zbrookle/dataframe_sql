@@ -132,7 +132,6 @@ if [[ -z "$CHECK" || "$CHECK" == "patterns" ]]; then
     # Check for the following code in testing: `unittest.mock`, `mock.Mock()` or `mock.patch`
     MSG='Check that unittest.mock is not used (pytest builtin monkeypatch fixture should be used instead)' ; echo $MSG
     invgrep -r -E --include '*.py' '(unittest(\.| import )mock|mock\.Mock\(\)|mock\.patch)' dataframe_sql/tests/
-    echo $?
     RET=$(($RET + $?)) ; echo $MSG "DONE"
 
     MSG='Check for extra blank lines after the class definition' ; echo $MSG
