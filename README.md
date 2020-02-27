@@ -13,7 +13,7 @@ pip install dataframe_sql
 In this simple example, a DataFrame is read in from a csv and then using the query
 function you can produce a new DataFrame from the sql query.
 
-```python
+``` python
 from pandas import read_csv
 from dataframe_sql import register_temp_table, query
 

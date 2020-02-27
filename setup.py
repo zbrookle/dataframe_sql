@@ -9,7 +9,8 @@ CODE_DIRECTORY = Path(__file__).parent
 
 def read_file(filename):
     """Source the contents of a file"""
-    with open(os.path.join(os.path.dirname(__file__), filename)) as file:
+    with open(os.path.join(os.path.dirname(__file__), filename), encoding='utf-8') as \
+            file:
         return file.read()
 
 
@@ -17,7 +18,7 @@ setup(
     name="dataframe_sql",
     version=get_version(),
     cmdclass=get_cmdclass(),
-    long_description=read_file("README.md"),
+    long_description="Coming soon...",
     maintainer="Zach Brookler",
     maintainer_email="zachb1996@yahoo.com",
     description="A package for querying dataframes using SQL",
