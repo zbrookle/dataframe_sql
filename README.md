@@ -11,7 +11,7 @@ pip install dataframe_sql
 ## Usage
 
 In this simple example, a DataFrame is read in from a csv and then using the query
-function you can produce a new DataFrame from the sql query. 
+function you can produce a new DataFrame from the sql query.
 
 ```python
 from pandas import read_csv
