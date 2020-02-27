@@ -34,7 +34,5 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-    project_urls={
-        'Source': 'https://github.com/zbrookle/dataframe_sql',
-    },
+    project_urls={"Source": "https://github.com/zbrookle/dataframe_sql",},
 )
