@@ -24,6 +24,9 @@ register_temp_table(my_table)
 query(""""select * from my_table""")
 ```
 
+The package currently only supports pandas but there are plans to support dask and
+ rapids in the future.
+
 ## Execution plan
 
 ### Values of certain "random" variables
