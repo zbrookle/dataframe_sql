@@ -23,6 +23,10 @@ setup(
     description="A package for querying dataframes using SQL",
     python_requires=">=3.6.1",
     install_requires=["lark-parser == 0.8.1", "pandas == 1.0.1"],
+    project_urls={
+        "Source": "https://github.com/zbrookle/dataframe_sql",
+        "Documentation": "",
+    },
     url="https://github.com/zbrookle/dataframe_sql",
     download_url="https://github.com/zbrookle/dataframe_sql/archive/master.zip",
     keywords=["pandas", "data", "dataframe", "sql"],
@@ -34,5 +38,4 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-    project_urls={"Source": "https://github.com/zbrookle/dataframe_sql",},
 )
