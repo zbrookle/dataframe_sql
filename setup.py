@@ -9,8 +9,9 @@ CODE_DIRECTORY = Path(__file__).parent
 
 def read_file(filename):
     """Source the contents of a file"""
-    with open(os.path.join(os.path.dirname(__file__), filename), encoding='utf-8') as \
-            file:
+    with open(
+        os.path.join(os.path.dirname(__file__), filename), encoding="utf-8"
+    ) as file:
         return file.read()
 
 
