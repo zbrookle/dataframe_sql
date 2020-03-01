@@ -21,6 +21,7 @@ from dataframe_sql.exceptions.sql_exception import (
 from dataframe_sql.sql_objects import AmbiguousColumn
 from dataframe_sql.sql_select_query import TableInfo
 from dataframe_sql.tests.utils import (
+    AVOCADO,
     DIGIMON_MON_LIST,
     DIGIMON_MOVE_LIST,
     FOREST_FIRES,
@@ -1320,9 +1321,82 @@ def test_case_statement_with_same_conditions():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@assert_state_not_change
+def test_multiple_aliases_same_column():
+    """
+    Test multiple aliases on the same column
+    :return:
+    """
+    my_frame = query(
+        """
+        select wind as my_wind, wind as also_the_wind, wind as yes_wind
+        from
+        forest_fires
+        """
+    )
+
+    pandas_frame = FOREST_FIRES[["wind"]].copy()
+    pandas_frame.loc[:, "my_wind"] = FOREST_FIRES["wind"].copy()
+    pandas_frame.loc[:, "also_the_wind"] = FOREST_FIRES["wind"]
+    pandas_frame.loc[:, "yes_wind"] = FOREST_FIRES["wind"]
+    pandas_frame = pandas_frame.drop(columns=["wind"])
+    tm.assert_frame_equal(pandas_frame, my_frame)
+
+
+@assert_state_not_change
+def test_sql_data_types():
+    """
+    Tests sql data types
+    :return:
+    """
+    my_frame = query(
+        """
+        select 
+            cast(avocado_id as object) as avocado_id_object,
+            cast(avocado_id as int16) as avocado_id_int16,
+            cast(avocado_id as smallint) as avocado_id_smallint,
+            cast(avocado_id as int32) as avocado_id_int32,
+            cast(avocado_id as int) as avocado_id_int,
+            cast(avocado_id as int64) as avocado_id_int64,
+            cast(avocado_id as bigint) as avocado_id_bigint,
+            cast(avocado_id as float) as avocado_id_float,
+            cast(avocado_id as float16) as avocado_id_float16,
+            cast(avocado_id as float32) as avocado_id_float32,
+            cast(avocado_id as float64) as avocado_id_float64,
+            cast(avocado_id as bool) as avocado_id_bool,
+            cast(avocado_id as category) as avocado_id_category,
+            cast(date as datetime64) as date,
+            cast(date as timestamp) as time,
+            cast(region as varchar) as region_varchar
+        from avocado
+        """
+    )
+
+    pandas_frame = AVOCADO.copy()[["avocado_id", "Date", "region"]]
+    pandas_frame["avocado_id_object"] = pandas_frame["avocado_id"].astype("object")
+    pandas_frame["avocado_id_int16"] = pandas_frame["avocado_id"].astype("int16")
+    pandas_frame["avocado_id_smallint"] = pandas_frame["avocado_id"].astype("int16")
+    pandas_frame["avocado_id_int32"] = pandas_frame["avocado_id"].astype("int32")
+    pandas_frame["avocado_id_int"] = pandas_frame["avocado_id"].astype("int32")
+    pandas_frame["avocado_id_int64"] = pandas_frame["avocado_id"].astype("int64")
+    pandas_frame["avocado_id_bigint"] = pandas_frame["avocado_id"].astype("int64")
+    pandas_frame["avocado_id_float"] = pandas_frame["avocado_id"].astype("float")
+    pandas_frame["avocado_id_float16"] = pandas_frame["avocado_id"].astype("float16")
+    pandas_frame["avocado_id_float32"] = pandas_frame["avocado_id"].astype("float32")
+    pandas_frame["avocado_id_float64"] = pandas_frame["avocado_id"].astype("float64")
+    pandas_frame["avocado_id_bool"] = pandas_frame["avocado_id"].astype("bool")
+    pandas_frame["avocado_id_category"] = pandas_frame["avocado_id"].astype("category")
+    pandas_frame["date"] = pandas_frame["Date"].astype("datetime64")
+    pandas_frame["time"] = pandas_frame["Date"].astype("datetime64")
+    pandas_frame["region_varchar"] = pandas_frame["region"].astype("string")
+    pandas_frame = pandas_frame.drop(columns=["avocado_id", "Date", "region"])
+
+    tm.assert_frame_equal(pandas_frame, my_frame)
+
+
 if __name__ == "__main__":
     register_env_tables()
 
-    test_in_operator()
+    test_sql_data_types()
 
     remove_env_tables()

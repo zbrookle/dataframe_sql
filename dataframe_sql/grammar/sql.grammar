@@ -63,7 +63,22 @@ column_name: [NAME "."] NAME
 
 
 SELECT_CONSTRAINT.9: "ALL"i | "DISTINCT"i
-TYPENAME: "object"i | "int64"i | "float64"i | "bool"i | "datetime64"i | "timedelta[ns]"i | "category"i
+TYPENAME:  "object"i
+         | "varchar"i
+         | "int16"i
+         | "smallint"i
+         | "int32"i
+         | "int64"i
+         | "int"i
+         | "bigint"i
+         | "float16"i
+         | "float32"i
+         | "float64"i
+         | "float"i
+         | "bool"i
+         | "datetime64"i
+         | "timestamp"i
+         | "category"i
 ?aggregation: NAME -> aggregation_name
 alias: NAME -> alias_string
 _window_name: NAME
