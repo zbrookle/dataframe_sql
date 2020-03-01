@@ -1351,7 +1351,7 @@ def test_sql_data_types():
     """
     my_frame = query(
         """
-        select 
+        select
             cast(avocado_id as object) as avocado_id_object,
             cast(avocado_id as int16) as avocado_id_int16,
             cast(avocado_id as smallint) as avocado_id_smallint,
