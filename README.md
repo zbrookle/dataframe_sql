@@ -21,7 +21,7 @@ my_table = read_csv("some_file.csv")
 
 register_temp_table(my_table, "my_table")
 
-query(""""select * from my_table""")
+query("""select * from my_table""")
 ```
 
 The package currently only supports pandas but there are plans to support dask and
