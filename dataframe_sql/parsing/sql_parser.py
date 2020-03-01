@@ -42,12 +42,34 @@ GET_TABLE_REGEX = re.compile(
 )
 PANDAS_TYPE_PYTHON_TYPE_FUNCTION = {
     "object": str,
+    "string": str,
+    "int16": int,
+    "int32": int,
     "int64": int,
+    "float16": float,
+    "float32": float,
     "float64": float,
     "bool": bool,
 }
+
+TYPE_TO_PANDAS_TYPE = {
+    "varchar": "string",
+    "smallint": "int16",
+    "int": "int32",
+    "bigint": "int64",
+    "float": "float64",
+    "timestamp": "datetime64",
+    "datetime64": "datetime64",
+    "timedelta[ns]": "timedelta[ns]",
+    "category": "category",
+}
+
+for TYPE in PANDAS_TYPE_PYTHON_TYPE_FUNCTION:
+    TYPE_TO_PANDAS_TYPE[TYPE] = TYPE
+
 PANDAS_TYPE_TO_SQL_TYPE = {
     "object": String,
+    "string": String,
     "int64": Number,
     "float64": Number,
     "bool": Bool,
@@ -748,8 +770,6 @@ class InternalTransformer(TransformerBaseClass):
         :param rank_function: Function to be used in rank evaluation
         :return:
         """
-        print("yes")
-
         expressions = tokens[0]
         series_list = []
         order_list = []
@@ -846,7 +866,7 @@ class InternalTransformer(TransformerBaseClass):
         """
         column = column_and_type[0]
         typename = column_and_type[1]
-        column.typename = typename.value
+        column.typename = TYPE_TO_PANDAS_TYPE[typename.value]
         return column
 
     def literal_cast(self, value_and_type: list):
@@ -1218,7 +1238,10 @@ class SQLTransformer(TransformerBaseClass):
         if isinstance(token, Column):
             query_info.columns.append(token)
             query_info.column_selected[token.name] = True
+            # TODO Get rid of collecting this alias information since its part of the
+            #  column object
             if token.alias:
+                print(query_info.aliases)
                 query_info.aliases[token.name] = token.alias
 
         if isinstance(token, Expression):
@@ -1398,6 +1421,7 @@ class SQLTransformer(TransformerBaseClass):
         :param internal_transformer: Transformer to transform the where clauses
         :return:
         """
+        print(columns)
         where_value = None
         where_plan = ":"
         if where_expr is not None:
@@ -1415,6 +1439,7 @@ class SQLTransformer(TransformerBaseClass):
                 new_frame = first_frame.copy()
         else:
             column_names = []
+            final_names = []
             for column in columns:
                 true_column_name = self.column_name_map[column.table][
                     column.name.lower()
@@ -1426,13 +1451,20 @@ class SQLTransformer(TransformerBaseClass):
                 ):
                     aliases[true_column_name] = column.name
 
+                if column.alias:
+                    final_names.append(column.alias)
+                else:
+                    final_names.append(column.name)
+
+            print(final_names)
             if where_value is not None:
                 new_frame = first_frame.loc[where_value, column_names]
             else:
                 new_frame = first_frame.loc[:, column_names]
             execution_plan += f".loc[{where_plan}, {column_names}]"
             if aliases:
-                new_frame = new_frame.rename(columns=aliases)
+                # new_frame = new_frame.rename(columns=aliases)
+                new_frame.columns = final_names
                 execution_plan += f".rename(columns={aliases})"
 
         return new_frame, execution_plan
