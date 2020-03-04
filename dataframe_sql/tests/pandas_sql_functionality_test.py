@@ -1433,6 +1433,6 @@ def test_order_of_operations_with_parens():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_sum()
+    test_order_of_operations_with_parens()
 
     remove_env_tables()

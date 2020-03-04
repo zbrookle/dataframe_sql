@@ -59,7 +59,10 @@ column_name: [NAME "."] NAME
                   | expression_product "/" expression_parens -> expression_div
 
 ?expression_parens: expression
-                  | "(" expression_parens "*" expression ")"
+                  | "(" expression_parens "*" expression ")" -> expression_mul
+                  | "(" expression_parens "/" expression ")" -> expression_div
+                  | "(" expression_parens "+" expression ")" -> expression_add
+                  | "(" expression_parens "-" expression ")" -> expression_sub
 
 ?expression: [NAME "."] (NAME | STAR) -> column_name
             | literal
