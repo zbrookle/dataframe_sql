@@ -1394,9 +1394,45 @@ def test_sql_data_types():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+def test_order_of_operations_no_parens():
+    """
+    Test math parentheses
+    :return:
+    """
+
+    my_frame = query("select 20 * avocado_id + 3 / 20 as my_math from avocado")
+
+    pandas_frame = AVOCADO.copy()[["avocado_id"]]
+    pandas_frame["my_math"] = 20 * pandas_frame["avocado_id"] + 3 / 20
+
+    pandas_frame = pandas_frame.drop(columns=["avocado_id"])
+
+    tm.assert_frame_equal(pandas_frame, my_frame)
+
+
+# def test_order_of_operations_with_parens():
+#     """
+#     Test math parentheses
+#     :return:
+#     """
+#
+#     my_frame = query(
+#         "select 20 * (avocado_id + 3) / (20 + avocado_id) as my_math from " "avocado"
+#     )
+#
+#     pandas_frame = AVOCADO.copy()[["avocado_id"]]
+#     pandas_frame["my_math"] = (
+#         20 * (pandas_frame["avocado_id"] + 3) / (20 + pandas_frame["avocado_id"])
+#     )
+#
+#     pandas_frame = pandas_frame.drop(columns=["avocado_id"])
+#
+#     tm.assert_frame_equal(pandas_frame, my_frame)
+
+
 if __name__ == "__main__":
     register_env_tables()
 
-    test_sql_data_types()
+    # test_order_of_operations_with_parens()
 
     remove_env_tables()

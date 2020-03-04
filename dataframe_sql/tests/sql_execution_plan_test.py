@@ -82,7 +82,8 @@ def test_using_math():
         "select temp, 1 + 2 * 3 as my_number from forest_fires",
         show_execution_plan=True,
     )
-    assert plan == "FOREST_FIRES.loc[:, ['temp']].assign(my_number=7, )"
+
+    assert plan == "FOREST_FIRES.loc[:, ['temp']].assign(my_number=1 + 2 * 3)"
 
 
 def test_distinct():
@@ -1086,6 +1087,6 @@ def test_timestamps():
 if __name__ == "__main__":
     register_env_tables()
 
-    # test_rank_statement_one_column()
+    test_using_math()
 
     remove_env_tables()
