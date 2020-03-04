@@ -56,7 +56,6 @@ order: expression_math ["ASC"i] -> order_asc
 column_name: [NAME "."] NAME
 ?expression_product: expression
                   | expression_product "*" expression -> expression_mul
-                  | expression "*" expression -> expression_mul
                   | expression_product "/" expression -> expression_div
 
 ?expression: [NAME "."] (NAME | STAR) -> column_name
