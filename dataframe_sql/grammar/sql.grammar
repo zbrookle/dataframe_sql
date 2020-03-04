@@ -56,6 +56,7 @@ order: expression_math ["ASC"i] -> order_asc
 column_name: [NAME "."] NAME
 ?expression_product: expression
                   | expression_product "*" expression -> expression_mul
+                  | expression "*" expression -> expression_mul
                   | expression_product "/" expression -> expression_div
 
 ?expression: [NAME "."] (NAME | STAR) -> column_name
@@ -104,12 +105,8 @@ not_in_expr: expression_math "NOT"i "IN"i "(" [expression_math ","] expression_m
 boolean: "true"i -> true
        | "false"i -> false
 ?number_expr: product
-            | number_expr "+" product -> add
-            | number_expr "-" product -> sub
 
 ?product: NUMBER
-        | product "*" NUMBER -> mul
-        | product "/" NUMBER -> div
 
 integer: /[1-9][0-9]*/
 STAR: "*"

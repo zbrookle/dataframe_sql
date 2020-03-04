@@ -1394,9 +1394,20 @@ def test_sql_data_types():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+def test_math_parentheses():
+    """
+    Test math parentheses
+    :return:
+    """
+
+    my_frame = query("select 20 * avocado_id from avocado")
+
+    print(my_frame)
+
+
 if __name__ == "__main__":
     register_env_tables()
 
-    test_sql_data_types()
+    test_right_left_math()
 
     remove_env_tables()
