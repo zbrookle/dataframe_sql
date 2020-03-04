@@ -554,14 +554,6 @@ class InternalTransformer(TransformerBaseClass):
         """
         return Token("where_expr", truth_value_dataframe[0])
 
-    def aggregation_name(self, aggregation_name):
-        """
-        Returns the function name tree
-        :param aggregation_name:
-        :return:
-        """
-        return aggregation_name[0].value
-
     def alias_string(self, name: List[str]):
         """
         Returns an alias token_or_tree with the name extracted
@@ -918,21 +910,14 @@ class HavingTransformer(TransformerBaseClass):
         """
         return "".join(function_name_list_form)
 
-    def aggregation_name(self, tokens):
-        """
-        Extracts function name from token_or_tree
-        :param tokens:
-        :return:
-        """
-        return tokens[0].value
-
-    def sql_aggregation(self, aggregation_expr):
+    def sql_aggregation(self, aggregation_expr: list):
         """
         Handles presence of aggregation in an sql_object
         :param aggregation_expr: Function sql_object
         :return:
         """
-        aggregate_name = aggregation_expr[0]
+        aggregate_token: Token = aggregation_expr[0]
+        aggregate_name: str = aggregate_token.value
         column = aggregation_expr[1]
         table = self.dataframe_map[column.table]
         column_true_name = self.column_name_map[column.table][column.name]

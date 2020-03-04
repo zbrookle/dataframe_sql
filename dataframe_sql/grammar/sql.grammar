@@ -42,7 +42,7 @@ JOIN_TYPE.5: "INNER"i | "CROSS"i | /FULL\sOUTER/i | /LEFT\sOUTER/i |  /RIGHT\sOU
                | "CASE"i (when_then)+ "ELSE"i expression_math "END"i -> case_expression
                | "CAST"i "(" expression_math "AS"i TYPENAME ")" -> as_type
                | "CAST"i "(" literal "AS"i TYPENAME ")" -> literal_cast
-               | aggregation "(" expression_math ")" -> sql_aggregation
+               | AGGREGATION "(" expression_math ")" -> sql_aggregation
                | "RANK"i "(" ")" rank_form -> rank_expression
                | "DENSE_RANK"i "(" ")" rank_form -> dense_rank_expression
 
@@ -54,9 +54,12 @@ order: expression_math ["ASC"i] -> order_asc
           | expression_math "DESC"i -> order_desc
 
 column_name: [NAME "."] NAME
-?expression_product: expression
-                  | expression_product "*" expression -> expression_mul
-                  | expression_product "/" expression -> expression_div
+?expression_product: expression_parens
+                  | expression_product "*" expression_parens -> expression_mul
+                  | expression_product "/" expression_parens -> expression_div
+
+?expression_parens: expression
+                  | "(" expression_parens "*" expression ")"
 
 ?expression: [NAME "."] (NAME | STAR) -> column_name
             | literal
@@ -79,7 +82,7 @@ TYPENAME:  "object"i
          | "datetime64"i
          | "timestamp"i
          | "category"i
-?aggregation: NAME -> aggregation_name
+AGGREGATION.8: "sum"i | "avg"i | "min"i | "max"i
 alias: NAME -> alias_string
 _window_name: NAME
 limit_count: integer -> limit_count

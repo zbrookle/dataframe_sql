@@ -462,6 +462,9 @@ def test_having_one_condition():
         "select min(temp) from forest_fires having min(temp) > 2",
         show_execution_plan=True,
     )
+
+    print(plan)
+
     assert (
         plan == "FOREST_FIRES.loc[:, ['temp']].assign(__=1).groupby(['__'])"
         ".agg(**{'_col0': ('temp', 'min')}).reset_index(drop=True)"
@@ -1087,6 +1090,6 @@ def test_timestamps():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_using_math()
+    test_having_one_condition()
 
     remove_env_tables()
