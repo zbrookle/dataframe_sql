@@ -1429,6 +1429,7 @@ def test_math_order_of_operations_with_parens():
 
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 def test_boolean_order_of_operations_with_parens():
     """
     Test boolean order of operations with parentheses
@@ -1440,13 +1441,18 @@ def test_boolean_order_of_operations_with_parens():
         "(month = 'nov' and day = 'tue')"
     )
 
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame = pandas_frame[((pandas_frame['month'] == 'oct') &
+                                 (pandas_frame['day'] == 'fri')) |
+                                ((pandas_frame['month'] == 'nov') &
+                                 (pandas_frame['day'] == 'tue'))].reset_index(drop=True)
 
-
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
 
 if __name__ == "__main__":
     register_env_tables()
 
-    test_right_joins()
+    test_boolean_order_of_operations_with_parens()
 
     remove_env_tables()

@@ -1229,7 +1229,6 @@ class SQLTransformer(TransformerBaseClass):
             # TODO Get rid of collecting this alias information since its part of the
             #  column object
             if token.alias:
-                print(query_info.aliases)
                 query_info.aliases[token.name] = token.alias
 
         if isinstance(token, Expression):
@@ -1409,7 +1408,6 @@ class SQLTransformer(TransformerBaseClass):
         :param internal_transformer: Transformer to transform the where clauses
         :return:
         """
-        print(columns)
         where_value = None
         where_plan = ":"
         if where_expr is not None:
@@ -1444,7 +1442,6 @@ class SQLTransformer(TransformerBaseClass):
                 else:
                     final_names.append(column.name)
 
-            print(final_names)
             if where_value is not None:
                 new_frame = first_frame.loc[where_value, column_names]
             else:

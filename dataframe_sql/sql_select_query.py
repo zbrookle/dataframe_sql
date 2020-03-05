@@ -123,7 +123,6 @@ class SqlToDataFrame:
     def parse_sql(self):
         try:
             tree = self.parser.parse(self.sql)
-            print(tree.pretty())
 
             table_info = TableInfo()
 
