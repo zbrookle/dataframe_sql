@@ -244,6 +244,24 @@ class ValueWithPlan(Value):
     def __repr__(self):
         return Value.__repr__(self) + ")"
 
+    def __or__(self, other):
+        if not isinstance(other, Value):
+            raise Exception(f"Operator | is not supported between type {type(other)} "
+                            f"and type ValueWithPlan")
+
+        return ValueWithPlan(self.get_value() | other.get_value(),
+                             f"{self.get_plan_representation()} | "
+                             f"{other.get_plan_representation()}")
+
+    def __and__(self, other):
+        if not isinstance(other, Value):
+            raise Exception(f"Operator && is not supported between type {type(other)} "
+                            f"and type ValueWithPlan")
+
+        ValueWithPlan(self.get_value() & other.get_value(),
+                      f"{self.get_plan_representation()} & "
+                      f"{other.get_plan_representation()}")
+
     def get_plan_representation(self) -> str:
         return self.execution_plan
 

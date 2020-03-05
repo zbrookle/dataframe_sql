@@ -90,9 +90,12 @@ alias: NAME -> alias_string
 _window_name: NAME
 limit_count: integer -> limit_count
 skip_rows: integer
-bool_expression: bool_expression "AND"i bool_expression -> bool_and
-                 | bool_expression "OR"i bool_expression -> bool_or
-                 | comparison_type
+bool_expression: bool_parentheses
+                 | bool_expression "AND"i bool_parentheses -> bool_and
+                 | bool_expression "OR"i bool_parentheses -> bool_or
+bool_parentheses: comparison_type
+                 | "(" bool_expression "AND"i comparison_type ")" -> bool_and
+                 | "(" bool_expression "OR"i comparison_type ")" -> bool_or
 comparison_type: equals | not_equals | greater_than | less_than | greater_than_or_equal | less_than_or_equal | between | in_expr | not_in_expr
 equals: expression_math "=" expression_math
 not_equals: expression_math ("<>" | "!=") expression_math

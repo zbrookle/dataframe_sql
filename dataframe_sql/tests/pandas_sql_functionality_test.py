@@ -1394,7 +1394,7 @@ def test_sql_data_types():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-def test_order_of_operations_no_parens():
+def test_math_order_of_operations_no_parens():
     """
     Test math parentheses
     :return:
@@ -1410,14 +1410,14 @@ def test_order_of_operations_no_parens():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-def test_order_of_operations_with_parens():
+def test_math_order_of_operations_with_parens():
     """
     Test math parentheses
     :return:
     """
 
     my_frame = query(
-        "select 20 * (avocado_id + 3) / (20 + avocado_id) as my_math from " "avocado"
+        "select 20 * (avocado_id + 3) / (20 + avocado_id) as my_math from avocado"
     )
 
     pandas_frame = AVOCADO.copy()[["avocado_id"]]
@@ -1429,10 +1429,24 @@ def test_order_of_operations_with_parens():
 
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+def test_boolean_order_of_operations_with_parens():
+    """
+    Test boolean order of operations with parentheses
+    :return:
+    """
+    my_frame = query(
+        "select * from forest_fires "
+        "where (month = 'oct' and day = 'fri') or "
+        "(month = 'nov' and day = 'tue')"
+    )
+
+
+
+
 
 if __name__ == "__main__":
     register_env_tables()
 
-    test_order_of_operations_with_parens()
+    test_right_joins()
 
     remove_env_tables()

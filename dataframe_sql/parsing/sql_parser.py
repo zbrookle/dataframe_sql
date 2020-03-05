@@ -521,6 +521,9 @@ class InternalTransformer(TransformerBaseClass):
             f"{plans[0]} & {plans[1]}",
         )
 
+    def bool_parentheses(self, bool_expression_in_list: list):
+        return bool_expression_in_list[0]
+
     def bool_or(self, truth_series_pair):
         """
         Return the truth value of the series pair
@@ -1166,7 +1169,7 @@ class SQLTransformer(TransformerBaseClass):
                 join_type = "outer"
 
         # Check that there is a column from both sides
-        column_comparison = join_condition.children[0].children
+        column_comparison = join_condition.children[0].children[0].children
         column1 = str(column_comparison[0].children)
         column2 = str(column_comparison[1].children)
 
