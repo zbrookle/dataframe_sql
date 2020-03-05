@@ -1442,10 +1442,10 @@ def test_boolean_order_of_operations_with_parens():
     )
 
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame = pandas_frame[((pandas_frame['month'] == 'oct') &
-                                 (pandas_frame['day'] == 'fri')) |
-                                ((pandas_frame['month'] == 'nov') &
-                                 (pandas_frame['day'] == 'tue'))].reset_index(drop=True)
+    pandas_frame = pandas_frame[
+        ((pandas_frame["month"] == "oct") & (pandas_frame["day"] == "fri"))
+        | ((pandas_frame["month"] == "nov") & (pandas_frame["day"] == "tue"))
+    ].reset_index(drop=True)
 
     tm.assert_frame_equal(pandas_frame, my_frame)
 
