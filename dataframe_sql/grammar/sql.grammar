@@ -25,8 +25,6 @@ groupby_expr: expression -> group_by
 
 window_expr: [window_expr ","] _window_name "AS"i ( window_definition )
 
-SET_OP: "UNION"i [ ("ALL"i | "DISTINCT"i) ] | "INTERSECT"i "DISTINCT"i | "EXCEPT"i "DISTINCT"i
-
 from_item: NAME [ [ "AS"i ] alias ] -> table
             | join -> join
             | ( "(" query_expr ")" ) [ [ "AS"i ] alias ] -> subquery
@@ -85,6 +83,7 @@ TYPENAME:  "object"i
          | "datetime64"i
          | "timestamp"i
          | "category"i
+         | "string"i
 AGGREGATION.8: "sum"i | "avg"i | "min"i | "max"i
 alias: NAME -> alias_string
 _window_name: NAME
