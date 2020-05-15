@@ -18,7 +18,7 @@ class InvalidQueryException(Exception):
     """
 
     def __init__(self, message):
-        Exception.__init__(self, f"Invalid query!\n" + message)
+        Exception.__init__(self, f"Invalid query!\n{message}")
 
 
 class DataFrameDoesNotExist(Exception):
