@@ -2,6 +2,7 @@
 
 ![CI](https://github.com/zbrookle/dataframe_sql/workflows/CI/badge.svg)
 
+
 ## Installation
 
 ```bash
@@ -72,12 +73,12 @@ INNER, CROSS, FULL OUTER, LEFT OUTER, RIGHT OUTER, FULL, LEFT, RIGHT
 Order by and limit:
 
 ```SQL
-set1
+<set>
 [ORDER BY <expression>]
 [LIMIT <number>]
 ```
 
-Supported expressions and function:
+Supported expressions and functions:
 ```SQL 
 +, -, *, /
 ```
@@ -88,33 +89,34 @@ CASE WHEN <condition> THEN <result> [WHEN ...] ELSE <result> END
 SUM, AVG, MIN, MAX
 ```
 ```SQL
-(RANK | DENSE_RANK) OVER([PARTITION BY (<expresssion> [, <expression>...)])
+{RANK | DENSE_RANK} OVER([PARTITION BY (<expresssion> [, <expression>...)])
 ```
 ```SQL
 CAST <expression> AS <data_type>
 ```
-*Anything in <> is meant to be some string
-*Anything in [] is optional
+*Anything in <> is meant to be some string <br>
+*Anything in [] is optional <br>
 *Anything in {} is grouped together
 
 ### Supported Data Types for cast expressions include:
--VARCHAR, STRING
--INT16, SMALLINT
--INT32, INT
--INT64, BIGINT
--FLOAT16
--FLOAT32
--FLOAT, FLOAT64
--BOOL
--DATETIME64, TIMESTAMP
--CATEGORY
--OBJECT
+* VARCHAR, STRING
+* INT16, SMALLINT
+* INT32, INT
+* INT64, BIGINT
+* FLOAT16
+* FLOAT32
+* FLOAT, FLOAT64
+* BOOL
+* DATETIME64, TIMESTAMP
+* CATEGORY
+* OBJECT
 
 *Data types in dataframe SQL support many different name for certain datatypes becuase
- popular SQL data types are not implemented with common names in pandas and other
-  dataframe frameworks
- **To make this less confusing all data types that are of the same size on the
-  backend are grouped together in this list
+popular SQL data types are not implemented with common names in pandas and other
+dataframe frameworks 
+<br>
+**To make this less confusing all data types that are of the same size on the
+backend are grouped together in this list
 
 ## Issues that come from Pandas
 
