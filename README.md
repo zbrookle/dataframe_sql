@@ -1,7 +1,10 @@
 # dataframe_sql
 
 ![CI](https://github.com/zbrookle/dataframe_sql/workflows/CI/badge.svg)
-
+[![Downloads](https://pepy.tech/badge/dataframe-sql)](https://pepy.tech/project/dataframe-sql)
+[![PyPI license](https://img.shields.io/pypi/l/dataframe_sql.svg)](https://pypi.python.org/pypi/dataframe_sql/)
+[![PyPI status](https://img.shields.io/pypi/status/dataframe_sql.svg)](https://pypi.python.org/pypi/dataframe_sql/)
+[![PyPI version shields.io](https://img.shields.io/pypi/v/dataframe_sql.svg)](https://pypi.python.org/pypi/dataframe_sql/)
 
 ## Installation
 
@@ -42,7 +45,7 @@ FALSE_SERIES = Series(data=[False for _ in range(0, dataframe_size)]))
 NONE_SERIES = Series(data=[None for _ in range(0, dataframe_size)]))
 ```
 
-### SQL Syntax
+## SQL Syntax
 The sql syntax for dataframe_sql is as follows:
 
 Select statement:
