@@ -92,7 +92,7 @@ SUM, AVG, MIN, MAX
 {RANK | DENSE_RANK} OVER([PARTITION BY (<expresssion> [, <expression>...)])
 ```
 ```SQL
-CAST <expression> AS <data_type>
+CAST (<expression> AS <data_type>)
 ```
 *Anything in <> is meant to be some string <br>
 *Anything in [] is optional <br>
