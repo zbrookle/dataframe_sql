@@ -24,7 +24,7 @@ setup(
     maintainer_email="zachb1996@yahoo.com",
     description="A package for querying dataframes using SQL",
     python_requires=">=3.6.1",
-    install_requires=["lark-parser == 0.8.1", "pandas == 1.0.1"],
+    install_requires=["lark-parser==0.8.1", "pandas>=1.0.0"],
     project_urls={
         "Source": "https://github.com/zbrookle/dataframe_sql",
         "Documentation": "",
