@@ -41,6 +41,80 @@ FALSE_SERIES = Series(data=[False for _ in range(0, dataframe_size)]))
 NONE_SERIES = Series(data=[None for _ in range(0, dataframe_size)]))
 ```
 
+### SQL Syntax
+The sql syntax for dataframe_sql is as follows:
+
+Select statement:
+
+```SQL
+SELECT [{ ALL | DISTINCT }]
+    { [ <expression> ] | <expression> [ [ AS ] <alias> ] } [, ...]
+[ FROM <from_item>  [, ...] ]
+[ WHERE <bool_expression> ]
+[ GROUP BY { <expression> [, ...] } ]
+[ HAVING <bool_expression> ]
+```
+
+Set operations:
+
+```SQL
+<select_statement1>
+{UNION [DISTINCT] | UNION ALL | INTERSECT [DISTINCT] | EXCEPT [DISTINCT] | EXCEPT ALL}
+<select_statment2>
+```
+
+Joins:
+
+```SQL
+INNER, CROSS, FULL OUTER, LEFT OUTER, RIGHT OUTER, FULL, LEFT, RIGHT
+```
+
+Order by and limit:
+
+```SQL
+set1
+[ORDER BY <expression>]
+[LIMIT <number>]
+```
+
+Supported expressions and function:
+```SQL 
++, -, *, /
+```
+```SQL
+CASE WHEN <condition> THEN <result> [WHEN ...] ELSE <result> END
+```
+```SQL
+SUM, AVG, MIN, MAX
+```
+```SQL
+(RANK | DENSE_RANK) OVER([PARTITION BY (<expresssion> [, <expression>...)])
+```
+```SQL
+CAST <expression> AS <data_type>
+```
+*Anything in <> is meant to be some string
+*Anything in [] is optional
+*Anything in {} is grouped together
+
+### Supported Data Types for cast expressions include:
+-VARCHAR, STRING
+-INT16, SMALLINT
+-INT32, INT
+-INT64, BIGINT
+-FLOAT16
+-FLOAT32
+-FLOAT, FLOAT64
+-BOOL
+-DATETIME64, TIMESTAMP
+-CATEGORY
+-OBJECT
+
+*Data types in dataframe SQL support many different name for certain datatypes becuase
+ popular SQL data types are not implemented with common names in pandas and other
+  dataframe frameworks
+ **To make this less confusing all data types that are of the same size on the
+  backend are grouped together in this list
 
 ## Issues that come from Pandas
 
