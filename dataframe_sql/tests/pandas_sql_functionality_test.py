@@ -1367,7 +1367,8 @@ def test_sql_data_types():
             cast(avocado_id as category) as avocado_id_category,
             cast(date as datetime64) as date,
             cast(date as timestamp) as time,
-            cast(region as varchar) as region_varchar
+            cast(region as varchar) as region_varchar,
+            cast(region as string) as region_string
         from avocado
         """
     )
@@ -1389,6 +1390,7 @@ def test_sql_data_types():
     pandas_frame["date"] = pandas_frame["Date"].astype("datetime64")
     pandas_frame["time"] = pandas_frame["Date"].astype("datetime64")
     pandas_frame["region_varchar"] = pandas_frame["region"].astype("string")
+    pandas_frame["region_string"] = pandas_frame["region"].astype("string")
     pandas_frame = pandas_frame.drop(columns=["avocado_id", "Date", "region"])
 
     tm.assert_frame_equal(pandas_frame, my_frame)
@@ -1453,6 +1455,6 @@ def test_boolean_order_of_operations_with_parens():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_boolean_order_of_operations_with_parens()
+    test_sql_data_types()
 
     remove_env_tables()
