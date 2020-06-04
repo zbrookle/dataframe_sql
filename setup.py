@@ -29,7 +29,7 @@ setup(
     python_requires=">=3.6.1",
     install_requires=["lark-parser==0.8.1", "pandas>=1.0.0"],
     project_urls={
-        "Source": "https://github.com/zbrookle/dataframe_sql",
+        "Source Code": "https://github.com/zbrookle/dataframe_sql",
         "Documentation": "",
     },
     url="https://github.com/zbrookle/dataframe_sql",
