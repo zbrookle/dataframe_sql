@@ -16,6 +16,8 @@ def read_file(filename):
     ) as file:
         return file.read()
 
+print(find_packages())
+exit()
 
 setup(
     name="dataframe_sql",
