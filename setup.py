@@ -1,6 +1,7 @@
 from distutils.core import setup
 import os
 from pathlib import Path
+from setuptools import find_packages
 
 from versioneer import get_cmdclass, get_version
 
@@ -19,6 +20,7 @@ setup(
     name="dataframe_sql",
     version=get_version(),
     cmdclass=get_cmdclass(),
+    packages=find_packages(include=["dataframe_sql", "dataframe_sql.*"]),
     long_description="Coming soon...",
     maintainer="Zach Brookler",
     maintainer_email="zachb1996@yahoo.com",
