@@ -30,7 +30,8 @@ setup(
     install_requires=["lark-parser==0.8.1", "pandas>=1.0.0"],
     project_urls={
         "Source Code": "https://github.com/zbrookle/dataframe_sql",
-        "Documentation": "",
+        "Bug Tracker": "https://github.com/zbrookle/dataframe_sql/issues",
+        "Documentation": "https://github.com/zbrookle/dataframe_sql",
     },
     url="https://github.com/zbrookle/dataframe_sql",
     download_url="https://github.com/zbrookle/dataframe_sql/archive/master.zip",
