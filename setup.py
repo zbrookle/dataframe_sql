@@ -45,5 +45,5 @@ setup(
         "Programming Language :: Python :: 3.7",
     ],
     long_description_content_type="text/markdown",
-    include_package_data=True
+    include_package_data=True,
 )
