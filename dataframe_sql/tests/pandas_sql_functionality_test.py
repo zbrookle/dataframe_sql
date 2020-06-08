@@ -17,6 +17,7 @@ from dataframe_sql.tests.utils import (
     register_env_tables,
     remove_env_tables,
     join_params,
+    fix_naming_inconsistencies,
 )
 
 
@@ -125,14 +126,15 @@ def test_subquery():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-def test_join_wo_specifying_table():
+@join_params
+def test_join_wo_specifying_table(sql_join: str, pandas_join: str):
     """
     Test join where table isn't specified in join
     :return:
     """
     my_frame = query(
-        """
-        select * from digimon_mon_list join
+        f"""
+        select * from digimon_mon_list {sql_join} join
         digimon_move_list
         on mon_attribute = move_attribute
         """
@@ -140,8 +142,12 @@ def test_join_wo_specifying_table():
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
     pandas_frame = pandas_frame1.merge(
-        pandas_frame2, left_on="mon_attribute", right_on="move_attribute"
+        pandas_frame2,
+        left_on="mon_attribute",
+        right_on="move_attribute",
+        how=pandas_join,
     )
+    pandas_frame = fix_naming_inconsistencies(pandas_frame)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -154,40 +160,8 @@ def test_joins(sql_join: str, pandas_join: str):
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    pandas_frame = pandas_frame1.merge(
-        pandas_frame2, on="Attribute", how=pandas_join
-    ).rename(
-        columns={"Type_y": "DIGIMON_MOVE_LIST.Type", "Type_x": "DIGIMON_MON_LIST.Type"}
-    )
-    pandas_frame["DIGIMON_MOVE_LIST.Attribute"] = pandas_frame["Attribute"]
-    pandas_frame = pandas_frame.rename(
-        columns={"Attribute": "DIGIMON_MON_LIST.Attribute"}
-    )[
-        [
-            "Number",
-            "Digimon",
-            "Stage",
-            "DIGIMON_MON_LIST.Type",
-            "DIGIMON_MON_LIST.Attribute",
-            "Memory",
-            "Equip Slots",
-            "Lv 50 HP",
-            "Lv50 SP",
-            "Lv50 Atk",
-            "Lv50 Def",
-            "Lv50 Int",
-            "Lv50 Spd",
-            "mon_attribute",
-            "Move",
-            "SP Cost",
-            "DIGIMON_MOVE_LIST.Type",
-            "Power",
-            "DIGIMON_MOVE_LIST.Attribute",
-            "Inheritable",
-            "Description",
-            "move_attribute",
-        ]
-    ]
+    pandas_frame = pandas_frame1.merge(pandas_frame2, on="Attribute", how=pandas_join)
+    pandas_frame = fix_naming_inconsistencies(pandas_frame)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -199,11 +173,14 @@ def test_cross_joins():
     my_frame = query(
         """select * from digimon_mon_list cross join
             digimon_move_list
-            on digimon_mon_list.type = digimon_move_list.type"""
+           """
     )
     pandas_frame1 = DIGIMON_MON_LIST
     pandas_frame2 = DIGIMON_MOVE_LIST
-    pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="Type")
+    pandas_frame1["__"] = 0
+    pandas_frame2["__"] = 0
+    pandas_frame = pandas_frame1.merge(pandas_frame2, how="outer", on="__")
+    pandas_frame = fix_naming_inconsistencies(pandas_frame)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 

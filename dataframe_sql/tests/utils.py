@@ -45,6 +45,51 @@ def remove_env_tables():
             remove_temp_table(table_name=variable_name)
 
 
+def fix_naming_inconsistencies(pandas_frame: DataFrame) -> DataFrame:
+    pandas_frame = pandas_frame.rename(
+        columns={"Type_y": "DIGIMON_MOVE_LIST.Type", "Type_x": "DIGIMON_MON_LIST.Type"}
+    )
+    if "Attribute_x" in pandas_frame.columns:
+        pandas_frame = pandas_frame.rename(
+            columns={
+                "Attribute_y": "DIGIMON_MOVE_LIST.Attribute",
+                "Attribute_x": "DIGIMON_MON_LIST.Attribute",
+            }
+        )
+    if "Attribute" in pandas_frame.columns:
+        pandas_frame["DIGIMON_MOVE_LIST.Attribute"] = pandas_frame["Attribute"]
+        pandas_frame = pandas_frame.rename(
+            columns={"Attribute": "DIGIMON_MON_LIST.Attribute"}
+        )
+    pandas_frame = pandas_frame[
+        [
+            "Number",
+            "Digimon",
+            "Stage",
+            "DIGIMON_MON_LIST.Type",
+            "DIGIMON_MON_LIST.Attribute",
+            "Memory",
+            "Equip Slots",
+            "Lv 50 HP",
+            "Lv50 SP",
+            "Lv50 Atk",
+            "Lv50 Def",
+            "Lv50 Int",
+            "Lv50 Spd",
+            "mon_attribute",
+            "Move",
+            "SP Cost",
+            "DIGIMON_MOVE_LIST.Type",
+            "Power",
+            "DIGIMON_MOVE_LIST.Attribute",
+            "Inheritable",
+            "Description",
+            "move_attribute",
+        ]
+    ]
+    return pandas_frame
+
+
 join_params = pytest.mark.parametrize(
     ("sql_join", "pandas_join"),
     [
