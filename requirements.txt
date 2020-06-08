@@ -1,2 +1,3 @@
-pandas
+ibis-framework
 lark-parser
+sql-to-ibis

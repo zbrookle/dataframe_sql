@@ -6,6 +6,7 @@ from pathlib import Path
 from pandas import DataFrame, read_csv
 
 from dataframe_sql import register_temp_table, remove_temp_table
+import pytest
 
 DATA_PATH = Path(__file__).parent.parent / "data"
 
@@ -42,3 +43,18 @@ def remove_env_tables():
         variable = globals()[variable_name]
         if isinstance(variable, DataFrame):
             remove_temp_table(table_name=variable_name)
+
+
+join_params = pytest.mark.parametrize(
+    ("sql_join", "pandas_join"),
+    [
+        ("", "inner"),
+        ("inner", "inner"),
+        ("full outer", "outer"),
+        ("full", "outer"),
+        ("left outer", "left"),
+        ("left", "left"),
+        ("right outer", "right"),
+        ("right", "right"),
+    ],
+)
