@@ -2,6 +2,7 @@
 Test cases for panda to sql
 """
 from datetime import date, datetime
+
 from freezegun import freeze_time
 import numpy as np
 from pandas import concat, merge
@@ -14,10 +15,10 @@ from dataframe_sql.tests.utils import (
     DIGIMON_MON_LIST,
     DIGIMON_MOVE_LIST,
     FOREST_FIRES,
+    fix_naming_inconsistencies,
+    join_params,
     register_env_tables,
     remove_env_tables,
-    join_params,
-    fix_naming_inconsistencies,
 )
 
 

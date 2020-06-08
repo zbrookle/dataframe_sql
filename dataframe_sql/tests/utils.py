@@ -4,9 +4,9 @@ Shared functions among the tests like setting up test environment
 from pathlib import Path
 
 from pandas import DataFrame, read_csv
+import pytest
 
 from dataframe_sql import register_temp_table, remove_temp_table
-import pytest
 
 DATA_PATH = Path(__file__).parent.parent / "data"
 

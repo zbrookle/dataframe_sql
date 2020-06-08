@@ -1,13 +1,13 @@
 """
 Convert dataframe_sql statement to run on pandas dataframes
 """
+import ibis
+from pandas import DataFrame
 from sql_to_ibis import (
+    query as ibis_query,
     register_temp_table as ibis_register,
     remove_temp_table as ibis_remove,
-    query as ibis_query,
 )
-from pandas import DataFrame
-import ibis
 
 IBIS_PANDAS_CLIENT = ibis.pandas.PandasClient({})
 
