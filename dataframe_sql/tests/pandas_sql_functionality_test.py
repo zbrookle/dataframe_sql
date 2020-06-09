@@ -477,12 +477,20 @@ def test_nested_subquery():
 
 @pytest.fixture
 def pandas_frame1_for_set_ops():
-    return FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(5)
+    return (
+        FOREST_FIRES.copy()
+        .sort_values(by=["wind"], ascending=[False], kind="mergesort")
+        .head(5)
+    )
 
 
 @pytest.fixture
 def pandas_frame2_for_set_ops():
-    return FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[True]).head(5)
+    return (
+        FOREST_FIRES.copy()
+        .sort_values(by=["wind"], ascending=[True], kind="mergesort")
+        .head(5)
+    )
 
 
 @pytest.mark.parametrize("union_string", ["union", "union distinct"])
@@ -498,18 +506,12 @@ def test_union(union_string: str, pandas_frame1_for_set_ops, pandas_frame2_for_s
     select * from forest_fires order by wind asc limit 5
     """
     )
+
     pandas_frame = (
-        concat(
-            [pandas_frame1_for_set_ops, pandas_frame2_for_set_ops], axis=0
-        )
+        concat([pandas_frame1_for_set_ops, pandas_frame2_for_set_ops], axis=0)
         .drop_duplicates()
         .reset_index(drop=True)
     )
-    my_frame = my_frame.sort_values(by=["X", "Y"])
-    pandas_frame = pandas_frame.sort_values(by=["X", "Y"])
-    print()
-    print(pandas_frame)
-    print(my_frame)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -1117,7 +1119,16 @@ def test_boolean_order_of_operations_with_parens():
 
 if __name__ == "__main__":
     register_env_tables()
-
-    test_agg_w_groupby()
+    #
+    # frame1 = FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False],
+    #                                          kind="mergesort").head(
+    #     5).reset_index(drop=True)
+    # frame2 = FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[True],
+    #                                          kind="mergesort"
+    #                                          ).head(5).reset_index(drop=True)
+    # print("pandas first\n", frame1)
+    # print("my first\n", query("select * from forest_fires order by wind desc limit 5"))
+    # print("pandas second\n", frame2)
+    # print("my second\n", query("select * from forest_fires order by wind asc limit 5"))
 
     remove_env_tables()
