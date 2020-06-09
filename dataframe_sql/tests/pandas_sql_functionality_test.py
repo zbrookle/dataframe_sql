@@ -475,59 +475,45 @@ def test_nested_subquery():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-def test_union():
+@pytest.fixture
+def pandas_frame1_for_set_ops():
+    return FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(5)
+
+
+@pytest.fixture
+def pandas_frame2_for_set_ops():
+    return FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[True]).head(5)
+
+
+@pytest.mark.parametrize("union_string", ["union", "union distinct"])
+def test_union(union_string: str, pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test union in queries
     :return:
     """
     my_frame = query(
-        """
+        f"""
     select * from forest_fires order by wind desc limit 5
-    union
+    {union_string}
     select * from forest_fires order by wind asc limit 5
     """
     )
-    pandas_frame1 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(5)
-    )
-    pandas_frame2 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[True]).head(5)
-    )
     pandas_frame = (
-        concat([pandas_frame1, pandas_frame2], ignore_index=True)
+        concat(
+            [pandas_frame1_for_set_ops, pandas_frame2_for_set_ops], axis=0
+        )
         .drop_duplicates()
         .reset_index(drop=True)
     )
+    my_frame = my_frame.sort_values(by=["X", "Y"])
+    pandas_frame = pandas_frame.sort_values(by=["X", "Y"])
+    print()
+    print(pandas_frame)
+    print(my_frame)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-def test_union_distinct():
-    """
-    Test union distinct in queries
-    :return:
-    """
-    my_frame = query(
-        """
-        select * from forest_fires order by wind desc limit 5
-         union distinct
-        select * from forest_fires order by wind asc limit 5
-        """
-    )
-    pandas_frame1 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(5)
-    )
-    pandas_frame2 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[True]).head(5)
-    )
-    pandas_frame = (
-        concat([pandas_frame1, pandas_frame2], ignore_index=True)
-        .drop_duplicates()
-        .reset_index(drop=True)
-    )
-    tm.assert_frame_equal(pandas_frame, my_frame)
-
-
-def test_union_all():
+def test_union_all(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test union distinct in queries
     :return:
@@ -539,19 +525,13 @@ def test_union_all():
         select * from forest_fires order by wind asc limit 5
         """
     )
-    pandas_frame1 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(5)
-    )
-    pandas_frame2 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[True]).head(5)
-    )
     pandas_frame = concat(
-        [pandas_frame1, pandas_frame2], ignore_index=True
+        [pandas_frame1_for_set_ops, pandas_frame2_for_set_ops], ignore_index=True
     ).reset_index(drop=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-def test_intersect_distinct():
+def test_intersect_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test union distinct in queries
     :return:
@@ -563,22 +543,16 @@ def test_intersect_distinct():
             select * from forest_fires order by wind desc limit 3
             """
     )
-    pandas_frame1 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(5)
-    )
-    pandas_frame2 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(3)
-    )
     pandas_frame = merge(
-        left=pandas_frame1,
-        right=pandas_frame2,
+        left=pandas_frame1_for_set_ops,
+        right=pandas_frame2_for_set_ops,
         how="inner",
-        on=list(pandas_frame1.columns),
+        on=list(pandas_frame1_for_set_ops.columns),
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-def test_except_distinct():
+def test_except_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test except distinct in queries
     :return:
@@ -590,21 +564,17 @@ def test_except_distinct():
                 select * from forest_fires order by wind desc limit 3
                 """
     )
-    pandas_frame1 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(5)
-    )
-    pandas_frame2 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(3)
-    )
     pandas_frame = (
-        pandas_frame1[~pandas_frame1.isin(pandas_frame2).all(axis=1)]
+        pandas_frame1_for_set_ops[
+            ~pandas_frame1_for_set_ops.isin(pandas_frame2_for_set_ops).all(axis=1)
+        ]
         .drop_duplicates()
         .reset_index(drop=True)
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-def test_except_all():
+def test_except_all(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test except distinct in queries
     :return:
@@ -616,14 +586,8 @@ def test_except_all():
                 select * from forest_fires order by wind desc limit 3
                 """
     )
-    pandas_frame1 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(5)
-    )
-    pandas_frame2 = (
-        FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False]).head(3)
-    )
-    pandas_frame = pandas_frame1[
-        ~pandas_frame1.isin(pandas_frame2).all(axis=1)
+    pandas_frame = pandas_frame1_for_set_ops[
+        ~pandas_frame1_for_set_ops.isin(pandas_frame2_for_set_ops).all(axis=1)
     ].reset_index(drop=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
@@ -1154,6 +1118,6 @@ def test_boolean_order_of_operations_with_parens():
 if __name__ == "__main__":
     register_env_tables()
 
-    test_sql_data_types()
+    test_agg_w_groupby()
 
     remove_env_tables()

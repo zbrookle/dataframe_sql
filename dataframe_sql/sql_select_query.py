@@ -61,7 +61,7 @@ def remove_temp_table(table_name: str):
     ibis_remove(table_name)
 
 
-def query(sql: str, show_execution_plan: bool = False):
+def query(sql: str) -> DataFrame:
     """
     Query a registered :class: ~`pandas.DataFrame` using an SQL interface
 
@@ -93,5 +93,4 @@ def query(sql: str, show_execution_plan: bool = False):
 
 
     """
-    # print(ibis_query(sql))
     return ibis_query(sql).execute()
