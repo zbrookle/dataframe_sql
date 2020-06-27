@@ -9,7 +9,7 @@ from pandas import concat, merge
 import pandas.testing as tm
 import pytest
 
-from dataframe_sql import query, register_temp_table, remove_temp_table
+from dataframe_sql import query
 from dataframe_sql.tests.utils import (
     AVOCADO,
     DIGIMON_MON_LIST,
@@ -428,12 +428,18 @@ def test_select_star_from_multiple_tables():
     """
     my_frame = query("""select * from forest_fires, digimon_mon_list""")
     forest_fires = FOREST_FIRES.copy()
-    digimon_mon_list_new = DIGIMON_MON_LIST.copy()
-    forest_fires["_temp_id"] = 1
-    digimon_mon_list_new["_temp_id"] = 1
-    pandas_frame = merge(forest_fires, digimon_mon_list_new, on="_temp_id").drop(
-        columns=["_temp_id"]
+    digimon_mon_list = DIGIMON_MON_LIST.copy()
+    pandas_frame = merge(
+        forest_fires.assign(__=1), digimon_mon_list.assign(__=1), on="__", how="inner"
     )
+    del pandas_frame["__"]
+    renamed = {}
+    for column in pandas_frame.columns:
+        if "_x" in column:
+            renamed[column] = "forest_fires." + column.replace("_x", "")
+        if "_y" in column:
+            renamed[column] = "digimon_mon_list." + column.replace("_y", "")
+    pandas_frame.rename(columns=renamed, inplace=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -445,9 +451,17 @@ def test_select_columns_from_two_tables_with_same_column_name():
     my_frame = query("""select * from forest_fires table1, forest_fires table2""")
     table1 = FOREST_FIRES.copy()
     table2 = FOREST_FIRES.copy()
-    table1["_temp_id"] = 1
-    table2["_temp_id"] = 1
-    pandas_frame = merge(table1, table2, on="_temp_id").drop(columns=["_temp_id"])
+    pandas_frame = merge(table1.assign(__=1), table2.assign(__=1), on="__", how="inner")
+    del pandas_frame["__"]
+
+    renamed = {}
+    for column in pandas_frame.columns:
+        if "_x" in column:
+            renamed[column] = "table1." + column.replace("_x", "")
+        if "_y" in column:
+            renamed[column] = "table2." + column.replace("_y", "")
+    pandas_frame.rename(columns=renamed, inplace=True)
+
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -1130,5 +1144,6 @@ if __name__ == "__main__":
     # print("my first\n", query("select * from forest_fires order by wind desc limit 5"))
     # print("pandas second\n", frame2)
     # print("my second\n", query("select * from forest_fires order by wind asc limit 5"))
+    test_select_star_from_multiple_tables()
 
     remove_env_tables()
