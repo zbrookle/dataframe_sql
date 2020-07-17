@@ -357,24 +357,25 @@ def test_limit():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-# # TODO Add in parentheses support for Order of ops
-#
-# def test_having_multiple_conditions():
-#     """
-#     Test having clause
-#     :return:
-#     """
-#     my_frame = query(
-#         "select min(temp) from forest_fires having min(temp) > 2 and "
-#         "max(dc) < 200 or month = 'oct'"
-#     )
-#     pandas_frame = FOREST_FIRES.copy()
-#     pandas_frame["_col0"] = FOREST_FIRES["temp"]
-#     aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
-#     pandas_frame = aggregated_df[aggregated_df["_col0"] > 2]
-#     tm.assert_frame_equal(pandas_frame, my_frame)
+def test_having_multiple_conditions():
+    """
+    Test having clause
+    :return:
+    """
+    my_frame = query(
+        "select min(temp) from forest_fires having min(temp) > 2 and "
+        "max(dc) < 200 or month = 'oct'"
+    )
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame["_col0"] = FOREST_FIRES["temp"]
+    aggregated_df = pandas_frame.aggregate({"_col0": "min"}).to_frame().transpose()
+    pandas_frame = aggregated_df[aggregated_df["_col0"] > 2]
+    tm.assert_frame_equal(pandas_frame, my_frame)
 
-
+@pytest.mark.xfail(
+     raises=ValueError,
+     reason="Still can't do having without a group by in ibis",
+ )
 def test_having_one_condition():
     """
     Test having clause
@@ -546,7 +547,8 @@ def test_union_all(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     ).reset_index(drop=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
-
+@pytest.mark.xfail(raises=NotImplementedError, reason="Waiting on ibis for "
+                                                      "implementation")
 def test_intersect_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test union distinct in queries
@@ -567,7 +569,8 @@ def test_intersect_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
-
+@pytest.mark.xfail(raises=NotImplementedError, reason="Waiting on ibis for "
+                                                      "implementation")
 def test_except_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test except distinct in queries
@@ -589,7 +592,8 @@ def test_except_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
-
+@pytest.mark.xfail(raises=NotImplementedError, reason="Waiting on ibis for "
+                                                      "implementation")
 def test_except_all(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test except distinct in queries
