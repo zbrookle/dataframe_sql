@@ -20,7 +20,7 @@ from dataframe_sql.tests.utils import (
     register_env_tables,
     remove_env_tables,
 )
-from dataframe_sql.tests.markers import ibis_not_implemented
+from dataframe_sql.tests.markers import ibis_not_implemented, ibis_next_bug_fix
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -445,6 +445,10 @@ def test_select_star_from_multiple_tables():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@pytest.mark.xfail(
+    raises=AssertionError,
+    reason="Bug originating from ibis when " "performing cross join on same table",
+)
 def test_select_columns_from_two_tables_with_same_column_name():
     """
     Test selecting tables
@@ -453,7 +457,9 @@ def test_select_columns_from_two_tables_with_same_column_name():
     my_frame = query("""select * from forest_fires table1, forest_fires table2""")
     table1 = FOREST_FIRES.copy()
     table2 = FOREST_FIRES.copy()
-    pandas_frame = merge(table1.assign(__=1), table2.assign(__=1), on="__", how="inner")
+    pandas_frame = merge(
+        table1.assign(__=1), table2.assign(__=1), on="__", how="inner", copy=False
+    )
     del pandas_frame["__"]
 
     renamed = {}
@@ -464,10 +470,10 @@ def test_select_columns_from_two_tables_with_same_column_name():
             renamed[column] = "table2." + column.replace("_y", "")
     pandas_frame.rename(columns=renamed, inplace=True)
 
-    tm.assert_frame_equal(
-        pandas_frame.sort_values(by=list(pandas_frame.columns), kind="mergesort"),
-        my_frame.sort_values(by=list(my_frame.columns), kind="mergesort"),
-    )
+    for column in my_frame.columns:
+        tm.assert_series_equal(pandas_frame[column], my_frame[column])
+
+    tm.assert_frame_equal(my_frame, pandas_frame)
 
 
 def test_maintain_case_in_query():
@@ -989,7 +995,7 @@ def test_timestamps():
         pandas_frame = FOREST_FIRES.copy()[["wind"]]
         pandas_frame["now()"] = datetime.now()
         pandas_frame["today()"] = date.today()
-        pandas_frame["_literal5"] = datetime(2019, 1, 31, 23, 20, 32)
+        pandas_frame["_literal2"] = datetime(2019, 1, 31, 23, 20, 32)
         tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -1036,6 +1042,7 @@ def test_multiple_aliases_same_column():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@ibis_next_bug_fix
 def test_sql_data_types():
     """
     Tests sql data types
@@ -1142,4 +1149,3 @@ def test_boolean_order_of_operations_with_parens():
     ].reset_index(drop=True)
 
     tm.assert_frame_equal(pandas_frame, my_frame)
-

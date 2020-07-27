@@ -5,3 +5,5 @@ ibis_not_implemented = pytest.mark.xfail(
     raises=(OperationNotDefinedError, NotImplementedError),
     reason="Not implemented in ibis",
 )
+
+ibis_next_bug_fix = pytest.mark.xfail(reason="Bug fixed in next ibis release")
