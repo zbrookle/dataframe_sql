@@ -1,2 +1,1 @@
-pandas
-lark-parser
+sql-to-ibis

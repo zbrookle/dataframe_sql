@@ -91,8 +91,8 @@ conda list
 conda remove --all -q -y -n dataframe_sql
 
 echo
-echo "conda env create -q --file=${ENV_FILE}"
-time conda env create -q --file="${ENV_FILE}"
+echo "conda create -n dataframe_sql python=3.7 -y"
+time conda create -n dataframe_sql python=3.7 -y
 
 
 if [[ "$BITS32" == "yes" ]]; then
@@ -102,6 +102,8 @@ fi
 
 echo "activate dataframe_sql"
 conda activate dataframe_sql
+pip install -r ci/test-requirements.txt
+pip install -r requirements.txt
 
 echo
 echo "remove qt"
