@@ -989,7 +989,7 @@ def test_timestamps():
         pandas_frame = FOREST_FIRES.copy()[["wind"]]
         pandas_frame["now()"] = datetime.now()
         pandas_frame["today()"] = date.today()
-        pandas_frame["_literal2"] = datetime(2019, 1, 31, 23, 20, 32)
+        pandas_frame["_literal5"] = datetime(2019, 1, 31, 23, 20, 32)
         tm.assert_frame_equal(pandas_frame, my_frame)
 
 
