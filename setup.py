@@ -38,11 +38,12 @@ setup(
     keywords=["pandas", "data", "dataframe", "sql"],
     classifiers=[
         "Development Status :: 3 - Alpha",
-        "Intended Audience :: Developers",
-        "Topic :: Software Development :: Build Tools",
         "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Operating System :: OS Independent",
+        "Intended Audience :: Science/Research",
+        "Topic :: Scientific/Engineering"
     ],
     long_description_content_type="text/markdown",
     include_package_data=True,
