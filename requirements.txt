@@ -1,3 +1,2 @@
-ibis-framework
-lark-parser
+lark-parser=0.8.1
 sql-to-ibis
