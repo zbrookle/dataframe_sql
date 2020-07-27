@@ -10,6 +10,7 @@ import pandas.testing as tm
 import pytest
 
 from dataframe_sql import query
+from dataframe_sql.tests.markers import ibis_next_bug_fix, ibis_not_implemented
 from dataframe_sql.tests.utils import (
     AVOCADO,
     DIGIMON_MON_LIST,
@@ -20,7 +21,6 @@ from dataframe_sql.tests.utils import (
     register_env_tables,
     remove_env_tables,
 )
-from dataframe_sql.tests.markers import ibis_not_implemented, ibis_next_bug_fix
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -356,6 +356,7 @@ def test_limit():
     my_frame = query("""select * from forest_fires limit 10""")
     pandas_frame = FOREST_FIRES.copy().head(10)
     tm.assert_frame_equal(pandas_frame, my_frame)
+
 
 @ibis_not_implemented
 def test_having_multiple_conditions():
