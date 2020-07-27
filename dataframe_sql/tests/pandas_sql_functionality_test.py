@@ -20,6 +20,7 @@ from dataframe_sql.tests.utils import (
     register_env_tables,
     remove_env_tables,
 )
+from dataframe_sql.tests.markers import ibis_not_implemented
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -372,10 +373,10 @@ def test_having_multiple_conditions():
     pandas_frame = aggregated_df[aggregated_df["_col0"] > 2]
     tm.assert_frame_equal(pandas_frame, my_frame)
 
+
 @pytest.mark.xfail(
-     raises=ValueError,
-     reason="Still can't do having without a group by in ibis",
- )
+    raises=ValueError, reason="Still can't do having without a group by in ibis",
+)
 def test_having_one_condition():
     """
     Test having clause
@@ -463,7 +464,10 @@ def test_select_columns_from_two_tables_with_same_column_name():
             renamed[column] = "table2." + column.replace("_y", "")
     pandas_frame.rename(columns=renamed, inplace=True)
 
-    tm.assert_frame_equal(pandas_frame, my_frame)
+    tm.assert_frame_equal(
+        pandas_frame.sort_values(by=list(pandas_frame.columns), kind="mergesort"),
+        my_frame.sort_values(by=list(my_frame.columns), kind="mergesort"),
+    )
 
 
 def test_maintain_case_in_query():
@@ -547,8 +551,8 @@ def test_union_all(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     ).reset_index(drop=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
-@pytest.mark.xfail(raises=NotImplementedError, reason="Waiting on ibis for "
-                                                      "implementation")
+
+@ibis_not_implemented
 def test_intersect_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test union distinct in queries
@@ -569,8 +573,8 @@ def test_intersect_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
-@pytest.mark.xfail(raises=NotImplementedError, reason="Waiting on ibis for "
-                                                      "implementation")
+
+@ibis_not_implemented()
 def test_except_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test except distinct in queries
@@ -592,8 +596,8 @@ def test_except_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
-@pytest.mark.xfail(raises=NotImplementedError, reason="Waiting on ibis for "
-                                                      "implementation")
+
+@ibis_not_implemented
 def test_except_all(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test except distinct in queries
@@ -743,6 +747,7 @@ def test_case_statement_w_other_columns_as_result():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@ibis_not_implemented
 def test_rank_statement_one_column():
     """
     Test rank statement
@@ -759,6 +764,7 @@ def test_rank_statement_one_column():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@ibis_not_implemented
 def test_rank_statement_many_columns():
     """
     Test rank statement
@@ -797,6 +803,7 @@ def test_rank_statement_many_columns():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@ibis_not_implemented
 def test_dense_rank_statement_many_columns():
     """
     Test dense_rank statement
@@ -834,6 +841,7 @@ def test_dense_rank_statement_many_columns():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@ibis_not_implemented
 def test_rank_over_partition_by():
     """
     Test rank partition by statement
@@ -888,6 +896,7 @@ def test_rank_over_partition_by():
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
+@ibis_not_implemented
 def test_dense_rank_over_partition_by():
     """
     Test rank partition by statement
@@ -1057,14 +1066,14 @@ def test_sql_data_types():
     )
 
     pandas_frame = AVOCADO.copy()[["avocado_id", "Date", "region"]]
-    pandas_frame["avocado_id_object"] = pandas_frame["avocado_id"].astype("object")
+    pandas_frame["avocado_id_object"] = pandas_frame["avocado_id"].apply(str)
     pandas_frame["avocado_id_int16"] = pandas_frame["avocado_id"].astype("int16")
     pandas_frame["avocado_id_smallint"] = pandas_frame["avocado_id"].astype("int16")
     pandas_frame["avocado_id_int32"] = pandas_frame["avocado_id"].astype("int32")
     pandas_frame["avocado_id_int"] = pandas_frame["avocado_id"].astype("int32")
     pandas_frame["avocado_id_int64"] = pandas_frame["avocado_id"].astype("int64")
     pandas_frame["avocado_id_bigint"] = pandas_frame["avocado_id"].astype("int64")
-    pandas_frame["avocado_id_float"] = pandas_frame["avocado_id"].astype("float")
+    pandas_frame["avocado_id_float"] = pandas_frame["avocado_id"].astype("float32")
     pandas_frame["avocado_id_float16"] = pandas_frame["avocado_id"].astype("float16")
     pandas_frame["avocado_id_float32"] = pandas_frame["avocado_id"].astype("float32")
     pandas_frame["avocado_id_float64"] = pandas_frame["avocado_id"].astype("float64")
@@ -1134,20 +1143,3 @@ def test_boolean_order_of_operations_with_parens():
 
     tm.assert_frame_equal(pandas_frame, my_frame)
 
-
-if __name__ == "__main__":
-    register_env_tables()
-    #
-    # frame1 = FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[False],
-    #                                          kind="mergesort").head(
-    #     5).reset_index(drop=True)
-    # frame2 = FOREST_FIRES.copy().sort_values(by=["wind"], ascending=[True],
-    #                                          kind="mergesort"
-    #                                          ).head(5).reset_index(drop=True)
-    # print("pandas first\n", frame1)
-    # print("my first\n", query("select * from forest_fires order by wind desc limit 5"))
-    # print("pandas second\n", frame2)
-    # print("my second\n", query("select * from forest_fires order by wind asc limit 5"))
-    test_select_star_from_multiple_tables()
-
-    remove_env_tables()
