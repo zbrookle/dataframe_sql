@@ -1165,8 +1165,9 @@ def test_count():
     """
     my_frame = query("select count(day) from forest_fires")
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame = pandas_frame[["month"]].count().to_frame("_col0").reset_index(
-        drop=True)
+    pandas_frame = (
+        pandas_frame[["month"]].count().to_frame("_col0").reset_index(drop=True)
+    )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -1177,6 +1178,7 @@ def test_count_star():
     """
     my_frame = query("select count(*) from forest_fires")
     pandas_frame = FOREST_FIRES.copy()
-    pandas_frame = pandas_frame[["month"]].count().to_frame("_col0").reset_index(
-        drop=True)
+    pandas_frame = (
+        pandas_frame[["month"]].count().to_frame("_col0").reset_index(drop=True)
+    )
     tm.assert_frame_equal(pandas_frame, my_frame)
