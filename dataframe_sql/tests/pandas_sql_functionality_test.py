@@ -1156,3 +1156,27 @@ def test_boolean_order_of_operations_with_parens():
     ].reset_index(drop=True)
 
     tm.assert_frame_equal(pandas_frame, my_frame)
+
+
+def test_count():
+    """
+    Test count star
+    :return:
+    """
+    my_frame = query("select count(day) from forest_fires")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame = pandas_frame[["month"]].count().to_frame("_col0").reset_index(
+        drop=True)
+    tm.assert_frame_equal(pandas_frame, my_frame)
+
+
+def test_count_star():
+    """
+    Test the count aggregation
+    :return:
+    """
+    my_frame = query("select count(*) from forest_fires")
+    pandas_frame = FOREST_FIRES.copy()
+    pandas_frame = pandas_frame[["month"]].count().to_frame("_col0").reset_index(
+        drop=True)
+    tm.assert_frame_equal(pandas_frame, my_frame)
