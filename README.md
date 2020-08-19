@@ -32,8 +32,8 @@ The package currently only supports pandas but there are plans to support dask a
 rapids in the future.
 
 ## SQL Syntax
-The SQL syntax for dataframe_sql is exactly the same as the syntax in *sql_to_ibis*, 
-it's underlying package:
+The SQL syntax for dataframe_sql is exactly the same as the syntax in *sql_to_ibis*,
+its underlying package:
 
 You can see the full SQL syntax [here](https://github.com/zbrookle/sql_to_ibis)
 
