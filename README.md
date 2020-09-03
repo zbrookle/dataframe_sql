@@ -5,6 +5,7 @@
 [![PyPI license](https://img.shields.io/pypi/l/dataframe_sql.svg)](https://github.com/zbrookle/dataframe_sql/blob/master/LICENSE.txt)
 [![PyPI status](https://img.shields.io/pypi/status/dataframe_sql.svg)](https://pypi.python.org/pypi/dataframe_sql/)
 [![PyPI version shields.io](https://img.shields.io/pypi/v/dataframe_sql.svg)](https://pypi.python.org/pypi/dataframe_sql/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ## Installation
 
