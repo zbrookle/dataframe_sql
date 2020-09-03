@@ -382,7 +382,8 @@ def test_having_multiple_conditions():
 
 
 @pytest.mark.xfail(
-    raises=ValueError, reason="Still can't do having without a group by in ibis",
+    raises=ValueError,
+    reason="Still can't do having without a group by in ibis",
 )
 def test_having_one_condition():
     """
