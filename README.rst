@@ -66,3 +66,15 @@ The SQL syntax for ``dataframe_sql`` is exactly the same as the syntax in
 You can find the full SQL syntax
 `here <https://github.com/zbrookle/sql_to_ibis#sql-syntax>`__
 
+Why use dataframe_sql?
+----------------------
+
+While there are other packages that accomplish the goal of using SQL with pandas
+DataFrames, all other packages such as pandasql_ actually use a database on the
+backend which defeats the purpose of using pandas_ to begin with. In the case of
+pandasql_ which uses SQLite, this can result in major performance bottlenecks.
+``dataframe_sql`` actually performs native pandas operations in memory on DataFrames,
+which avoids conflicts that may arise from using external databases.
+
+.. _pandasql: https://github.com/yhat/pandasql
+
