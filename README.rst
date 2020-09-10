@@ -19,6 +19,12 @@ dataframe_sql
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
 
+``dataframe_sql`` is a Python_ package that translates SQL syntax into operations on
+pandas_ DataFrames, a functionality which is not available in the central pandas
+package.
+
+.. _Python: https://www.python.org/
+
 Installation
 ------------
 
@@ -45,12 +51,13 @@ function you can produce a new DataFrame from the sql query.
     query("""select * from my_table""")
 
 
-The package currently only supports pandas_ but there are plans to support dask_ and
-rapids_ in the future.
+The package currently only supports pandas_ but there are plans to support dask_,
+rapids_, and modin_ in the future.
 
 .. _pandas: https://github.com/pandas-dev/pandas
 .. _dask: https://github.com/dask/dask
 .. _rapids: https://github.com/rapidsai/cudf
+.. _modin: https://github.com/modin-project/modin
 
 SQL Syntax
 ----------
@@ -59,4 +66,16 @@ The SQL syntax for ``dataframe_sql`` is exactly the same as the syntax in
 
 You can find the full SQL syntax
 `here <https://github.com/zbrookle/sql_to_ibis#sql-syntax>`__
+
+Why use dataframe_sql?
+----------------------
+
+While there are other packages that accomplish the goal of using SQL with pandas
+DataFrames, all other packages such as pandasql_ actually use a database on the
+backend which defeats the purpose of using pandas_ to begin with. In the case of
+pandasql_ which uses SQLite, this can result in major performance bottlenecks.
+``dataframe_sql`` actually performs native pandas operations in memory on DataFrames,
+which avoids conflicts that may arise from using external databases.
+
+.. _pandasql: https://github.com/yhat/pandasql
 
