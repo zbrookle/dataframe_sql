@@ -51,12 +51,13 @@ function you can produce a new DataFrame from the sql query.
     query("""select * from my_table""")
 
 
-The package currently only supports pandas_ but there are plans to support dask_ and
-rapids_ in the future.
+The package currently only supports pandas_ but there are plans to support dask_,
+rapids_, and modin_ in the future.
 
 .. _pandas: https://github.com/pandas-dev/pandas
 .. _dask: https://github.com/dask/dask
 .. _rapids: https://github.com/rapidsai/cudf
+.. _modin: https://github.com/modin-project/modin
 
 SQL Syntax
 ----------
