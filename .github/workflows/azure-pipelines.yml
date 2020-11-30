@@ -13,65 +13,79 @@ jobs:
   checks:
     name: Checks
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.8"]
     steps:
-
-    - name: Setting conda path
-      run: echo "::add-path::${HOME}/miniconda3/bin"
 
     - name: Checkout
       uses: actions/checkout@v1
 
-    - name: Setup environment
-      run: |
-        chmod +x ci/setup_env.sh
-        ci/setup_env.sh
-      if: always()
+    - name: Cache conda
+      uses: actions/cache@v1
+      env:
+        # Increase this value to reset cache if environment.yml has not changed
+        CACHE_NUMBER: 0
+      with:
+        path: ~/conda_pkgs_dir
+        key: ${{ runner.os }}-conda-${{ matrix.python }}-${{ env.CACHE_NUMBER }}-${{ hashFiles('environment.yml') }}
+
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        auto-update-conda: true
+        activate-environment: dataframe_sql
+        python-version: ${{ matrix.python-version }}
+        channel-priority: strict
+        environment-file: environment.yml
+        use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
 
     - name: Looking for unwanted patterns
+      shell: bash -l {0}
       run: |
         chmod +x ci/code_checks.sh
         ci/code_checks.sh patterns
       if: always()
 
     - name: Linting
+      shell: bash -l {0}
       run: |
-        source activate dataframe_sql
         ci/code_checks.sh lint
       if: always()
 
     - name: Dependencies consistency
+      shell: bash -l {0}
       run: |
-        source activate dataframe_sql
         ci/code_checks.sh dependencies
       if: always()
 
     - name: Checks on imported code
+      shell: bash -l {0}
       run: |
-        source activate dataframe_sql
         ci/code_checks.sh code
       if: always()
 
     - name: Running doctests
+      shell: bash -l {0}
       run: |
-        source activate dataframe_sql
         ci/code_checks.sh doctests
       if: always()
 
     - name: Docstring validation
+      shell: bash -l {0}
       run: |
-        source activate dataframe_sql
         ci/code_checks.sh docstrings
       if: always()
 
     - name: Typing validation
+      shell: bash -l {0}
       run: |
-        source activate dataframe_sql
         ci/code_checks.sh typing
       if: always()
 
     - name: Unit tests
+      shell: bash -l {0}
       run: |
-        source activate dataframe_sql
         chmod +x ci/run_tests.sh
         ci/run_tests.sh
       if: always()
