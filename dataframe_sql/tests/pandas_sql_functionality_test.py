@@ -566,7 +566,6 @@ def test_union_all(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-@ibis_not_implemented
 def test_intersect_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test union distinct in queries
@@ -576,7 +575,7 @@ def test_intersect_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops
         """
             select * from forest_fires order by wind desc limit 5
              intersect distinct
-            select * from forest_fires order by wind desc limit 3
+            select * from forest_fires order by wind asc limit 5
             """
     )
     pandas_frame = merge(
@@ -584,11 +583,10 @@ def test_intersect_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops
         right=pandas_frame2_for_set_ops,
         how="inner",
         on=list(pandas_frame1_for_set_ops.columns),
-    )
+    ).reset_index(drop=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-@ibis_not_implemented()
 def test_except_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test except distinct in queries
@@ -598,20 +596,16 @@ def test_except_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
         """
                 select * from forest_fires order by wind desc limit 5
                  except distinct
-                select * from forest_fires order by wind desc limit 3
+                select * from forest_fires order by wind asc limit 5
                 """
     )
-    pandas_frame = (
-        pandas_frame1_for_set_ops[
-            ~pandas_frame1_for_set_ops.isin(pandas_frame2_for_set_ops).all(axis=1)
-        ]
-        .drop_duplicates()
-        .reset_index(drop=True)
+    merged = pandas_frame1_for_set_ops.merge(
+        pandas_frame2_for_set_ops, on=list(pandas_frame1_for_set_ops.columns), how='outer', indicator=True
     )
+    pandas_frame = merged[merged["_merge"] != "both"].drop("_merge", 1).drop_duplicates().reset_index(drop=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
-@ibis_not_implemented
 def test_except_all(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
     """
     Test except distinct in queries
@@ -621,12 +615,13 @@ def test_except_all(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
         """
                 select * from forest_fires order by wind desc limit 5
                  except all
-                select * from forest_fires order by wind desc limit 3
+                select * from forest_fires order by wind asc limit 5
                 """
     )
-    pandas_frame = pandas_frame1_for_set_ops[
-        ~pandas_frame1_for_set_ops.isin(pandas_frame2_for_set_ops).all(axis=1)
-    ].reset_index(drop=True)
+    merged = pandas_frame1_for_set_ops.merge(
+        pandas_frame2_for_set_ops, on=list(pandas_frame1_for_set_ops.columns), how='outer', indicator=True
+    )
+    pandas_frame = merged[merged["_merge"] != "both"].drop("_merge", 1).reset_index(drop=True)
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
