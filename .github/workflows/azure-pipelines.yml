@@ -13,6 +13,10 @@ jobs:
   checks:
     name: Checks
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.8"]
     steps:
 
     - name: Checkout
