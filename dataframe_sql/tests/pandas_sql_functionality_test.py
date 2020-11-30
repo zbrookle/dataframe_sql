@@ -600,9 +600,17 @@ def test_except_distinct(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
                 """
     )
     merged = pandas_frame1_for_set_ops.merge(
-        pandas_frame2_for_set_ops, on=list(pandas_frame1_for_set_ops.columns), how='outer', indicator=True
+        pandas_frame2_for_set_ops,
+        on=list(pandas_frame1_for_set_ops.columns),
+        how="outer",
+        indicator=True,
     )
-    pandas_frame = merged[merged["_merge"] != "both"].drop("_merge", 1).drop_duplicates().reset_index(drop=True)
+    pandas_frame = (
+        merged[merged["_merge"] != "both"]
+        .drop("_merge", 1)
+        .drop_duplicates()
+        .reset_index(drop=True)
+    )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
@@ -619,9 +627,14 @@ def test_except_all(pandas_frame1_for_set_ops, pandas_frame2_for_set_ops):
                 """
     )
     merged = pandas_frame1_for_set_ops.merge(
-        pandas_frame2_for_set_ops, on=list(pandas_frame1_for_set_ops.columns), how='outer', indicator=True
+        pandas_frame2_for_set_ops,
+        on=list(pandas_frame1_for_set_ops.columns),
+        how="outer",
+        indicator=True,
     )
-    pandas_frame = merged[merged["_merge"] != "both"].drop("_merge", 1).reset_index(drop=True)
+    pandas_frame = (
+        merged[merged["_merge"] != "both"].drop("_merge", 1).reset_index(drop=True)
+    )
     tm.assert_frame_equal(pandas_frame, my_frame)
 
 
