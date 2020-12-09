@@ -24,7 +24,7 @@ setup(
     maintainer_email="zachb1996@yahoo.com",
     description="A package for querying dataframes using SQL",
     python_requires=">=3.7.0",
-    install_requires=["sql-to-ibis==0.3.0"],
+    install_requires=["sql-to-ibis==0.3.1"],
     project_urls={
         "Source Code": "https://github.com/zbrookle/dataframe_sql",
         "Bug Tracker": "https://github.com/zbrookle/dataframe_sql/issues",
