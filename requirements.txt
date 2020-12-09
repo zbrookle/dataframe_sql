@@ -1,1 +1,1 @@
-sql-to-ibis==0.3.0
+sql-to-ibis==0.3.1
